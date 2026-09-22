@@ -2,12 +2,13 @@ import { useState } from 'react'
 import CustomerMaster from './CustomerMaster'
 import ProductMaster from './ProductMaster'
 import MachineMaster from './MachineMaster'
+import JobWorkMaster from './JobWorkMaster'
 import ComingSoon from '../../components/ComingSoon'
 
 const ENTITIES = [
   { key: 'product', label: 'Product Master', component: ProductMaster },
   { key: 'machine', label: 'Machine Master', component: MachineMaster },
-  { key: 'job-work', label: 'Job Work Master' },
+  { key: 'job-work', label: 'Job Work Master', component: JobWorkMaster },
   { key: 'cycle-time', label: 'Cycle Time Master' },
   { key: 'customer', label: 'Customer Master', component: CustomerMaster },
   { key: 'raw-material', label: 'Raw Material Master' },
