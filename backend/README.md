@@ -18,6 +18,25 @@ One known gap: Section 11 (`"quality logs"` / `"quality log readings"`) is
 `"quality log results"` (which depends on them) does. The Quality module is
 left out of the frontend nav until this is resolved.
 
+A second naming drift, also found via probing: everywhere the SQL file's
+`quality_parameters` / `cycle_times` / `maintenance_checklist` sections define
+a `machine_name` column referencing `machines(machine_name)`, the live tables
+(`"cycle time master"`, `"quality master"`, `"maintenance master"`) actually
+have `machine_id` instead — matching the FK pattern used everywhere else
+(`"production route card stages"`, etc.), not what Section 1 says. Confirmed
+by probing every column with `?select=<col>` and reading the 200/400 split.
+
+**RLS gap, confirmed on every master table:** SELECT/UPDATE/DELETE work for
+the anon key, but INSERT is blocked (`42501: new row violates row-level
+security policy`) on all 12 master tables tested — `"products master"`,
+`"machines master"`, `"job work master"`, `"cycle time master"`, `"raw
+materials master"`, `"suppliers master"`, `"shifts master"`, `"operators
+master"`, `"vendors master"`, `"quality master"`, `"maintenance master"`,
+`"production batch master"` — same as `"customers master"` (Section 6 gave
+explicit INSERT policies only to the two stock transaction tables; nothing
+else got one). Every "New" flow in the frontend will 401 until an insert
+policy is added per table. Left for the user to fix directly in Supabase.
+
 ## migrations/
 
 Any new schema change from here on goes here as a numbered file, e.g.
