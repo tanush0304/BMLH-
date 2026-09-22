@@ -1,10 +1,30 @@
+import { useState } from 'react'
+import Sidebar from './components/Sidebar'
+import ComingSoon from './components/ComingSoon'
+import Dashboard from './modules/Dashboard'
+import MasterList from './modules/masters/MasterList'
+
+const TITLES = {
+  drawing: 'Drawing Development',
+  production: 'Production',
+  'customer-order': 'Customer Order',
+  'job-order': 'Job Order',
+  maintenance: 'Maintenance',
+  stores: 'Stores',
+}
+
 function App() {
+  const [activeKey, setActiveKey] = useState('dashboard')
+
+  let content
+  if (activeKey === 'dashboard') content = <Dashboard />
+  else if (activeKey === 'masters') content = <MasterList />
+  else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
+
   return (
-    <div className="min-h-screen bg-[#FAF6EF] text-ink flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">BMLH Operations Console</h1>
-        <p className="text-sm text-gray-500 mt-2">Scaffold ready — screens coming next.</p>
-      </div>
+    <div className="flex min-h-screen bg-[#F5F7FA]">
+      <Sidebar activeKey={activeKey} onSelect={setActiveKey} />
+      {content}
     </div>
   )
 }
