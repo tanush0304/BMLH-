@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import CustomerMaster from './CustomerMaster'
+import ProductMaster from './ProductMaster'
 import ComingSoon from '../../components/ComingSoon'
 
 const ENTITIES = [
-  { key: 'product', label: 'Product Master' },
+  { key: 'product', label: 'Product Master', component: ProductMaster },
   { key: 'machine', label: 'Machine Master' },
   { key: 'job-work', label: 'Job Work Master' },
   { key: 'cycle-time', label: 'Cycle Time Master' },
-  { key: 'customer', label: 'Customer Master' },
+  { key: 'customer', label: 'Customer Master', component: CustomerMaster },
   { key: 'raw-material', label: 'Raw Material Master' },
   { key: 'supplier', label: 'Supplier Master' },
   { key: 'shift', label: 'Shift Master' },
@@ -20,6 +21,8 @@ const ENTITIES = [
 
 export default function MasterList() {
   const [active, setActive] = useState('customer')
+  const entity = ENTITIES.find((e) => e.key === active)
+  const Screen = entity?.component
 
   return (
     <div className="flex-1 flex min-w-0">
@@ -39,14 +42,7 @@ export default function MasterList() {
         ))}
       </div>
       <div className="flex-1 flex flex-col min-w-0">
-        {active === 'customer' ? (
-          <CustomerMaster />
-        ) : (
-          <ComingSoon
-            title={ENTITIES.find((e) => e.key === active)?.label}
-            subtitle="Manage master data"
-          />
-        )}
+        {Screen ? <Screen /> : <ComingSoon title={entity?.label} subtitle="Manage master data" />}
       </div>
     </div>
   )
