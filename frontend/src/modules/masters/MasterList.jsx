@@ -7,6 +7,7 @@ import CycleTimeMaster from './CycleTimeMaster'
 import RawMaterialMaster from './RawMaterialMaster'
 import SupplierMaster from './SupplierMaster'
 import ShiftMaster from './ShiftMaster'
+import OperatorMaster from './OperatorMaster'
 import ComingSoon from '../../components/ComingSoon'
 
 const ENTITIES = [
@@ -18,7 +19,7 @@ const ENTITIES = [
   { key: 'raw-material', label: 'Raw Material Master', component: RawMaterialMaster },
   { key: 'supplier', label: 'Supplier Master', component: SupplierMaster },
   { key: 'shift', label: 'Shift Master', component: ShiftMaster },
-  { key: 'operator', label: 'Operator Master' },
+  { key: 'operator', label: 'Operator Master', component: OperatorMaster },
   { key: 'vendor', label: 'Vendor Master' },
   { key: 'quality', label: 'Quality Master' },
   { key: 'maintenance', label: 'Maintenance Master' },
