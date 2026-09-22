@@ -11,7 +11,7 @@ import OperatorMaster from './OperatorMaster'
 import VendorMaster from './VendorMaster'
 import QualityMaster from './QualityMaster'
 import MaintenanceMaster from './MaintenanceMaster'
-import ComingSoon from '../../components/ComingSoon'
+import ProductionBatchMaster from './ProductionBatchMaster'
 
 const ENTITIES = [
   { key: 'product', label: 'Product Master', component: ProductMaster },
@@ -26,7 +26,7 @@ const ENTITIES = [
   { key: 'vendor', label: 'Vendor Master', component: VendorMaster },
   { key: 'quality', label: 'Quality Master', component: QualityMaster },
   { key: 'maintenance', label: 'Maintenance Master', component: MaintenanceMaster },
-  { key: 'production-batch', label: 'Production Batch Master' },
+  { key: 'production-batch', label: 'Production Batch Master', component: ProductionBatchMaster },
 ]
 
 export default function MasterList() {
@@ -52,7 +52,7 @@ export default function MasterList() {
         ))}
       </div>
       <div className="flex-1 flex flex-col min-w-0">
-        {Screen ? <Screen /> : <ComingSoon title={entity?.label} subtitle="Manage master data" />}
+        <Screen />
       </div>
     </div>
   )
