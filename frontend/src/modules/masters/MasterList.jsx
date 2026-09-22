@@ -10,6 +10,7 @@ import ShiftMaster from './ShiftMaster'
 import OperatorMaster from './OperatorMaster'
 import VendorMaster from './VendorMaster'
 import QualityMaster from './QualityMaster'
+import MaintenanceMaster from './MaintenanceMaster'
 import ComingSoon from '../../components/ComingSoon'
 
 const ENTITIES = [
@@ -24,7 +25,7 @@ const ENTITIES = [
   { key: 'operator', label: 'Operator Master', component: OperatorMaster },
   { key: 'vendor', label: 'Vendor Master', component: VendorMaster },
   { key: 'quality', label: 'Quality Master', component: QualityMaster },
-  { key: 'maintenance', label: 'Maintenance Master' },
+  { key: 'maintenance', label: 'Maintenance Master', component: MaintenanceMaster },
   { key: 'production-batch', label: 'Production Batch Master' },
 ]
 
