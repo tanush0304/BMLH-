@@ -7,6 +7,7 @@ import {
   Truck,
   Wrench,
   Warehouse,
+  LogOut,
 } from 'lucide-react'
 import { NAV_ITEMS } from '../utils/constants'
 
@@ -21,8 +22,8 @@ const ICONS = {
   stores: Warehouse,
 }
 
-export default function Sidebar({ activeKey, onSelect, role = 'admin' }) {
-  const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
+export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut }) {
+  const items = NAV_ITEMS
 
   return (
     <aside className="w-60 shrink-0 bg-ink text-white flex flex-col min-h-screen">
@@ -50,8 +51,17 @@ export default function Sidebar({ activeKey, onSelect, role = 'admin' }) {
           )
         })}
       </nav>
-      <div className="px-5 py-4 border-t border-white/10 text-xs text-white/40">
-        Role: {role}
+      <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-2">
+        <span className="text-xs text-white/40 truncate" title={userEmail}>
+          {userEmail}
+        </span>
+        <button
+          onClick={onSignOut}
+          className="text-white/50 hover:text-white shrink-0"
+          title="Sign out"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </aside>
   )

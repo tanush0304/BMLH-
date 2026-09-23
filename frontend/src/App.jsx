@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from './lib/supabaseClient'
 import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
+import LoginScreen from './components/LoginScreen'
 import Dashboard from './modules/Dashboard'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
@@ -14,7 +16,22 @@ const TITLES = {
 }
 
 function App() {
+  const [session, setSession] = useState(undefined) // undefined = still checking, null = signed out
   const [activeKey, setActiveKey] = useState('dashboard')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setSession(session))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  if (session === undefined) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
+  }
+
+  if (!session) {
+    return <LoginScreen />
+  }
 
   let content
   if (activeKey === 'dashboard') content = <Dashboard />
@@ -28,7 +45,12 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-[#F5F7FA]">
-      <Sidebar activeKey={activeKey} onSelect={setActiveKey} />
+      <Sidebar
+        activeKey={activeKey}
+        onSelect={setActiveKey}
+        userEmail={session.user.email}
+        onSignOut={() => supabase.auth.signOut()}
+      />
       {content}
     </div>
   )
