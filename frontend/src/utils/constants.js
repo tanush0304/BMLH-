@@ -1,6 +1,6 @@
 export const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard' },
-  { key: 'masters', label: 'Master List' },
+  { key: 'masters', label: 'Master List', roles: ['supervisor', 'admin'] },
   { key: 'drawing', label: 'Drawing Development' },
   { key: 'production', label: 'Production' },
   { key: 'customer-order', label: 'Customer Order' },

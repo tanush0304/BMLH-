@@ -22,8 +22,8 @@ const ICONS = {
   stores: Warehouse,
 }
 
-export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut }) {
-  const items = NAV_ITEMS
+export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut, role }) {
+  const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
 
   return (
     <aside className="w-60 shrink-0 bg-ink text-white flex flex-col min-h-screen">
@@ -52,9 +52,12 @@ export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut }) {
         })}
       </nav>
       <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-2">
-        <span className="text-xs text-white/40 truncate" title={userEmail}>
-          {userEmail}
-        </span>
+        <div className="min-w-0">
+          <div className="text-xs text-white/40 truncate" title={userEmail}>
+            {userEmail}
+          </div>
+          <div className="text-[10px] text-white/30 capitalize">{role}</div>
+        </div>
         <button
           onClick={onSignOut}
           className="text-white/50 hover:text-white shrink-0"

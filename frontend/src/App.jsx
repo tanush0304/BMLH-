@@ -10,6 +10,7 @@ import ProductionModule from './modules/production/ProductionModule'
 import JobOrderModule from './modules/jobOrder/JobOrderModule'
 import MaintenanceModule from './modules/maintenance/MaintenanceModule'
 import StoresModule from './modules/stores/StoresModule'
+import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 
 const TITLES = {
   drawing: 'Drawing Development',
@@ -17,6 +18,7 @@ const TITLES = {
 
 function App() {
   const [session, setSession] = useState(undefined) // undefined = still checking, null = signed out
+  const [role, setRole] = useState(undefined) // undefined = still resolving, null = no row found
   const [activeKey, setActiveKey] = useState('dashboard')
 
   useEffect(() => {
@@ -24,6 +26,30 @@ function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setSession(session))
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!session) {
+      setRole(session === null ? null : undefined)
+      return
+    }
+    let cancelled = false
+    setRole(undefined)
+    async function resolveRole() {
+      // Every account defaults to 'operator' on first login; someone with
+      // Supabase table-editor access promotes specific accounts to
+      // supervisor/admin afterward.
+      let appUser = await getMyAppUser(session.user.id)
+      if (!appUser) appUser = await createAppUser(session.user.id, 'operator')
+      if (!cancelled) setRole(appUser.role)
+    }
+    resolveRole().catch((e) => {
+      console.error('Failed to resolve role', e)
+      if (!cancelled) setRole('operator')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [session])
 
   if (session === undefined) {
     return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
@@ -33,9 +59,16 @@ function App() {
     return <LoginScreen />
   }
 
+  if (role === undefined) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
+  }
+
+  const canSeeMasters = role === 'supervisor' || role === 'admin'
+
   let content
   if (activeKey === 'dashboard') content = <Dashboard />
-  else if (activeKey === 'masters') content = <MasterList />
+  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList />
+  else if (activeKey === 'masters') content = <Dashboard />
   else if (activeKey === 'customer-order') content = <CustomerOrderModule />
   else if (activeKey === 'production') content = <ProductionModule />
   else if (activeKey === 'job-order') content = <JobOrderModule />
@@ -50,6 +83,7 @@ function App() {
         onSelect={setActiveKey}
         userEmail={session.user.email}
         onSignOut={() => supabase.auth.signOut()}
+        role={role}
       />
       {content}
     </div>
