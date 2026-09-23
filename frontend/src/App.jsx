@@ -7,10 +7,10 @@ import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
 import ProductionModule from './modules/production/ProductionModule'
 import JobOrderModule from './modules/jobOrder/JobOrderModule'
 import MaintenanceModule from './modules/maintenance/MaintenanceModule'
+import StoresModule from './modules/stores/StoresModule'
 
 const TITLES = {
   drawing: 'Drawing Development',
-  stores: 'Stores',
 }
 
 function App() {
@@ -23,6 +23,7 @@ function App() {
   else if (activeKey === 'production') content = <ProductionModule />
   else if (activeKey === 'job-order') content = <JobOrderModule />
   else if (activeKey === 'maintenance') content = <MaintenanceModule />
+  else if (activeKey === 'stores') content = <StoresModule />
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
