@@ -23,7 +23,7 @@ export default function CustomerOrderModule() {
             onClick={() => setActive(t.key)}
             className={`w-full text-left px-4 py-2.5 text-sm border-l-4 ${
               active === t.key
-                ? 'border-bmlhblue bg-sky-50 text-bmlhblue font-medium'
+                ? 'border-bmlhnavy bg-bmlhsky text-bmlhnavy font-medium'
                 : 'border-transparent text-gray-600 hover:bg-gray-50'
             }`}
           >

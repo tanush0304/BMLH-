@@ -5,11 +5,11 @@ export default function FormSection({ icon: Icon, title, columns = 3, children }
 
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 bg-sky-50 border-b border-gray-200 px-4 py-2.5">
-        {Icon && <Icon size={16} className="text-bmlhblue" />}
-        <h2 className="text-sm font-semibold text-bmlhblue">{title}</h2>
+      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-4 py-2.5">
+        {Icon && <Icon size={16} className="text-bmlhnavy" />}
+        <h2 className="text-sm font-semibold text-bmlhnavy">{title}</h2>
       </div>
-      <div className={`grid ${colClass} gap-x-4 gap-y-3 p-4`}>{children}</div>
+      <div className={`grid ${colClass} gap-x-4 gap-y-3.5 p-5`}>{children}</div>
     </div>
   )
 }
@@ -17,7 +17,7 @@ export default function FormSection({ icon: Icon, title, columns = 3, children }
 export function Field({ label, required, className = '', children }) {
   return (
     <label className={`flex flex-col gap-1 text-sm ${className}`}>
-      <span className="text-gray-600">
+      <span className="text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {children}

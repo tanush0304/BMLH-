@@ -1,7 +1,7 @@
-import { Plus, Save, Pencil, Trash2, X, Search, Download } from 'lucide-react'
+import { Plus, Save, Pencil, Trash2, X, Search, Download, ChevronDown } from 'lucide-react'
 
 const BUTTON_BASE =
-  'inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors'
+  'inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:hover:bg-gray-200'
 
 export default function ActionToolbar({
   onNew,
@@ -25,27 +25,27 @@ export default function ActionToolbar({
         <Plus size={16} /> New
       </button>
       <button
-        className={`${BUTTON_BASE} bg-blue-700 text-white hover:bg-blue-800`}
+        className={`${BUTTON_BASE} bg-bmlhblue text-white hover:bg-[#163d70]`}
         onClick={onSave}
         disabled={!canSave}
       >
         <Save size={16} /> Save
       </button>
       <button
-        className={`${BUTTON_BASE} bg-gray-400 text-white hover:bg-gray-500`}
+        className={`${BUTTON_BASE} bg-bmlhslate text-white hover:bg-[#767e8c]`}
         onClick={onEdit}
         disabled={!canEdit}
       >
         <Pencil size={16} /> Edit
       </button>
       <button
-        className={`${BUTTON_BASE} bg-gray-400 text-white hover:bg-red-600`}
+        className={`${BUTTON_BASE} bg-bmlhslate text-white hover:bg-red-600`}
         onClick={onDelete}
         disabled={!canDelete}
       >
         <Trash2 size={16} /> Delete
       </button>
-      <button className={`${BUTTON_BASE} bg-gray-300 text-gray-800 hover:bg-gray-400`} onClick={onClear}>
+      <button className={`${BUTTON_BASE} bg-gray-200 text-gray-700 hover:bg-gray-300`} onClick={onClear}>
         <X size={16} /> Clear
       </button>
 
@@ -61,16 +61,16 @@ export default function ActionToolbar({
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
         />
       </div>
-      <button className={`${BUTTON_BASE} bg-bmlhblue text-white hover:bg-[#163a63]`} onClick={onSearch}>
+      <button className={`${BUTTON_BASE} bg-bmlhnavy text-white hover:bg-[#0a1d3a]`} onClick={onSearch}>
         <Search size={16} /> Search
       </button>
 
       {showExport && (
         <button
-          className={`${BUTTON_BASE} bg-sky-100 text-bmlhblue hover:bg-sky-200 ml-auto`}
+          className={`${BUTTON_BASE} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`}
           onClick={onExport}
         >
-          <Download size={16} /> Export
+          <Download size={16} /> Export <ChevronDown size={14} />
         </button>
       )}
     </div>

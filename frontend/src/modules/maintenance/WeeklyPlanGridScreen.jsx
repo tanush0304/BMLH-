@@ -107,7 +107,7 @@ export default function WeeklyPlanGridScreen() {
             <table className="text-sm border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky left-0 bg-sky-50 border-b border-gray-200 px-4 py-2.5 text-left font-semibold text-bmlhblue flex items-center gap-2">
+                  <th className="sticky left-0 bg-bmlhsky border-b border-gray-200 px-4 py-2.5 text-left font-semibold text-bmlhnavy flex items-center gap-2">
                     <CalendarRange size={16} /> Machine
                   </th>
                   {weeks.map((w) => (

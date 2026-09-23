@@ -168,9 +168,9 @@ export default function ChecklistEntryScreen() {
 
         {activeLog && checklistItems.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-            <div className="bg-sky-50 border-b border-gray-200 px-4 py-2.5 flex items-center gap-2">
-              <ClipboardCheck size={16} className="text-bmlhblue" />
-              <h2 className="text-sm font-semibold text-bmlhblue">2. Checklist Items</h2>
+            <div className="bg-bmlhsky border-b border-gray-200 px-4 py-2.5 flex items-center gap-2">
+              <ClipboardCheck size={16} className="text-bmlhnavy" />
+              <h2 className="text-sm font-semibold text-bmlhnavy">2. Checklist Items</h2>
             </div>
             <div className="divide-y divide-gray-100">
               {checklistItems.map((item) => {
