@@ -66,7 +66,7 @@ function App() {
   const canSeeMasters = role === 'supervisor' || role === 'admin'
 
   let content
-  if (activeKey === 'dashboard') content = <Dashboard />
+  if (activeKey === 'dashboard') content = <Dashboard onNavigate={setActiveKey} />
   else if (activeKey === 'masters' && canSeeMasters) content = <MasterList />
   else if (activeKey === 'masters') content = <Dashboard />
   else if (activeKey === 'customer-order') content = <CustomerOrderModule />
