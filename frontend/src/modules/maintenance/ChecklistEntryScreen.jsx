@@ -93,6 +93,7 @@ export default function ChecklistEntryScreen() {
         log_date: logDate,
       })
       setActiveLog(log)
+      setRecentLogs((await listRecentMaintenanceLogs()) ?? [])
     } catch (e) {
       setError(e.message)
     } finally {
