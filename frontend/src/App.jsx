@@ -3,11 +3,11 @@ import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
 import Dashboard from './modules/Dashboard'
 import MasterList from './modules/masters/MasterList'
+import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
 
 const TITLES = {
   drawing: 'Drawing Development',
   production: 'Production',
-  'customer-order': 'Customer Order',
   'job-order': 'Job Order',
   maintenance: 'Maintenance',
   stores: 'Stores',
@@ -19,6 +19,7 @@ function App() {
   let content
   if (activeKey === 'dashboard') content = <Dashboard />
   else if (activeKey === 'masters') content = <MasterList />
+  else if (activeKey === 'customer-order') content = <CustomerOrderModule />
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
