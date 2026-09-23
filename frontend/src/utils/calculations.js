@@ -59,19 +59,38 @@ export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
 }
 
 /**
+ * A stage is only truly reachable if every earlier-seq stage of the same
+ * PRD has actually been resolved (Completed or Received). Manual stages
+ * are skipped in this check -- they have no entry screen, so nothing ever
+ * marks them, and requiring them to be "done" would permanently block
+ * everything after a Manual mid-route step.
+ */
+export function isStageReachable(stage, allStagesForPrd) {
+  return allStagesForPrd
+    .filter((s) => s.seq < stage.seq && s.type !== 'Manual')
+    .every((s) => s.status === 'Completed' || s.status === 'Received')
+}
+
+/**
  * §4's auto-resolve: given the operations a machine can perform (from
  * machine ops) and a PRD's stages, finds the next stage the operator
  * should log on that machine -- the lowest-seq stage that is still
- * Pending, Internal, and whose operation the machine can perform. Returns
- * null if there is none (the caller should tell the operator clearly
- * rather than let them free-pick an operation).
+ * Pending, Internal, whose operation the machine can perform, AND whose
+ * earlier stages are all already resolved (isStageReachable) -- otherwise
+ * a machine could start logging against a stage with nothing real behind
+ * it yet. Returns null if there is none (the caller should tell the
+ * operator clearly rather than let them free-pick an operation).
  */
 export function resolveNextEligibleStage(stages, machineOperations) {
   const opsSet = new Set(machineOperations)
   const sorted = [...stages].sort((a, b) => a.seq - b.seq)
   return (
     sorted.find(
-      (s) => s.status === 'Pending' && s.type === 'Internal' && opsSet.has(s.operation)
+      (s) =>
+        s.status === 'Pending' &&
+        s.type === 'Internal' &&
+        opsSet.has(s.operation) &&
+        isStageReachable(s, sorted)
     ) ?? null
   )
 }

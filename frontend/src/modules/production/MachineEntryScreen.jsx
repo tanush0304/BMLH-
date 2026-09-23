@@ -277,7 +277,7 @@ export default function MachineEntryScreen() {
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog}
+                disabled={starting || !!activeLog || !plannedQty}
                 className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}

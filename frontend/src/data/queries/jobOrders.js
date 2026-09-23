@@ -1,15 +1,16 @@
 import { supabase } from '../../lib/supabaseClient'
+import { isStageReachable } from '../../utils/calculations'
 
 export async function listPendingOutsourcedStagesForPrd(prdNo) {
   const { data, error } = await supabase
     .from('production route card stages')
     .select('*')
     .eq('prd_no', prdNo)
-    .eq('type', 'Outsourced')
-    .eq('status', 'Pending')
     .order('seq')
   if (error) throw error
-  return data
+  return data.filter(
+    (s) => s.type === 'Outsourced' && s.status === 'Pending' && isStageReachable(s, data)
+  )
 }
 
 export async function listVendorsForJobWorkCode(jobWorkCode) {
