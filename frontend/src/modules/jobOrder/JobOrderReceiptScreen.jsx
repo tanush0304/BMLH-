@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { PackageCheck } from 'lucide-react'
+import { PackageCheck, CheckCircle2 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listDispatchesWithoutReceipt, createReceipt, listJobOrderStatus } from '../../data/queries/jobOrders'
+import { updateStageStatus } from '../../data/queries/routeCards'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
@@ -25,6 +26,8 @@ export default function JobOrderReceiptScreen() {
   const [qtyReceived, setQtyReceived] = useState('')
   const [receiptDate, setReceiptDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [justReceived, setJustReceived] = useState(null) // { dcNo, stageId } after a successful save
+  const [markingReceived, setMarkingReceived] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -55,6 +58,7 @@ export default function JobOrderReceiptScreen() {
     setError(null)
     try {
       await createReceipt({ dc_no: dcNo, qty_received: Number(qtyReceived), receipt_date: receiptDate })
+      setJustReceived({ dcNo, stageId: selectedDispatch.stage_id })
       setDcNo('')
       setQtyReceived('')
       setReceiptDate('')
@@ -63,6 +67,20 @@ export default function JobOrderReceiptScreen() {
       setError(e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleMarkStageReceived() {
+    if (!justReceived) return
+    setMarkingReceived(true)
+    setError(null)
+    try {
+      await updateStageStatus(justReceived.stageId, 'Received')
+      setJustReceived(null)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setMarkingReceived(false)
     }
   }
 
@@ -102,6 +120,22 @@ export default function JobOrderReceiptScreen() {
             <p className="text-sm text-gray-400 sm:col-span-3">No dispatches are awaiting receipt.</p>
           )}
         </FormSection>
+
+        {justReceived && (
+          <div className="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Receipt recorded for <strong>{justReceived.dcNo}</strong>. Mark its route card stage as Received?
+            </p>
+            <button
+              onClick={handleMarkStageReceived}
+              disabled={markingReceived}
+              className="inline-flex items-center gap-1.5 bg-green-600 text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+            >
+              <CheckCircle2 size={15} />
+              {markingReceived ? 'Marking Received...' : 'Mark Stage Received'}
+            </button>
+          </div>
+        )}
 
         <RecordsList title="Job Order Status" columns={LIST_COLUMNS} rows={statusRows} loading={loading} rowKey="dc_no" />
       </div>

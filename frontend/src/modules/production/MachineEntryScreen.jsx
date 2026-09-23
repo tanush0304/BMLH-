@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, PlayCircle, Clock3 } from 'lucide-react'
+import { Factory, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
@@ -7,7 +7,7 @@ import { listMachines } from '../../data/queries/machines'
 import { listOperators } from '../../data/queries/operators'
 import { listShifts } from '../../data/queries/shifts'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
-import { getStagesForPrd } from '../../data/queries/routeCards'
+import { getStagesForPrd, updateStageStatus } from '../../data/queries/routeCards'
 import { listEligibleStagesForMachine } from '../../data/queries/machineEntry'
 import {
   getStageAggregatesForPrd,
@@ -15,7 +15,11 @@ import {
   addProductionLogHour,
   getLogTotals,
 } from '../../data/queries/productionLogs'
-import { computeStageAvailability, standardQtyPerHour } from '../../utils/calculations'
+import {
+  computeStageAvailability,
+  computeStageUpstreamTargets,
+  standardQtyPerHour,
+} from '../../utils/calculations'
 
 const HOUR_COLUMNS = [
   { key: 'hour_slot', label: 'Hour' },
@@ -38,6 +42,9 @@ export default function MachineEntryScreen() {
   const [prdNo, setPrdNo] = useState('')
   const [resolvedStage, setResolvedStage] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
+  const [stageTarget, setStageTarget] = useState(null)
+  const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
+  const [completing, setCompleting] = useState(false)
 
   const [operatorId, setOperatorId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
@@ -92,6 +99,8 @@ export default function MachineEntryScreen() {
     setPrdNo(prd)
     setResolvedStage(null)
     setPlannedQty(null)
+    setStageTarget(null)
+    setStageOutputSoFar(0)
     setActiveLog(null)
     if (!prd) return
     const stage = eligibleStages.find((s) => s.prd_no === prd)
@@ -106,7 +115,10 @@ export default function MachineEntryScreen() {
         getStageAggregatesForPrd(prd),
       ])
       const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates)
+      const targets = computeStageUpstreamTargets(allStages, order?.order_qty ?? 0, aggregates)
       setPlannedQty(availability[stage.id] ?? 0)
+      setStageTarget(targets[stage.id] ?? 0)
+      setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -158,10 +170,41 @@ export default function MachineEntryScreen() {
       setLogHours((h) => [...h, row])
       setHourForm({ qty_produced: '', qty_rejected: '', qty_rework: '' })
       setTotals(await getLogTotals(activeLog.id))
+
+      // Refresh the stage's cumulative actual output so we can auto-suggest
+      // completion once it catches up to the upstream target -- never flips
+      // status on its own, just surfaces the "Mark Complete" option.
+      const aggregates = await getStageAggregatesForPrd(prdNo)
+      setStageOutputSoFar(aggregates[resolvedStage.id]?.output ?? 0)
     } catch (e) {
       setError(e.message)
     } finally {
       setSavingHour(false)
+    }
+  }
+
+  async function handleMarkComplete() {
+    if (!resolvedStage) return
+    setCompleting(true)
+    setError(null)
+    try {
+      await updateStageStatus(resolvedStage.id, 'Completed')
+      // Stage is done -- clear the resolved state and refresh which PRDs
+      // are still eligible on this machine (the next stage, if Internal and
+      // on this machine, will now show up).
+      setPrdNo('')
+      setResolvedStage(null)
+      setPlannedQty(null)
+      setStageTarget(null)
+      setStageOutputSoFar(0)
+      setActiveLog(null)
+      setLogHours([])
+      setTotals(null)
+      setEligibleStages(await listEligibleStagesForMachine(machineId))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setCompleting(false)
     }
   }
 
@@ -288,6 +331,24 @@ export default function MachineEntryScreen() {
 
         {activeLog && (
           <RecordsList title="Hours Logged This Session" columns={HOUR_COLUMNS} rows={logHours} rowKey="id" />
+        )}
+
+        {resolvedStage && stageTarget !== null && (
+          <div className="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
+            </p>
+            {stageOutputSoFar >= stageTarget && stageTarget > 0 && (
+              <button
+                onClick={handleMarkComplete}
+                disabled={completing}
+                className="inline-flex items-center gap-1.5 bg-green-600 text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+              >
+                <CheckCircle2 size={15} />
+                {completing ? 'Marking Complete...' : 'Mark Stage Complete'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -24,6 +24,24 @@
  * @returns {Record<string, number>} available qty to feed into each stage, by stage id.
  */
 export function computeStageAvailability(stages, orderQty, stageAggregates) {
+  const availability = {}
+  const upstream = computeStageUpstreamTargets(stages, orderQty, stageAggregates)
+  for (const [stageId, target] of Object.entries(upstream)) {
+    const consumed = stageAggregates[stageId]?.consumed ?? 0
+    availability[stageId] = Math.max(0, target - consumed)
+  }
+  return availability
+}
+
+/**
+ * The upstream pool size for each stage -- what it should ultimately produce
+ * once fed everything available to it (order_qty for stage 1, otherwise the
+ * previous loggable stage's total output, skipping past Manual pass-through
+ * stages). Used both by computeStageAvailability (upstream minus what's
+ * already been drawn) and to auto-suggest when a stage looks finished
+ * (actual output has caught up to this target).
+ */
+export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
   const sorted = [...stages].sort((a, b) => a.seq - b.seq)
 
   function effectiveOutput(index) {
@@ -33,13 +51,11 @@ export function computeStageAvailability(stages, orderQty, stageAggregates) {
     return stageAggregates[stage.id]?.output ?? 0
   }
 
-  const availability = {}
+  const targets = {}
   sorted.forEach((stage, i) => {
-    const upstream = effectiveOutput(i - 1)
-    const consumed = stageAggregates[stage.id]?.consumed ?? 0
-    availability[stage.id] = Math.max(0, upstream - consumed)
+    targets[stage.id] = effectiveOutput(i - 1)
   })
-  return availability
+  return targets
 }
 
 /**

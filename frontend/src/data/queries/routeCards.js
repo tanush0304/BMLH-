@@ -15,6 +15,17 @@ export async function getStagesForPrd(prdNo) {
   return data
 }
 
+export async function updateStageStatus(stageId, status, actualDate) {
+  const { data, error } = await supabase
+    .from(STAGES_TABLE)
+    .update({ status, actual_date: actualDate ?? new Date().toISOString().slice(0, 10) })
+    .eq('id', stageId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 /**
  * Generates a route card for a PRD by snapshotting the product's CURRENT
  * cycle time master rows into production_route_card_stages -- a frozen
