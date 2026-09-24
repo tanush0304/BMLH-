@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarRange } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import { listMachines } from '../../data/queries/machines'
 import {
   listMaintenancePlanStatus,
@@ -29,6 +30,7 @@ export default function WeeklyPlanGridScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyCell, setBusyCell] = useState(null)
+  const [search, setSearch] = useState('')
 
   const weeks = useMemo(() => {
     const start = mondayOf(new Date())
@@ -90,9 +92,23 @@ export default function WeeklyPlanGridScreen() {
     return 'bg-gray-100 hover:bg-gray-200 cursor-pointer'
   }
 
+  const filteredMachines = machines.filter((m) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return m.machine_id?.toLowerCase().includes(q) || m.machine_name?.toLowerCase().includes(q)
+  })
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Weekly Maintenance Plan" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by Machine ID / Name..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-auto p-6 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded mb-4">
@@ -118,7 +134,7 @@ export default function WeeklyPlanGridScreen() {
                 </tr>
               </thead>
               <tbody>
-                {machines.map((m) => (
+                {filteredMachines.map((m) => (
                   <tr key={m.machine_id} className="border-t border-gray-100">
                     <td className="sticky left-0 bg-white px-4 py-2 font-medium text-gray-700 whitespace-nowrap">
                       {m.machine_id} — {m.machine_name}
@@ -139,10 +155,10 @@ export default function WeeklyPlanGridScreen() {
                     })}
                   </tr>
                 ))}
-                {machines.length === 0 && (
+                {filteredMachines.length === 0 && (
                   <tr>
                     <td colSpan={weeks.length + 1} className="px-4 py-6 text-center text-gray-400">
-                      No machines defined yet.
+                      {machines.length === 0 ? 'No machines defined yet.' : 'No machines match your search.'}
                     </td>
                   </tr>
                 )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Boxes } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -45,6 +46,7 @@ export default function RawMaterialStoreScreen() {
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -101,9 +103,26 @@ export default function RawMaterialStoreScreen() {
     }
   }
 
+  const filteredBalances = balances.filter((b) => {
+    if (!search) return true
+    return b.raw_material_code?.toLowerCase().includes(search.toLowerCase())
+  })
+  const filteredTransactions = transactions.filter((t) => {
+    if (!search) return true
+    return t.raw_material_code?.toLowerCase().includes(search.toLowerCase())
+  })
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Raw Material Stores" subtitle="Receipts & Issues  |  Live Stock Balance" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by RM Code..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
@@ -152,8 +171,8 @@ export default function RawMaterialStoreScreen() {
           </div>
         </FormSection>
 
-        <RecordsList title="Raw Material Stock Balance" columns={BALANCE_COLUMNS} rows={balances} loading={loading} rowKey="raw_material_code" />
-        <RecordsList title="Recent Transactions" columns={TXN_COLUMNS} rows={transactions} loading={loading} rowKey="id" />
+        <RecordsList title="Raw Material Stock Balance" columns={BALANCE_COLUMNS} rows={filteredBalances} loading={loading} rowKey="raw_material_code" />
+        <RecordsList title="Recent Transactions" columns={TXN_COLUMNS} rows={filteredTransactions} loading={loading} rowKey="id" />
       </div>
     </div>
   )

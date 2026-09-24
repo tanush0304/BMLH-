@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Wrench, ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
@@ -37,6 +38,7 @@ export default function ChecklistEntryScreen() {
   const [itemResults, setItemResults] = useState({})
   const [starting, setStarting] = useState(false)
   const [savingItemId, setSavingItemId] = useState(null)
+  const [search, setSearch] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -129,9 +131,22 @@ export default function ChecklistEntryScreen() {
     }
   }
 
+  const filteredRecentLogs = recentLogs.filter((l) => {
+    if (!search) return true
+    return l.machine_id?.toLowerCase().includes(search.toLowerCase())
+  })
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Maintenance Checklist Entry" subtitle="One Visit, Several Checklist Items" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by Machine ID..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
@@ -216,7 +231,7 @@ export default function ChecklistEntryScreen() {
           </div>
         )}
 
-        <RecordsList title="Recent Maintenance Visits" columns={LOG_COLUMNS} rows={recentLogs} loading={loading} rowKey="id" />
+        <RecordsList title="Recent Maintenance Visits" columns={LOG_COLUMNS} rows={filteredRecentLogs} loading={loading} rowKey="id" />
       </div>
     </div>
   )

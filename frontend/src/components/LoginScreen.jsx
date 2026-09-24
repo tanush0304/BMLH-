@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LogIn, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import bmlhLogo from '../assets/bmlh-logo.png'
 
 export default function LoginScreen() {
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'
@@ -37,11 +38,14 @@ export default function LoginScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] px-4">
       <div className="w-full max-w-sm bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-[#123A6B] to-bmlhblue px-6 py-5 text-white">
-          <h1 className="text-lg font-bold">BMLH Operations Console</h1>
-          <p className="text-xs text-white/80 mt-1">
-            {mode === 'signin' ? 'Sign in to continue' : 'Create an account'}
-          </p>
+        <div className="bg-gradient-to-r from-bmlhblue to-bmlhnavy px-6 py-5 text-white flex items-center gap-3">
+          <img src={bmlhLogo} alt="BMLH" className="h-10 w-auto rounded bg-white/95 p-0.5 shrink-0" />
+          <div>
+            <h1 className="text-lg font-bold">BMLH Operations Console</h1>
+            <p className="text-xs text-white/80 mt-1">
+              {mode === 'signin' ? 'Sign in to continue' : 'Create an account'}
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

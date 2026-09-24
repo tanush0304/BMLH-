@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CalendarClock } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import RecordsList from '../../components/RecordsList'
 import { supabase } from '../../lib/supabaseClient'
 
@@ -51,6 +52,14 @@ export default function ProductionScheduleScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Production Schedule" subtitle="Every Route Card Stage, Across All Orders" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by PRD No / Operation..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
         <RecordsList
           title="Route Card Stages"
@@ -59,8 +68,6 @@ export default function ProductionScheduleScreen() {
           loading={loading}
           error={error}
           rowKey="id"
-          searchValue={search}
-          onSearchChange={setSearch}
         />
       </div>
     </div>

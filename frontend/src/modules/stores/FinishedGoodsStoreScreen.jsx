@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PackageCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listProducts } from '../../data/queries/products'
@@ -45,6 +46,7 @@ export default function FinishedGoodsStoreScreen() {
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -102,9 +104,26 @@ export default function FinishedGoodsStoreScreen() {
     }
   }
 
+  const filteredBalances = balances.filter((b) => {
+    if (!search) return true
+    return b.product_code?.toLowerCase().includes(search.toLowerCase())
+  })
+  const filteredTransactions = transactions.filter((t) => {
+    if (!search) return true
+    return t.product_code?.toLowerCase().includes(search.toLowerCase())
+  })
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Finished Goods Stores" subtitle="Production Receipts & Dispatches  |  Live Stock Balance" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by Product Code..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
@@ -153,8 +172,8 @@ export default function FinishedGoodsStoreScreen() {
           </div>
         </FormSection>
 
-        <RecordsList title="Finished Goods Stock Balance" columns={BALANCE_COLUMNS} rows={balances} loading={loading} rowKey="product_code" />
-        <RecordsList title="Recent Transactions" columns={TXN_COLUMNS} rows={transactions} loading={loading} rowKey="id" />
+        <RecordsList title="Finished Goods Stock Balance" columns={BALANCE_COLUMNS} rows={filteredBalances} loading={loading} rowKey="product_code" />
+        <RecordsList title="Recent Transactions" columns={TXN_COLUMNS} rows={filteredTransactions} loading={loading} rowKey="id" />
       </div>
     </div>
   )

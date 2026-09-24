@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Truck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
@@ -40,6 +41,7 @@ export default function JobOrderDispatchScreen() {
 
   const [form, setForm] = useState({ dc_no: '', vendor_id: '', qty: '', dispatch_date: '' })
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -151,9 +153,23 @@ export default function JobOrderDispatchScreen() {
     }
   }
 
+  const filteredDispatches = dispatches.filter((d) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return d.dc_no?.toLowerCase().includes(q) || d.prd_no?.toLowerCase().includes(q)
+  })
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Job Order Dispatch" subtitle="Send a Batch Out to a Vendor" />
+      <ActionToolbar
+        showCrudButtons={false}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearch={() => {}}
+        searchPlaceholder="Search by DC No / PRD No..."
+        showExport={false}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
@@ -215,7 +231,7 @@ export default function JobOrderDispatchScreen() {
         <RecordsList
           title="Job Order Dispatches"
           columns={LIST_COLUMNS}
-          rows={dispatches}
+          rows={filteredDispatches}
           loading={loading}
           rowKey="dc_no"
         />
