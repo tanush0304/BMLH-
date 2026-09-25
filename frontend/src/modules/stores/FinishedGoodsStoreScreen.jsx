@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PackageCheck, RotateCcw, X, ClipboardList, Trash2, Plus, Save } from 'lucide-react'
+import { PackageCheck, RotateCcw, X, ClipboardList, Trash2, Plus, Save, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
@@ -7,6 +7,7 @@ import StatusPill from '../../components/StatusPill'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { listOperators } from '../../data/queries/operators'
 import { listShifts } from '../../data/queries/shifts'
+import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
   listFinishedGoodsStockBalance,
   listFinishedGoodsTransactions,
@@ -19,7 +20,7 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-const EMPTY_FORM = {
+const EMPTY_DISPATCH_FORM = {
   operator_emp_id: '',
   shift_code: '',
   transaction_date: todayISO(),
@@ -27,7 +28,15 @@ const EMPTY_FORM = {
   qty: '',
 }
 
-const TXN_COLUMNS = [
+const EMPTY_RECEIPT_FORM = {
+  operator_emp_id: '',
+  shift_code: '',
+  transaction_date: todayISO(),
+  prd_no: '',
+  qty: '',
+}
+
+const DISPATCH_COLUMNS = [
   { key: 'transaction_date', label: 'Date' },
   { key: 'operator_emp_id', label: 'User ID' },
   { key: 'user_name', label: 'User Name' },
@@ -42,17 +51,30 @@ const TXN_COLUMNS = [
   { key: 'order_status', label: 'Order Status', type: 'status' },
 ]
 
+const RECEIPT_COLUMNS = [
+  { key: 'transaction_date', label: 'Date' },
+  { key: 'operator_emp_id', label: 'User ID' },
+  { key: 'user_name', label: 'User Name' },
+  { key: 'shift_code', label: 'Shift' },
+  { key: 'prd_no', label: 'Production Order No.' },
+  { key: 'product_code', label: 'Product Code' },
+  { key: 'qty', label: 'Qty Received (Nos)' },
+]
+
 export default function FinishedGoodsStoreScreen() {
+  const [mode, setMode] = useState('dispatch') // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
   const [operators, setOperators] = useState([])
   const [shifts, setShifts] = useState([])
   const [balances, setBalances] = useState([])
   const [transactions, setTransactions] = useState([])
   const [orderStatus, setOrderStatus] = useState([])
+  const [currentUserId, setCurrentUserId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [dispatchForm, setDispatchForm] = useState(EMPTY_DISPATCH_FORM)
+  const [receiptForm, setReceiptForm] = useState(EMPTY_RECEIPT_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -60,13 +82,14 @@ export default function FinishedGoodsStoreScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [ords, ops, shf, bal, txns, status] = await Promise.all([
+      const [ords, ops, shf, bal, txns, status, userId] = await Promise.all([
         listCustomerOrders(),
         listOperators(),
         listShifts(),
         listFinishedGoodsStockBalance(),
         listFinishedGoodsTransactions(),
         listFinishedGoodsOrderStatus(),
+        getCurrentUserId(),
       ])
       setOrders(ords)
       setOperators(ops)
@@ -74,6 +97,7 @@ export default function FinishedGoodsStoreScreen() {
       setBalances(bal)
       setTransactions(txns)
       setOrderStatus(status)
+      setCurrentUserId(userId)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -85,16 +109,22 @@ export default function FinishedGoodsStoreScreen() {
     refresh()
   }, [])
 
-  function handleField(key) {
-    return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  function handleDispatchField(key) {
+    return (e) => setDispatchForm((f) => ({ ...f, [key]: e.target.value }))
+  }
+
+  function handleReceiptField(key) {
+    return (e) => setReceiptForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
   function operatorName(id) {
     return operators.find((o) => o.operator_emp_id === id)?.operator_name ?? ''
   }
 
-  const selectedOrder = orders.find((o) => o.prd_no === form.prd_no)
-  const selectedStatus = orderStatus.find((s) => s.prd_no === form.prd_no)
+  const selectedDispatchOrder = orders.find((o) => o.prd_no === dispatchForm.prd_no)
+  const selectedDispatchStatus = orderStatus.find((s) => s.prd_no === dispatchForm.prd_no)
+  const selectedReceiptOrder = orders.find((o) => o.prd_no === receiptForm.prd_no)
+
   const qtyInStockForProduct = (productCode) =>
     balances.find((b) => b.product_code === productCode)?.current_stock ?? ''
   const qtyReceivedForPrd = (prdNo) =>
@@ -103,27 +133,58 @@ export default function FinishedGoodsStoreScreen() {
       .reduce((sum, t) => sum + Number(t.qty || 0), 0)
 
   function handleReset() {
-    setForm(EMPTY_FORM)
+    setDispatchForm(EMPTY_DISPATCH_FORM)
+    setReceiptForm(EMPTY_RECEIPT_FORM)
     setError(null)
   }
 
-  async function handleSave() {
-    if (!form.operator_emp_id || !form.shift_code || !form.prd_no || !form.qty || !form.transaction_date) {
-      setError('User ID, Shift, Production Order Number, Despatch Quantity and Date are all required.')
+  async function handleSaveDispatch() {
+    const f = dispatchForm
+    if (!f.operator_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+      setError('User Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
       return
     }
     setSaving(true)
     setError(null)
     try {
       await createFinishedGoodsTransaction({
-        product_code: selectedOrder?.product_code,
+        product_code: selectedDispatchOrder?.product_code,
         transaction_type: 'Dispatch',
-        qty: Number(form.qty),
-        transaction_date: form.transaction_date,
-        prd_no: form.prd_no,
-        customer_id: selectedOrder?.customer_id ?? null,
-        operator_emp_id: form.operator_emp_id,
-        shift_code: form.shift_code,
+        qty: Number(f.qty),
+        transaction_date: f.transaction_date,
+        prd_no: f.prd_no,
+        customer_id: selectedDispatchOrder?.customer_id ?? null,
+        operator_emp_id: f.operator_emp_id,
+        shift_code: f.shift_code,
+        user_id: currentUserId,
+      })
+      handleReset()
+      await refresh()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveReceipt() {
+    const f = receiptForm
+    if (!f.operator_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+      setError('User Name, Shift, Production Order Number, Quantity Received and Date are all required.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await createFinishedGoodsTransaction({
+        product_code: selectedReceiptOrder?.product_code,
+        transaction_type: 'Production Receipt',
+        qty: Number(f.qty),
+        transaction_date: f.transaction_date,
+        prd_no: f.prd_no,
+        operator_emp_id: f.operator_emp_id,
+        shift_code: f.shift_code,
+        user_id: currentUserId,
       })
       handleReset()
       await refresh()
@@ -135,7 +196,7 @@ export default function FinishedGoodsStoreScreen() {
   }
 
   async function handleDeleteRow(id) {
-    if (!confirm('Delete this despatch record? This cannot be undone.')) return
+    if (!confirm('Delete this record? This cannot be undone.')) return
     setSaving(true)
     setError(null)
     try {
@@ -164,7 +225,12 @@ export default function FinishedGoodsStoreScreen() {
       }
     })
 
-  const filteredRows = dispatchRows.filter((r) => {
+  const receiptRows = transactions
+    .filter((t) => t.transaction_type === 'Production Receipt')
+    .map((t) => ({ ...t, user_name: operatorName(t.operator_emp_id) }))
+
+  const activeRows = mode === 'dispatch' ? dispatchRows : receiptRows
+  const filteredRows = activeRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -174,8 +240,8 @@ export default function FinishedGoodsStoreScreen() {
     )
   })
 
-  const columnsWithAction = [
-    ...TXN_COLUMNS,
+  const activeColumns = [
+    ...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS),
     {
       key: 'action',
       label: 'Action',
@@ -188,14 +254,37 @@ export default function FinishedGoodsStoreScreen() {
   ]
 
   const btn = 'inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium disabled:opacity-40'
+  const handleSave = mode === 'dispatch' ? handleSaveDispatch : handleSaveReceipt
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader
         eyebrow="Stores Module"
-        title="Finished Goods Issue"
+        title="Finished Goods"
         subtitle="Right Product  |  Right Quantity  |  On Time Delivery"
       />
+
+      <div className="flex items-center gap-1 bg-white border-b border-gray-200 px-6 pt-2">
+        {[
+          { key: 'dispatch', label: 'Dispatch' },
+          { key: 'production-receipt', label: 'Production Receipt' },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => {
+              setMode(t.key)
+              setError(null)
+            }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+              mode === t.key
+                ? 'border-bmlhnavy text-bmlhnavy'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-6 py-3">
         <button className={`${btn} bg-green-600 text-white hover:bg-green-700`} onClick={handleReset}>
@@ -219,7 +308,7 @@ export default function FinishedGoodsStoreScreen() {
           className={`${btn} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`}
           onClick={() => setSearch('')}
         >
-          <ClipboardList size={16} /> View Issue History
+          <ClipboardList size={16} /> View History
         </button>
       </div>
 
@@ -230,74 +319,135 @@ export default function FinishedGoodsStoreScreen() {
           </div>
         )}
 
-        <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Issue Details" columns={2}>
-          <Field label="User ID" required>
-            <SelectInput
-              value={form.operator_emp_id}
-              onChange={handleField('operator_emp_id')}
-              options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
-            />
-          </Field>
-          <Field label="Order Quantity">
-            <AutoFillBox value={selectedOrder?.order_qty} unit="Nos" />
-          </Field>
-
-          <Field label="User Name">
-            <AutoFillBox value={operatorName(form.operator_emp_id)} />
-          </Field>
-          <Field label="Quantity in Stock">
-            <AutoFillBox value={qtyInStockForProduct(selectedOrder?.product_code)} unit="Nos" />
-          </Field>
-
-          <Field label="Shift" required>
-            <SelectInput
-              value={form.shift_code}
-              onChange={handleField('shift_code')}
-              options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
-            />
-          </Field>
-          <Field label="Quantity Received">
-            <AutoFillBox value={qtyReceivedForPrd(form.prd_no)} unit="Nos" />
-          </Field>
-
-          <Field label="Date" required>
-            <TextInput type="date" value={form.transaction_date} onChange={handleField('transaction_date')} />
-          </Field>
-          <Field label="Despatch Quantity" required>
-            <div className="flex rounded overflow-hidden border border-gray-300">
-              <input
-                type="number"
-                value={form.qty}
-                onChange={handleField('qty')}
-                placeholder="Enter Quantity"
-                className="flex-1 px-3 py-2 text-sm focus:outline-none"
+        {mode === 'dispatch' ? (
+          <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" columns={2}>
+            <Field label="User ID" required>
+              <SelectInput
+                value={dispatchForm.operator_emp_id}
+                onChange={handleDispatchField('operator_emp_id')}
+                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
               />
-              <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
-            </div>
-          </Field>
+            </Field>
+            <Field label="Order Quantity">
+              <AutoFillBox value={selectedDispatchOrder?.order_qty} unit="Nos" />
+            </Field>
 
-          <Field label="Production Order number" required>
-            <SelectInput value={form.prd_no} onChange={handleField('prd_no')} options={orders.map((o) => o.prd_no)} />
-          </Field>
-          <Field label="Balance Quantity to be despatched">
-            <AutoFillBox value={selectedStatus?.balance_to_dispatch} unit="Nos" />
-          </Field>
+            <Field label="User Name">
+              <AutoFillBox value={operatorName(dispatchForm.operator_emp_id)} />
+            </Field>
+            <Field label="Quantity in Stock">
+              <AutoFillBox value={qtyInStockForProduct(selectedDispatchOrder?.product_code)} unit="Nos" />
+            </Field>
 
-          <Field label="Product Code">
-            <AutoFillBox value={selectedOrder?.product_code} />
-          </Field>
-          <Field label="Order Status">
-            <div className="flex items-center h-[38px]">
-              {selectedStatus?.order_status ? <StatusPill status={selectedStatus.order_status} /> : (
-                <span className="text-sm text-gray-400">—</span>
-              )}
-            </div>
-          </Field>
-        </FormSection>
+            <Field label="Shift" required>
+              <SelectInput
+                value={dispatchForm.shift_code}
+                onChange={handleDispatchField('shift_code')}
+                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
+              />
+            </Field>
+            <Field label="Quantity Received">
+              <AutoFillBox value={qtyReceivedForPrd(dispatchForm.prd_no)} unit="Nos" />
+            </Field>
+
+            <Field label="Date" required>
+              <TextInput type="date" value={dispatchForm.transaction_date} onChange={handleDispatchField('transaction_date')} />
+            </Field>
+            <Field label="Despatch Quantity" required>
+              <div className="flex rounded overflow-hidden border border-gray-300">
+                <input
+                  type="number"
+                  value={dispatchForm.qty}
+                  onChange={handleDispatchField('qty')}
+                  placeholder="Enter Quantity"
+                  className="flex-1 px-3 py-2 text-sm focus:outline-none"
+                />
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
+              </div>
+            </Field>
+
+            <Field label="Production Order number" required>
+              <SelectInput
+                value={dispatchForm.prd_no}
+                onChange={handleDispatchField('prd_no')}
+                options={orders.map((o) => o.prd_no)}
+              />
+            </Field>
+            <Field label="Balance Quantity to be despatched">
+              <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
+            </Field>
+
+            <Field label="Product Code">
+              <AutoFillBox value={selectedDispatchOrder?.product_code} />
+            </Field>
+            <Field label="Order Status">
+              <div className="flex items-center h-[38px]">
+                {selectedDispatchStatus?.order_status ? (
+                  <StatusPill status={selectedDispatchStatus.order_status} />
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+            </Field>
+
+            <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
+              "User ID" picks who's physically despatching the goods (Operator Master); the account you're
+              logged in as is recorded automatically.
+            </p>
+          </FormSection>
+        ) : (
+          <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" columns={2}>
+            <Field label="User ID" required>
+              <SelectInput
+                value={receiptForm.operator_emp_id}
+                onChange={handleReceiptField('operator_emp_id')}
+                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
+              />
+            </Field>
+            <Field label="Product Code">
+              <AutoFillBox value={selectedReceiptOrder?.product_code} />
+            </Field>
+
+            <Field label="User Name">
+              <AutoFillBox value={operatorName(receiptForm.operator_emp_id)} />
+            </Field>
+            <Field label="Quantity Received" required>
+              <div className="flex rounded overflow-hidden border border-gray-300">
+                <input
+                  type="number"
+                  value={receiptForm.qty}
+                  onChange={handleReceiptField('qty')}
+                  placeholder="Enter Quantity"
+                  className="flex-1 px-3 py-2 text-sm focus:outline-none"
+                />
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
+              </div>
+            </Field>
+
+            <Field label="Shift" required>
+              <SelectInput
+                value={receiptForm.shift_code}
+                onChange={handleReceiptField('shift_code')}
+                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
+              />
+            </Field>
+            <Field label="Date" required>
+              <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
+            </Field>
+
+            <Field label="Production Order number" required>
+              <SelectInput
+                value={receiptForm.prd_no}
+                onChange={handleReceiptField('prd_no')}
+                options={orders.map((o) => o.prd_no)}
+              />
+            </Field>
+          </FormSection>
+        )}
 
         <RecordsList
-          title="Finished Goods Issue List"
-          columns={columnsWithAction}
+          title={mode === 'dispatch' ? 'Finished Goods Dispatch List' : 'Finished Goods Production Receipt List'}
+          columns={activeColumns}
           rows={filteredRows}
           loading={loading}
           error={null}
