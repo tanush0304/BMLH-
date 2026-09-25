@@ -21,3 +21,8 @@ export async function createRawMaterialTransaction(payload) {
   if (error) throw error
   return data
 }
+
+export async function deleteRawMaterialTransaction(id) {
+  const { error } = await supabase.from('raw material transactions').delete().eq('id', id)
+  if (error) throw error
+}

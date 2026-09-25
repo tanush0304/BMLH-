@@ -21,3 +21,18 @@ export async function createFinishedGoodsTransaction(payload) {
   if (error) throw error
   return data
 }
+
+/**
+ * order_qty, dispatched_qty, balance_to_dispatch, order_status per PRD --
+ * derive-don't-store, same pattern as every other status view in this schema.
+ */
+export async function listFinishedGoodsOrderStatus() {
+  const { data, error } = await supabase.from('finished goods order status').select('*')
+  if (error) throw error
+  return data
+}
+
+export async function deleteFinishedGoodsTransaction(id) {
+  const { error } = await supabase.from('finished goods transactions').delete().eq('id', id)
+  if (error) throw error
+}

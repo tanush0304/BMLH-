@@ -35,18 +35,39 @@ export function TextInput(props) {
   )
 }
 
+/** options: string[] or {value, label}[] -- the latter lets a dropdown show a
+ * friendly name while submitting the underlying code/id as the value. */
 export function SelectInput({ options = [], ...props }) {
+  const normalized = options.map((opt) =>
+    typeof opt === 'object' && opt !== null ? opt : { value: opt, label: opt }
+  )
   return (
     <select
       {...props}
       className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
     >
       <option value="">Select...</option>
-      {options.map((opt) => (
-        <option key={opt} value={opt}>
-          {opt}
+      {normalized.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
         </option>
       ))}
     </select>
+  )
+}
+
+/** A visually-disabled "field box" for auto-filled values that aren't a real
+ * <input>, with an optional trailing unit label (e.g. "Nos") matching the
+ * Stores mockups. */
+export function AutoFillBox({ value, unit }) {
+  return (
+    <div className="flex rounded border border-gray-300 overflow-hidden bg-gray-100">
+      <div className="flex-1 px-3 py-2 text-sm text-gray-700 truncate">{value ?? ''}</div>
+      {unit && (
+        <div className="px-3 py-2 text-sm text-gray-500 bg-gray-200 border-l border-gray-300 shrink-0">
+          {unit}
+        </div>
+      )}
+    </div>
   )
 }

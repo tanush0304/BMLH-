@@ -20,4 +20,5 @@ export const STATUS_COLORS = {
   Planned: 'bg-amber-100 text-amber-800',
   Accepted: 'bg-green-100 text-green-800',
   'Not Accepted': 'bg-red-100 text-red-800',
+  'Not Completed': 'bg-red-100 text-red-800',
 }
