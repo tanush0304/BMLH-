@@ -100,3 +100,17 @@ export function standardQtyPerHour(cycleTimeMin) {
   if (!cycleTimeMin || cycleTimeMin <= 0) return null
   return 60 / cycleTimeMin
 }
+
+/**
+ * Derives a production plan's Status from its route card stages -- never
+ * stored, always computed. Manual stages are ignored entirely (same
+ * pass-through rule as isStageReachable) since nothing ever marks them,
+ * so a Manual-only tail would otherwise permanently block "Completed".
+ */
+export function derivePlanStatus(stages) {
+  const relevant = stages.filter((s) => s.type !== 'Manual')
+  if (relevant.length === 0) return 'Planned'
+  if (relevant.every((s) => s.status === 'Pending')) return 'Planned'
+  if (relevant.every((s) => s.status === 'Completed' || s.status === 'Received')) return 'Completed'
+  return 'In Progress'
+}

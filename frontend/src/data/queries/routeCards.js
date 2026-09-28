@@ -9,6 +9,13 @@ export async function listRouteCards() {
   return data
 }
 
+/** All stages across every PRD, for building list views without N+1 queries. */
+export async function listAllStages() {
+  const { data, error } = await supabase.from(STAGES_TABLE).select('*')
+  if (error) throw error
+  return data
+}
+
 export async function getStagesForPrd(prdNo) {
   const { data, error } = await supabase.from(STAGES_TABLE).select('*').eq('prd_no', prdNo).order('seq')
   if (error) throw error
