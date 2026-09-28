@@ -7,6 +7,7 @@ import Dashboard from './modules/Dashboard'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
 import ProductionModule from './modules/production/ProductionModule'
+import QualityModule from './modules/quality/QualityModule'
 import JobOrderModule from './modules/jobOrder/JobOrderModule'
 import MaintenanceModule from './modules/maintenance/MaintenanceModule'
 import StoresModule from './modules/stores/StoresModule'
@@ -71,6 +72,7 @@ function App() {
   else if (activeKey === 'masters') content = <Dashboard />
   else if (activeKey === 'customer-order') content = <CustomerOrderModule />
   else if (activeKey === 'production') content = <ProductionModule />
+  else if (activeKey === 'quality') content = <QualityModule />
   else if (activeKey === 'job-order') content = <JobOrderModule />
   else if (activeKey === 'maintenance') content = <MaintenanceModule />
   else if (activeKey === 'stores') content = <StoresModule />

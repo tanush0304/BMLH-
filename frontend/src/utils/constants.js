@@ -3,6 +3,7 @@ export const NAV_ITEMS = [
   { key: 'masters', label: 'Master List', roles: ['supervisor', 'admin'] },
   { key: 'drawing', label: 'Drawing Development' },
   { key: 'production', label: 'Production' },
+  { key: 'quality', label: 'Quality' },
   { key: 'customer-order', label: 'Customer Order' },
   { key: 'job-order', label: 'Job Order' },
   { key: 'maintenance', label: 'Maintenance' },
