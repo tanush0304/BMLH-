@@ -45,6 +45,7 @@ export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHou
     .select('*')
     .eq('product_code', productCode)
     .order('seq')
+    .order('id')
   if (cycleErr) throw cycleErr
   if (cycleRows.length === 0) {
     throw new Error(`No Cycle Time Master rows found for product "${productCode}" -- nothing to snapshot.`)
@@ -61,16 +62,42 @@ export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHou
     .single()
   if (cardErr) throw cardErr
 
-  const stageRows = cycleRows.map((r) => ({
-    prd_no: prdNo,
-    seq: r.seq,
-    operation: r.operation,
-    type: r.type,
-    machine_id: r.machine_id,
-    job_work_code: r.job_work_code,
-    cycle_time_min: r.cycle_time_min,
-    status: 'Pending',
-  }))
+  // Cycle Time Master is "long format" -- an Internal operation can have
+  // several rows, one per machine capable of running it (e.g. "Rough
+  // Turning ONE" has one row per CNC). A route card needs exactly one
+  // stage per seq, so collapse each seq down to a single row: prefer a
+  // machine not already picked for an earlier stage in this route (so a
+  // demo route doesn't pile every stage onto the same machine), falling
+  // back to the lowest machine_id once every candidate has been used.
+  // The chosen machine_id is only a DEFAULT -- Machine Entry must keep
+  // offering any machine with a Cycle Time Master row for this
+  // product+seq, not just this one. Whether planners should instead
+  // assign the machine explicitly at planning time is still open.
+  const bySeq = new Map()
+  for (const r of cycleRows) {
+    if (!bySeq.has(r.seq)) bySeq.set(r.seq, [])
+    bySeq.get(r.seq).push(r)
+  }
+  const usedMachines = new Set()
+  const stageRows = [...bySeq.entries()]
+    .sort(([seqA], [seqB]) => seqA - seqB)
+    .map(([, rows]) => {
+      if (rows[0].type !== 'Internal') return rows[0]
+      const unused = rows.find((r) => !usedMachines.has(r.machine_id))
+      const chosen = unused ?? [...rows].sort((a, b) => (a.machine_id > b.machine_id ? 1 : -1))[0]
+      usedMachines.add(chosen.machine_id)
+      return chosen
+    })
+    .map((r) => ({
+      prd_no: prdNo,
+      seq: r.seq,
+      operation: r.operation,
+      type: r.type,
+      machine_id: r.machine_id,
+      job_work_code: r.job_work_code,
+      cycle_time_min: r.cycle_time_min,
+      status: 'Pending',
+    }))
   const { error: stageErr } = await supabase.from(STAGES_TABLE).insert(stageRows)
   if (stageErr) throw stageErr
 
