@@ -7,6 +7,7 @@ import StageTraceTable from '../../components/StageTraceTable'
 import { listOrdersAvailableForPlanning, listProductionPlans } from '../../data/queries/productionPlanning'
 import { listProductionBatches } from '../../data/queries/productionBatch'
 import { listCustomers } from '../../data/queries/customers'
+import { listProducts } from '../../data/queries/products'
 import { generateRouteCard } from '../../data/queries/routeCards'
 
 const LIST_COLUMNS = [
@@ -29,6 +30,7 @@ export default function ProductionPlanningScreen() {
   const [plans, setPlans] = useState([])
   const [batches, setBatches] = useState([])
   const [customers, setCustomers] = useState([])
+  const [products, setProducts] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -36,16 +38,18 @@ export default function ProductionPlanningScreen() {
   const [viewedPrd, setViewedPrd] = useState(null)
 
   async function refresh() {
-    const [availableOrders, planRows, batchRows, customerRows] = await Promise.all([
+    const [availableOrders, planRows, batchRows, customerRows, productRows] = await Promise.all([
       listOrdersAvailableForPlanning(),
       listProductionPlans(),
       listProductionBatches(),
       listCustomers(),
+      listProducts(),
     ])
     setOrders(availableOrders)
     setPlans(planRows)
     setBatches(batchRows)
     setCustomers(customerRows)
+    setProducts(productRows)
   }
 
   useEffect(() => {
@@ -54,6 +58,7 @@ export default function ProductionPlanningScreen() {
 
   const selectedOrder = orders.find((o) => o.prd_no === form.prd_no)
   const selectedCustomer = customers.find((c) => c.customer_id === selectedOrder?.customer_id)
+  const selectedProduct = products.find((p) => p.product_code === selectedOrder?.product_code)
 
   function handleSelectPrd(e) {
     const prd = e.target.value
@@ -156,7 +161,7 @@ export default function ProductionPlanningScreen() {
             <AutoFillBox value={selectedOrder?.product_code ?? ''} />
           </Field>
           <Field label="Product Name">
-            <AutoFillBox value={selectedOrder?.product_name ?? ''} />
+            <AutoFillBox value={selectedProduct?.product_name ?? ''} />
           </Field>
           <Field label="Order Qty">
             <AutoFillBox value={selectedOrder?.order_qty ?? ''} unit="Nos" />
