@@ -48,9 +48,30 @@ export async function listDispatchesWithoutReceipt() {
   return dispatches.filter((d) => !receivedDcNos.has(d.dc_no))
 }
 
+/**
+ * Recording a receipt also marks the dispatch's route card stage as
+ * 'Received' -- without this, an Outsourced stage stays 'Pending' forever
+ * (the "job order status" view only derives a display label from
+ * dispatch+receipt, it never touches production route card stages), which
+ * permanently blocks isStageReachable() for every stage after it.
+ */
 export async function createReceipt(payload) {
+  const { data: dispatch, error: dispatchErr } = await supabase
+    .from('job order dispatch')
+    .select('stage_id')
+    .eq('dc_no', payload.dc_no)
+    .single()
+  if (dispatchErr) throw dispatchErr
+
   const { data, error } = await supabase.from('job order receipt').insert(payload).select().single()
   if (error) throw error
+
+  const { error: stageErr } = await supabase
+    .from('production route card stages')
+    .update({ status: 'Received', actual_date: payload.receipt_date ?? new Date().toISOString().slice(0, 10) })
+    .eq('id', dispatch.stage_id)
+  if (stageErr) throw stageErr
+
   return data
 }
 
