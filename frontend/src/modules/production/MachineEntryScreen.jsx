@@ -14,6 +14,8 @@ import {
   createProductionLog,
   addProductionLogHour,
   getLogTotals,
+  getOpenLogForStage,
+  listLogHoursForLogIds,
 } from '../../data/queries/productionLogs'
 import {
   computeStageAvailability,
@@ -109,16 +111,26 @@ export default function MachineEntryScreen() {
     setResolving(true)
     setError(null)
     try {
-      const [order, allStages, aggregates] = await Promise.all([
+      const [order, allStages, aggregates, openLog] = await Promise.all([
         listCustomerOrders().then((orders) => orders.find((o) => o.prd_no === prd)),
         getStagesForPrd(prd),
         getStageAggregatesForPrd(prd),
+        getOpenLogForStage(prd, stage.id),
       ])
       const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.order_qty ?? 0, aggregates)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
+
+      if (openLog) {
+        // Resume: keep logging against the log that already reserved this
+        // stage's share of the upstream pool, don't open a second one.
+        setActiveLog(openLog)
+        const hours = await listLogHoursForLogIds([openLog.id])
+        setLogHours(hours)
+        setTotals(await getLogTotals(openLog.id))
+      }
     } catch (e) {
       setError(e.message)
     } finally {

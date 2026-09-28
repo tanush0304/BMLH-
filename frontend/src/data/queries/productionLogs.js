@@ -66,6 +66,29 @@ export async function getStageAggregatesForPrd(prdNo) {
   return aggregates
 }
 
+/**
+ * A stage's planned_qty is reserved once, when its log is first opened --
+ * it does not change on resume. So before opening a new log for a stage,
+ * check whether one already exists: if it does, the operator picking up
+ * that stage in a new session should keep logging hours against it, not
+ * open a second log (which would double-reserve the stage's share of the
+ * upstream pool). There is no "closed" flag on production logs -- a stage
+ * only stops being offered at all once it's marked Completed, so any log
+ * found here for a still-Pending stage is by definition still open.
+ */
+export async function getOpenLogForStage(prdNo, stageId) {
+  const { data, error } = await supabase
+    .from('production logs')
+    .select('*')
+    .eq('prd_no', prdNo)
+    .eq('stage_id', stageId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function createProductionLog(payload) {
   const { data, error } = await supabase.from('production logs').insert(payload).select().single()
   if (error) throw error
