@@ -2,11 +2,13 @@ import { useState } from 'react'
 import MachineEntryScreen from './MachineEntryScreen'
 import ProductionScheduleScreen from './ProductionScheduleScreen'
 import OrderTraceabilityScreen from './OrderTraceabilityScreen'
+import ProductionPlanningScreen from './ProductionPlanningScreen'
 
 const TABS = [
   { key: 'machine-entry', label: 'Machine Entry', component: MachineEntryScreen },
   { key: 'schedule', label: 'Production Schedule', component: ProductionScheduleScreen },
   { key: 'traceability', label: 'Order Traceability', component: OrderTraceabilityScreen },
+  { key: 'planning', label: 'Production Planning', component: ProductionPlanningScreen },
 ]
 
 export default function ProductionModule() {

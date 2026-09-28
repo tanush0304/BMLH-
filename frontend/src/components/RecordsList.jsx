@@ -12,6 +12,7 @@ export default function RecordsList({
   onRowClick,
   searchValue = '',
   onSearchChange,
+  searchPlaceholder = 'Search in list...',
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
@@ -26,7 +27,7 @@ export default function RecordsList({
             <input
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search in list..."
+              placeholder={searchPlaceholder}
               className="border border-gray-300 rounded pl-8 pr-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
             />
           </div>
