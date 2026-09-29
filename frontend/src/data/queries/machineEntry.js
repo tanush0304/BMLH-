@@ -1,22 +1,19 @@
 import { supabase } from '../../lib/supabaseClient'
 
 /**
- * §4's auto-resolve, at the data layer: for a machine, finds every PRD
- * that currently has an eligible stage (Pending, Internal, operation the
- * machine can perform) and the lowest-seq such stage per PRD.
+ * §4's auto-resolve, at the data layer: for a machine, finds every eligible
+ * stage (Pending, Internal, operation the machine can perform) across every
+ * PRD -- including MORE THAN ONE stage for the same PRD, now that sequence
+ * doesn't collapse the candidates for you (WIP Receipt/Issue means a stage
+ * can legitimately be fed out of order). The caller (MachineEntryScreen) is
+ * responsible for asking the operator which stage they mean when a PRD has
+ * more than one; this used to silently pick the lowest-seq one, which is
+ * the gap that was fixed.
  *
- * Sequence is no longer enforced here -- WIP Receipt/Issue means a stage
- * can legitimately be fed out of order (e.g. from WIP holding rather than
- * directly from the stage before it), so "every earlier stage resolved"
- * is no longer a valid gate. The safety mechanism is now the lock in
- * MachineEntryScreen (getOpenLogForStage): once a (prd_no, stage_id) has
- * an open production log, later sessions resume that log rather than
- * opening a second one, so a stage can't be double-reserved.
- *
- * Known gap: if a machine has more than one eligible stage for the same
- * PRD now that sequence doesn't collapse the candidates for you, this
- * still silently picks the lowest-seq one -- there's no picker yet for an
- * operator who specifically wants a later stage. Flagged, not fixed here.
+ * The safety mechanism against double-working the same stage is the lock in
+ * MachineEntryScreen (getOpenLogForStage): once a (prd_no, stage_id) has an
+ * open production log, later sessions resume that log rather than opening
+ * a second one.
  */
 export async function listEligibleStagesForMachine(machineId) {
   const { data: ops, error: opsErr } = await supabase
@@ -36,10 +33,5 @@ export async function listEligibleStagesForMachine(machineId) {
     .order('seq')
   if (candidatesErr) throw candidatesErr
 
-  const byPrd = new Map()
-  for (const stage of candidates) {
-    if (byPrd.has(stage.prd_no)) continue
-    byPrd.set(stage.prd_no, stage)
-  }
-  return [...byPrd.values()]
+  return candidates
 }

@@ -39,10 +39,11 @@ export default function MachineEntryScreen() {
   const [error, setError] = useState(null)
 
   const [machineId, setMachineId] = useState('')
-  const [eligibleStages, setEligibleStages] = useState([]) // one per eligible PRD
+  const [eligibleStages, setEligibleStages] = useState([]) // every eligible stage, possibly several per PRD
   const [resolving, setResolving] = useState(false)
 
   const [prdNo, setPrdNo] = useState('')
+  const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible stage
   const [resolvedStage, setResolvedStage] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
   const [stageTarget, setStageTarget] = useState(null)
@@ -97,18 +98,38 @@ export default function MachineEntryScreen() {
     }
   }
 
-  async function handlePrdChange(e) {
+  // Stages eligible for the currently-selected PRD on this machine -- more
+  // than one is now a real, expected case (WIP can feed any stage), not an
+  // edge case to collapse silently.
+  const stageChoicesForPrd = prdNo ? eligibleStages.filter((s) => s.prd_no === prdNo) : []
+
+  function handlePrdChange(e) {
     const prd = e.target.value
     setPrdNo(prd)
+    setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
     setStageTarget(null)
     setStageOutputSoFar(0)
     setActiveLog(null)
     if (!prd) return
-    const stage = eligibleStages.find((s) => s.prd_no === prd)
+    const choices = eligibleStages.filter((s) => s.prd_no === prd)
+    if (choices.length === 1) {
+      resolveStage(prd, choices[0])
+    }
+    // If there's more than one, wait for the operator to pick via
+    // handleStageChoice below -- don't guess which one they mean.
+  }
+
+  function handleStageChoice(e) {
+    const stageId = e.target.value
+    setStageChoiceId(stageId)
+    const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
+    if (stage) resolveStage(prdNo, stage)
+  }
+
+  async function resolveStage(prd, stage) {
     setResolvedStage(stage)
-    if (!stage) return
     setResolving(true)
     setError(null)
     try {
@@ -207,6 +228,7 @@ export default function MachineEntryScreen() {
       // are still eligible on this machine (the next stage, if Internal and
       // on this machine, will now show up).
       setPrdNo('')
+      setStageChoiceId('')
       setResolvedStage(null)
       setPlannedQty(null)
       setStageTarget(null)
@@ -247,15 +269,31 @@ export default function MachineEntryScreen() {
               value={prdNo}
               onChange={handlePrdChange}
               disabled={!machineId || eligibleStages.length === 0}
-              options={eligibleStages.map((s) => s.prd_no)}
+              options={[...new Set(eligibleStages.map((s) => s.prd_no))]}
             />
           </Field>
-          <div className="flex items-end text-sm text-gray-400">
-            {resolving && 'Resolving...'}
-          </div>
+          {stageChoicesForPrd.length > 1 ? (
+            <Field label="Which Stage?" required>
+              <SelectInput
+                value={stageChoiceId}
+                onChange={handleStageChoice}
+                options={stageChoicesForPrd.map((s) => ({ value: s.id, label: `Seq ${s.seq} - ${s.operation}` }))}
+              />
+            </Field>
+          ) : (
+            <div className="flex items-end text-sm text-gray-400">
+              {resolving && 'Resolving...'}
+            </div>
+          )}
           {noEligiblePrd && (
             <p className="text-sm text-amber-600 sm:col-span-3">
               This machine has no eligible pending stage on any production order right now.
+            </p>
+          )}
+          {stageChoicesForPrd.length > 1 && (
+            <p className="text-xs text-amber-700 sm:col-span-3">
+              This PRD has {stageChoicesForPrd.length} stages open on this machine at once -- pick the one you're
+              actually working on.
             </p>
           )}
         </FormSection>
