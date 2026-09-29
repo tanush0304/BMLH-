@@ -1,5 +1,8 @@
-import { List, Search } from 'lucide-react'
+import { useState } from 'react'
+import { List, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import StatusPill from './StatusPill'
+
+const COLLAPSED_ROW_COUNT = 2
 
 export default function RecordsList({
   title = 'Records',
@@ -14,9 +17,13 @@ export default function RecordsList({
   onSearchChange,
   searchPlaceholder = 'Search in list...',
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSED_ROW_COUNT)
+  const hiddenCount = rows.length - visibleRows.length
+
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center justify-between gap-3 bg-bmlhsky border-b border-gray-200 px-3.5 py-1.5">
+      <div className="flex items-center justify-between gap-3 bg-bmlhsky border-b border-gray-200 px-3 py-1">
         <div className="flex items-center gap-1.5">
           <List size={14} className="text-bmlhnavy" />
           <h2 className="text-xs font-semibold text-bmlhnavy">{title}</h2>
@@ -70,7 +77,7 @@ export default function RecordsList({
             )}
             {!error &&
               !loading &&
-              rows.map((row, i) => (
+              visibleRows.map((row, i) => (
                 <tr
                   key={rowKey ? row[rowKey] : i}
                   onClick={() => onRowClick?.(row)}
@@ -96,8 +103,24 @@ export default function RecordsList({
         </table>
       </div>
 
-      <div className="px-3.5 py-1.5 border-t border-gray-200 text-[11px] text-gray-500">
-        Total Records: {rows.length}
+      <div className="px-3 py-1 border-t border-gray-200 flex items-center justify-between gap-3">
+        <span className="text-[11px] text-gray-500">Total Records: {rows.length}</span>
+        {rows.length > COLLAPSED_ROW_COUNT && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-bmlhblue hover:underline"
+          >
+            {expanded ? (
+              <>
+                View Less <ChevronUp size={12} />
+              </>
+            ) : (
+              <>
+                View More ({hiddenCount}) <ChevronDown size={12} />
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )

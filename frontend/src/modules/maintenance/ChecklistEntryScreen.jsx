@@ -147,7 +147,7 @@ export default function ChecklistEntryScreen() {
         searchPlaceholder="Search by Machine ID..."
         showExport={false}
       />
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}
@@ -171,7 +171,7 @@ export default function ChecklistEntryScreen() {
             <button
               onClick={handleStartVisit}
               disabled={starting || !!activeLog}
-              className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+              className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
             >
               {activeLog ? 'Visit Started' : starting ? 'Starting...' : 'Start Visit'}
             </button>
@@ -220,7 +220,7 @@ export default function ChecklistEntryScreen() {
                     <button
                       onClick={() => handleSaveItem(item.id)}
                       disabled={result.saved || savingItemId === item.id}
-                      className="bg-bmlhblue text-white rounded px-3 py-2 text-sm font-medium disabled:opacity-40"
+                      className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
                     >
                       {result.saved ? 'Saved' : 'Save'}
                     </button>

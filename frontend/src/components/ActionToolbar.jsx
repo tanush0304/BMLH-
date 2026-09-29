@@ -21,7 +21,7 @@ export default function ActionToolbar({
   onExport,
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-5 py-2">
+    <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">
       {showCrudButtons && (
         <>
           <button className={`${BUTTON_BASE} bg-green-600 text-white hover:bg-green-700`} onClick={onNew}>

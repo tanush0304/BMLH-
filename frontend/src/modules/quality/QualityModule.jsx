@@ -238,7 +238,7 @@ export default function QualityModule() {
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Quality Inspection" subtitle="Define Quality Parameters  |  Maintain Standards  |  Ensure Product Excellence" />
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
         )}
@@ -290,7 +290,7 @@ export default function QualityModule() {
               <button
                 onClick={handleSubmitHeader}
                 disabled={submitting}
-                className="bg-bmlhblue text-white rounded px-5 py-2 text-sm font-medium disabled:opacity-40 hover:bg-[#163d70]"
+                className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-[#163d70]"
               >
                 {submitting ? 'Loading...' : 'Submit'}
               </button>
@@ -300,35 +300,35 @@ export default function QualityModule() {
 
         {step === 'readings' && (
           <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-            <div className="flex items-center justify-between gap-2 bg-bmlhsky border-b border-gray-200 px-4 py-2.5">
-              <h2 className="text-sm font-semibold text-bmlhnavy">
+            <div className="flex items-center justify-between gap-2 bg-bmlhsky border-b border-gray-200 px-3.5 py-1.5">
+              <h2 className="text-xs font-semibold text-bmlhnavy">
                 2. Readings -- {header.prd_no} / {header.machine_id} / {header.operation}
               </h2>
-              <button onClick={handleBackToHeader} className="text-sm text-bmlhblue hover:underline">
+              <button onClick={handleBackToHeader} className="text-xs text-bmlhblue hover:underline">
                 Back
               </button>
             </div>
 
             {saveError && (
-              <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">{saveError}</div>
+              <div className="bg-red-50 border-b border-red-200 text-red-700 text-xs px-3.5 py-1.5">{saveError}</div>
             )}
 
             {readingRows.length === 0 ? (
-              <div className="p-6 text-sm text-gray-500">
+              <div className="p-4 text-xs text-gray-500">
                 No quality parameters are defined for product "{selectedOrder?.product_code}" on machine "
                 {header.machine_id}". Add them in Quality Master before an inspection can be logged here.
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-50 text-bmlhnavy text-left">
-                      <th className="px-4 py-2 font-semibold">Parameter</th>
-                      <th className="px-4 py-2 font-semibold">Standard</th>
-                      <th className="px-4 py-2 font-semibold">Upper Tol.</th>
-                      <th className="px-4 py-2 font-semibold">Lower Tol.</th>
-                      <th className="px-4 py-2 font-semibold">Observed Value</th>
-                      <th className="px-4 py-2 font-semibold">Certification</th>
+                      <th className="px-3 py-1.5 font-semibold">Parameter</th>
+                      <th className="px-3 py-1.5 font-semibold">Standard</th>
+                      <th className="px-3 py-1.5 font-semibold">Upper Tol.</th>
+                      <th className="px-3 py-1.5 font-semibold">Lower Tol.</th>
+                      <th className="px-3 py-1.5 font-semibold">Observed Value</th>
+                      <th className="px-3 py-1.5 font-semibold">Certification</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -337,21 +337,21 @@ export default function QualityModule() {
                       const noLimit = row.standard === null || row.standard === undefined
                       return (
                         <tr key={row.quality_parameter_id} className="border-t border-gray-100">
-                          <td className="px-4 py-2">{row.quality_parameter}</td>
-                          <td className="px-4 py-2 text-gray-500">{row.standard ?? '—'}</td>
-                          <td className="px-4 py-2 text-gray-500">{row.upper_tolerance ?? '—'}</td>
-                          <td className="px-4 py-2 text-gray-500">{row.lower_tolerance ?? '—'}</td>
-                          <td className="px-4 py-2">
+                          <td className="px-3 py-1">{row.quality_parameter}</td>
+                          <td className="px-3 py-1 text-gray-500">{row.standard ?? '—'}</td>
+                          <td className="px-3 py-1 text-gray-500">{row.upper_tolerance ?? '—'}</td>
+                          <td className="px-3 py-1 text-gray-500">{row.lower_tolerance ?? '—'}</td>
+                          <td className="px-3 py-1">
                             <input
                               type="number"
                               value={row.observed_value}
                               onChange={(e) => handleObservedChange(row.quality_parameter_id, e.target.value)}
-                              className="border border-gray-300 rounded px-2 py-1 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+                              className="border border-gray-300 rounded px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
                             />
                           </td>
-                          <td className="px-4 py-2">
+                          <td className="px-3 py-1">
                             {noLimit ? (
-                              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
                                 No limit set
                               </span>
                             ) : (
@@ -363,11 +363,11 @@ export default function QualityModule() {
                     })}
                   </tbody>
                 </table>
-                <div className="p-4">
+                <div className="p-3">
                   <button
                     onClick={handleSaveReadings}
                     disabled={saving}
-                    className="bg-green-600 text-white rounded px-5 py-2 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+                    className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
                   >
                     {saving ? 'Saving...' : 'Save Inspection'}
                   </button>

@@ -5,11 +5,11 @@ export default function FormSection({ icon: Icon, title, columns = 3, children }
 
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3.5 py-1.5">
-        {Icon && <Icon size={14} className="text-bmlhnavy" />}
+      <div className="flex items-center gap-1.5 bg-bmlhsky border-b border-gray-200 px-3 py-1">
+        {Icon && <Icon size={13} className="text-bmlhnavy" />}
         <h2 className="text-xs font-semibold text-bmlhnavy">{title}</h2>
       </div>
-      <div className={`grid ${colClass} gap-x-3 gap-y-2.5 p-3.5`}>{children}</div>
+      <div className={`grid ${colClass} gap-x-2.5 gap-y-2 p-2.5`}>{children}</div>
     </div>
   )
 }

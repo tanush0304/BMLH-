@@ -253,7 +253,7 @@ export default function MachineEntryScreen() {
         subtitle="Operator picks the machine + order; the stage resolves itself"
       />
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}
@@ -330,7 +330,7 @@ export default function MachineEntryScreen() {
               <button
                 onClick={handleStart}
                 disabled={starting || !!activeLog || !plannedQty}
-                className="bg-green-600 text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+                className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}
               </button>
@@ -365,7 +365,7 @@ export default function MachineEntryScreen() {
               <button
                 onClick={handleAddHour}
                 disabled={savingHour || logHours.length >= 12}
-                className="bg-bmlhblue text-white rounded px-4 py-2 text-sm font-medium disabled:opacity-40"
+                className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
               >
                 Add Hour {logHours.length + 1}
               </button>
