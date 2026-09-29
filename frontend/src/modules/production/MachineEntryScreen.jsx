@@ -9,6 +9,7 @@ import { listShifts } from '../../data/queries/shifts'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus } from '../../data/queries/routeCards'
 import { listEligibleStagesForMachine } from '../../data/queries/machineEntry'
+import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
   getStageAggregatesForPrd,
   createProductionLog,
@@ -111,13 +112,14 @@ export default function MachineEntryScreen() {
     setResolving(true)
     setError(null)
     try {
-      const [order, allStages, aggregates, openLog] = await Promise.all([
+      const [order, allStages, aggregates, openLog, wipAggregates] = await Promise.all([
         listCustomerOrders().then((orders) => orders.find((o) => o.prd_no === prd)),
         getStagesForPrd(prd),
         getStageAggregatesForPrd(prd),
         getOpenLogForStage(prd, stage.id),
+        getWipAggregatesForPrd(prd),
       ])
-      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates)
+      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates, wipAggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.order_qty ?? 0, aggregates)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)

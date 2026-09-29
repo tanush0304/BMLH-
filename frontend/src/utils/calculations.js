@@ -21,15 +21,37 @@
  *   production logs' planned_qty) or already dispatched (Outsourced, from
  *   job order dispatch qty) at that stage -- i.e. already drawn from the
  *   upstream pool. Manual stages need no entry (they're never looked up).
+ * @param {{receiptedFrom?: Record<string, number>, issuedTo?: Record<string, number>}} [wipAggregates]
+ *   From getWipAggregatesForPrd. `receiptedFrom[stageId]` = how much of that
+ *   stage's output was pulled OUT into WIP holding instead of flowing
+ *   straight downstream. `issuedTo[stageId]` = how much has been pulled
+ *   FROM WIP holding INTO that stage, on top of whatever flows to it
+ *   directly. Omit (or pass {}) where WIP doesn't apply.
  * @returns {Record<string, number>} available qty to feed into each stage, by stage id.
  */
-export function computeStageAvailability(stages, orderQty, stageAggregates) {
-  const availability = {}
-  const upstream = computeStageUpstreamTargets(stages, orderQty, stageAggregates)
-  for (const [stageId, target] of Object.entries(upstream)) {
-    const consumed = stageAggregates[stageId]?.consumed ?? 0
-    availability[stageId] = Math.max(0, target - consumed)
+export function computeStageAvailability(stages, orderQty, stageAggregates, wipAggregates = {}) {
+  const { receiptedFrom = {}, issuedTo = {} } = wipAggregates
+  const sorted = [...stages].sort((a, b) => a.seq - b.seq)
+
+  // Same "skip past Manual pass-through stages" walk computeStageUpstreamTargets
+  // does, but also surfacing WHICH stage's output is being carried forward --
+  // WIP receipts/issues are keyed by stage id, so the carry-forward math needs
+  // to know which upstream stage they're relative to, not just its output.
+  function resolveUpstream(index) {
+    if (index < 0) return { output: orderQty, stageId: null }
+    const stage = sorted[index]
+    if (stage.type === 'Manual') return resolveUpstream(index - 1)
+    return { output: stageAggregates[stage.id]?.output ?? 0, stageId: stage.id }
   }
+
+  const availability = {}
+  sorted.forEach((stage, i) => {
+    const { output: upstreamOutput, stageId: upstreamStageId } = resolveUpstream(i - 1)
+    const receiptedAway = upstreamStageId ? receiptedFrom[upstreamStageId] ?? 0 : 0
+    const issuedIn = issuedTo[stage.id] ?? 0
+    const consumed = stageAggregates[stage.id]?.consumed ?? 0
+    availability[stage.id] = Math.max(0, upstreamOutput - receiptedAway + issuedIn - consumed)
+  })
   return availability
 }
 
@@ -58,42 +80,14 @@ export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
   return targets
 }
 
-/**
- * A stage is only truly reachable if every earlier-seq stage of the same
- * PRD has actually been resolved (Completed or Received). Manual stages
- * are skipped in this check -- they have no entry screen, so nothing ever
- * marks them, and requiring them to be "done" would permanently block
- * everything after a Manual mid-route step.
- */
-export function isStageReachable(stage, allStagesForPrd) {
-  return allStagesForPrd
-    .filter((s) => s.seq < stage.seq && s.type !== 'Manual')
-    .every((s) => s.status === 'Completed' || s.status === 'Received')
-}
-
-/**
- * §4's auto-resolve: given the operations a machine can perform (from
- * machine ops) and a PRD's stages, finds the next stage the operator
- * should log on that machine -- the lowest-seq stage that is still
- * Pending, Internal, whose operation the machine can perform, AND whose
- * earlier stages are all already resolved (isStageReachable) -- otherwise
- * a machine could start logging against a stage with nothing real behind
- * it yet. Returns null if there is none (the caller should tell the
- * operator clearly rather than let them free-pick an operation).
- */
-export function resolveNextEligibleStage(stages, machineOperations) {
-  const opsSet = new Set(machineOperations)
-  const sorted = [...stages].sort((a, b) => a.seq - b.seq)
-  return (
-    sorted.find(
-      (s) =>
-        s.status === 'Pending' &&
-        s.type === 'Internal' &&
-        opsSet.has(s.operation) &&
-        isStageReachable(s, sorted)
-    ) ?? null
-  )
-}
+// isStageReachable and resolveNextEligibleStage (the hard "every earlier
+// stage must be Completed/Received first" gate) were removed here: WIP
+// Receipt/Issue means a stage can legitimately be fed out of sequence, from
+// WIP holding rather than strictly from the stage before it. The safety
+// mechanism against double-working the same stage is now a lock based on
+// existing data -- an open production log (Machine Entry, see
+// getOpenLogForStage) or an open dispatch without a receipt (Job Order, see
+// listPendingOutsourcedStagesForPrd) -- not sequence position.
 
 /** Cycle Time Master stores minutes-per-unit; standard qty/hour is its inverse. */
 export function standardQtyPerHour(cycleTimeMin) {

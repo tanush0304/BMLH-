@@ -3,12 +3,16 @@ import MachineEntryScreen from './MachineEntryScreen'
 import ProductionScheduleScreen from './ProductionScheduleScreen'
 import OrderTraceabilityScreen from './OrderTraceabilityScreen'
 import ProductionPlanningScreen from './ProductionPlanningScreen'
+import WipReceiptScreen from './WipReceiptScreen'
+import WipIssueScreen from './WipIssueScreen'
 
 const TABS = [
   { key: 'machine-entry', label: 'Machine Entry', component: MachineEntryScreen },
   { key: 'schedule', label: 'Production Schedule', component: ProductionScheduleScreen },
   { key: 'traceability', label: 'Order Traceability', component: OrderTraceabilityScreen },
   { key: 'planning', label: 'Production Planning', component: ProductionPlanningScreen },
+  { key: 'wip-receipt', label: 'WIP Receipt', component: WipReceiptScreen },
+  { key: 'wip-issue', label: 'WIP Issue', component: WipIssueScreen },
 ]
 
 export default function ProductionModule() {

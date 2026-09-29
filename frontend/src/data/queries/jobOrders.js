@@ -1,6 +1,13 @@
 import { supabase } from '../../lib/supabaseClient'
-import { isStageReachable } from '../../utils/calculations'
 
+/**
+ * Sequence is no longer enforced (see machineEntry.js's listEligibleStagesForMachine
+ * for the same change) -- a stage can be fed via WIP Issue rather than strictly
+ * from the stage before it. The lock here is a still-open dispatch: a stage
+ * that's already been dispatched but not yet received can't be dispatched a
+ * second time (to a different vendor, say) until that receipt lands or the
+ * dispatch is otherwise resolved.
+ */
 export async function listPendingOutsourcedStagesForPrd(prdNo) {
   const { data, error } = await supabase
     .from('production route card stages')
@@ -8,9 +15,12 @@ export async function listPendingOutsourcedStagesForPrd(prdNo) {
     .eq('prd_no', prdNo)
     .order('seq')
   if (error) throw error
-  return data.filter(
-    (s) => s.type === 'Outsourced' && s.status === 'Pending' && isStageReachable(s, data)
+
+  const openDispatches = await listDispatchesWithoutReceipt()
+  const lockedStageIds = new Set(
+    openDispatches.filter((d) => d.prd_no === prdNo).map((d) => d.stage_id)
   )
+  return data.filter((s) => s.type === 'Outsourced' && s.status === 'Pending' && !lockedStageIds.has(s.id))
 }
 
 export async function listVendorsForJobWorkCode(jobWorkCode) {

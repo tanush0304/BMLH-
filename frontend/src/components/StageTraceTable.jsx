@@ -3,6 +3,7 @@ import RecordsList from './RecordsList'
 import { listCustomerOrders } from '../data/queries/customerOrders'
 import { getStagesForPrd } from '../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../data/queries/productionLogs'
+import { getWipAggregatesForPrd } from '../data/queries/wip'
 import { computeStageAvailability } from '../utils/calculations'
 
 const COLUMNS = [
@@ -28,13 +29,14 @@ export default function StageTraceTable({ prdNo, title }) {
       setLoading(true)
       setError(null)
       try {
-        const [orders, stages, aggregates] = await Promise.all([
+        const [orders, stages, aggregates, wipAggregates] = await Promise.all([
           listCustomerOrders(),
           getStagesForPrd(prdNo),
           getStageAggregatesForPrd(prdNo),
+          getWipAggregatesForPrd(prdNo),
         ])
         const order = orders.find((o) => o.prd_no === prdNo)
-        const availability = computeStageAvailability(stages, order?.order_qty ?? 0, aggregates)
+        const availability = computeStageAvailability(stages, order?.order_qty ?? 0, aggregates, wipAggregates)
         if (cancelled) return
         setRows(
           stages

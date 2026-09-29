@@ -1,11 +1,22 @@
 import { supabase } from '../../lib/supabaseClient'
-import { isStageReachable } from '../../utils/calculations'
 
 /**
  * §4's auto-resolve, at the data layer: for a machine, finds every PRD
  * that currently has an eligible stage (Pending, Internal, operation the
- * machine can perform, AND every earlier stage of that PRD already
- * resolved) and the lowest-seq such stage per PRD.
+ * machine can perform) and the lowest-seq such stage per PRD.
+ *
+ * Sequence is no longer enforced here -- WIP Receipt/Issue means a stage
+ * can legitimately be fed out of order (e.g. from WIP holding rather than
+ * directly from the stage before it), so "every earlier stage resolved"
+ * is no longer a valid gate. The safety mechanism is now the lock in
+ * MachineEntryScreen (getOpenLogForStage): once a (prd_no, stage_id) has
+ * an open production log, later sessions resume that log rather than
+ * opening a second one, so a stage can't be double-reserved.
+ *
+ * Known gap: if a machine has more than one eligible stage for the same
+ * PRD now that sequence doesn't collapse the candidates for you, this
+ * still silently picks the lowest-seq one -- there's no picker yet for an
+ * operator who specifically wants a later stage. Flagged, not fixed here.
  */
 export async function listEligibleStagesForMachine(machineId) {
   const { data: ops, error: opsErr } = await supabase
@@ -24,27 +35,11 @@ export async function listEligibleStagesForMachine(machineId) {
     .in('operation', operations)
     .order('seq')
   if (candidatesErr) throw candidatesErr
-  if (candidates.length === 0) return []
-
-  const prdNos = [...new Set(candidates.map((c) => c.prd_no))]
-  const { data: allStages, error: allStagesErr } = await supabase
-    .from('production route card stages')
-    .select('prd_no, seq, type, status')
-    .in('prd_no', prdNos)
-  if (allStagesErr) throw allStagesErr
-
-  const stagesByPrd = new Map()
-  for (const s of allStages) {
-    if (!stagesByPrd.has(s.prd_no)) stagesByPrd.set(s.prd_no, [])
-    stagesByPrd.get(s.prd_no).push(s)
-  }
 
   const byPrd = new Map()
   for (const stage of candidates) {
     if (byPrd.has(stage.prd_no)) continue
-    if (isStageReachable(stage, stagesByPrd.get(stage.prd_no) ?? [])) {
-      byPrd.set(stage.prd_no, stage)
-    }
+    byPrd.set(stage.prd_no, stage)
   }
   return [...byPrd.values()]
 }

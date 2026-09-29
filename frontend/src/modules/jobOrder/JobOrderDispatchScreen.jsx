@@ -14,6 +14,7 @@ import {
   listDispatches,
   createDispatch,
 } from '../../data/queries/jobOrders'
+import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import { computeStageAvailability } from '../../utils/calculations'
 
 const LIST_COLUMNS = [
@@ -93,14 +94,15 @@ export default function JobOrderDispatchScreen() {
     if (!stage) return
     setError(null)
     try {
-      const [vendors, order, allStages, aggregates] = await Promise.all([
+      const [vendors, order, allStages, aggregates, wipAggregates] = await Promise.all([
         listVendorsForJobWorkCode(stage.job_work_code),
         Promise.resolve(orders.find((o) => o.prd_no === prdNo)),
         getStagesForPrd(prdNo),
         getStageAggregatesForPrd(prdNo),
+        getWipAggregatesForPrd(prdNo),
       ])
       setVendorOptions(vendors)
-      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates)
+      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates, wipAggregates)
       setAvailableQty(availability[stage.id] ?? 0)
     } catch (e) {
       setError(e.message)
