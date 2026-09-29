@@ -5,18 +5,18 @@ export default function FormSection({ icon: Icon, title, columns = 3, children }
 
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-4 py-2.5">
-        {Icon && <Icon size={16} className="text-bmlhnavy" />}
-        <h2 className="text-sm font-semibold text-bmlhnavy">{title}</h2>
+      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3.5 py-1.5">
+        {Icon && <Icon size={14} className="text-bmlhnavy" />}
+        <h2 className="text-xs font-semibold text-bmlhnavy">{title}</h2>
       </div>
-      <div className={`grid ${colClass} gap-x-4 gap-y-3.5 p-5`}>{children}</div>
+      <div className={`grid ${colClass} gap-x-3 gap-y-2.5 p-3.5`}>{children}</div>
     </div>
   )
 }
 
 export function Field({ label, required, className = '', children }) {
   return (
-    <label className={`flex flex-col gap-1 text-sm ${className}`}>
+    <label className={`flex flex-col gap-0.5 text-xs ${className}`}>
       <span className="text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
@@ -30,7 +30,7 @@ export function TextInput(props) {
     <input
       {...props}
       type={props.type ?? 'text'}
-      className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
     />
   )
 }
@@ -44,7 +44,7 @@ export function SelectInput({ options = [], ...props }) {
   return (
     <select
       {...props}
-      className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
     >
       <option value="">Select...</option>
       {normalized.map((opt) => (
@@ -62,9 +62,9 @@ export function SelectInput({ options = [], ...props }) {
 export function AutoFillBox({ value, unit }) {
   return (
     <div className="flex rounded border border-gray-300 overflow-hidden bg-gray-100">
-      <div className="flex-1 px-3 py-2 text-sm text-gray-700 truncate">{value ?? ''}</div>
+      <div className="flex-1 px-2.5 py-1.5 text-xs text-gray-700 truncate">{value ?? ''}</div>
       {unit && (
-        <div className="px-3 py-2 text-sm text-gray-500 bg-gray-200 border-l border-gray-300 shrink-0">
+        <div className="px-2.5 py-1.5 text-xs text-gray-500 bg-gray-200 border-l border-gray-300 shrink-0">
           {unit}
         </div>
       )}

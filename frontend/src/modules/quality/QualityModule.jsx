@@ -238,7 +238,7 @@ export default function QualityModule() {
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Quality Inspection" subtitle="Define Quality Parameters  |  Maintain Standards  |  Ensure Product Excellence" />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
         )}

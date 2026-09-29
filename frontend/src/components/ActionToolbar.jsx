@@ -1,7 +1,7 @@
 import { Plus, Save, Pencil, Trash2, X, Search, Download, ChevronDown } from 'lucide-react'
 
 const BUTTON_BASE =
-  'inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:hover:bg-gray-200'
+  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:hover:bg-gray-200'
 
 export default function ActionToolbar({
   showCrudButtons = true,
@@ -21,7 +21,7 @@ export default function ActionToolbar({
   onExport,
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-6 py-3">
+    <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-5 py-2">
       {showCrudButtons && (
         <>
           <button className={`${BUTTON_BASE} bg-green-600 text-white hover:bg-green-700`} onClick={onNew}>
@@ -63,7 +63,7 @@ export default function ActionToolbar({
           onChange={(e) => onSearchChange?.(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onSearch?.()}
           placeholder={searchPlaceholder}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+          className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
         />
       </div>
       <button className={`${BUTTON_BASE} bg-bmlhnavy text-white hover:bg-[#0a1d3a]`} onClick={onSearch}>
