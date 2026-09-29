@@ -14,9 +14,7 @@ import StoresModule from './modules/stores/StoresModule'
 import { ModuleThemeProvider } from './components/ModuleTheme'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 
-const TITLES = {
-  drawing: 'Drawing Development',
-}
+const TITLES = {}
 
 function App() {
   const [session, setSession] = useState(undefined) // undefined = still checking, null = signed out
@@ -83,7 +81,7 @@ function App() {
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]">
+    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
       <Sidebar
         activeKey={activeKey}
         onSelect={setActiveKey}

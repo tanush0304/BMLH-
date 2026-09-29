@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Database,
-  PencilRuler,
   Factory,
   ShieldCheck,
   ClipboardList,
@@ -15,7 +14,6 @@ import { NAV_ITEMS } from '../utils/constants'
 const ICONS = {
   dashboard: LayoutDashboard,
   masters: Database,
-  drawing: PencilRuler,
   production: Factory,
   quality: ShieldCheck,
   'customer-order': ClipboardList,
@@ -28,12 +26,12 @@ export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut, rol
   const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
 
   return (
-    <aside className="w-60 shrink-0 bg-ink text-white flex flex-col min-h-screen">
-      <div className="px-5 py-6 border-b border-white/10">
-        <div className="text-lg font-bold tracking-wide">BMLH</div>
-        <div className="text-xs text-white/50 mt-0.5">Operations Console</div>
+    <aside className="w-52 shrink-0 bg-white text-bmlhnavy flex flex-col h-full overflow-y-auto border-r border-gray-200">
+      <div className="px-4 py-3.5 border-b border-gray-200">
+        <div className="text-base font-bold tracking-wide text-bmlhnavy">BMLH</div>
+        <div className="text-[11px] text-gray-500 mt-0.5">Operations Console</div>
       </div>
-      <nav className="flex-1 py-3">
+      <nav className="flex-1 py-2">
         {items.map((item) => {
           const Icon = ICONS[item.key] ?? LayoutDashboard
           const active = item.key === activeKey
@@ -41,31 +39,31 @@ export default function Sidebar({ activeKey, onSelect, userEmail, onSignOut, rol
             <button
               key={item.key}
               onClick={() => onSelect(item.key)}
-              className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors border-l-4 ${
+              className={`w-full flex items-center gap-2.5 px-4 py-2 text-xs transition-colors border-l-4 ${
                 active
-                  ? 'bg-white/5 border-amber text-amber font-medium'
-                  : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                  ? 'bg-bmlhsky border-bmlhblue text-bmlhblue font-semibold'
+                  : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-bmlhnavy'
               }`}
             >
-              <Icon size={18} />
+              <Icon size={15} />
               {item.label}
             </button>
           )
         })}
       </nav>
-      <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-xs text-white/40 truncate" title={userEmail}>
+          <div className="text-[11px] text-gray-600 truncate" title={userEmail}>
             {userEmail}
           </div>
-          <div className="text-[10px] text-white/30 capitalize">{role}</div>
+          <div className="text-[10px] text-gray-400 capitalize">{role}</div>
         </div>
         <button
           onClick={onSignOut}
-          className="text-white/50 hover:text-white shrink-0"
+          className="text-gray-400 hover:text-bmlhblue shrink-0"
           title="Sign out"
         >
-          <LogOut size={16} />
+          <LogOut size={15} />
         </button>
       </div>
     </aside>
