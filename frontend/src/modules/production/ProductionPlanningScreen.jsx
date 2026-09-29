@@ -120,13 +120,13 @@ export default function ProductionPlanningScreen() {
     )
   })
 
-  const btn = 'inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-medium disabled:opacity-40'
+  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-40'
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <PageHeader title="Production Planning" subtitle="Plan Today | Produce Efficiently | Deliver On Time" />
 
-      <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-6 py-3">
+      <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-5 py-2">
         <button className={`${btn} bg-green-600 text-white hover:bg-green-700`} onClick={handleReset}>
           <Plus size={16} /> New
         </button>

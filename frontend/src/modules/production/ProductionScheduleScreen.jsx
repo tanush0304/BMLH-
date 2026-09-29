@@ -60,7 +60,7 @@ export default function ProductionScheduleScreen() {
         searchPlaceholder="Search by PRD No / Operation..."
         showExport={false}
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F5F7FA]">
         <RecordsList
           title="Route Card Stages"
           columns={COLUMNS}

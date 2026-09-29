@@ -11,6 +11,7 @@ import QualityModule from './modules/quality/QualityModule'
 import JobOrderModule from './modules/jobOrder/JobOrderModule'
 import MaintenanceModule from './modules/maintenance/MaintenanceModule'
 import StoresModule from './modules/stores/StoresModule'
+import { ModuleThemeProvider } from './components/ModuleTheme'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 
 const TITLES = {
@@ -67,10 +68,13 @@ function App() {
   const canSeeMasters = role === 'supervisor' || role === 'admin'
 
   let content
+  let themeKey = activeKey
   if (activeKey === 'dashboard') content = <Dashboard onNavigate={setActiveKey} />
   else if (activeKey === 'masters' && canSeeMasters) content = <MasterList />
-  else if (activeKey === 'masters') content = <Dashboard />
-  else if (activeKey === 'customer-order') content = <CustomerOrderModule />
+  else if (activeKey === 'masters') {
+    content = <Dashboard />
+    themeKey = 'dashboard'
+  } else if (activeKey === 'customer-order') content = <CustomerOrderModule />
   else if (activeKey === 'production') content = <ProductionModule />
   else if (activeKey === 'quality') content = <QualityModule />
   else if (activeKey === 'job-order') content = <JobOrderModule />
@@ -87,7 +91,7 @@ function App() {
         onSignOut={() => supabase.auth.signOut()}
         role={role}
       />
-      {content}
+      <ModuleThemeProvider module={themeKey}>{content}</ModuleThemeProvider>
     </div>
   )
 }
