@@ -41,21 +41,33 @@ export async function listDispatches() {
   return data
 }
 
+/**
+ * The actual concurrency lock: "job order dispatch" has a partial unique
+ * index on stage_id where is_open, so a second dispatch for a stage that
+ * already has one open fails at the database with 23505 -- this check is
+ * just a courtesy to fail fast with a clear message before hitting that.
+ */
 export async function createDispatch(payload) {
-  const { data, error } = await supabase.from('job order dispatch').insert(payload).select().single()
-  if (error) throw error
+  const { data, error } = await supabase
+    .from('job order dispatch')
+    .insert({ ...payload, is_open: true })
+    .select()
+    .single()
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('This stage already has an open dispatch. Someone else dispatched it first -- refresh and check Job Order Status.')
+    }
+    throw error
+  }
   return data
 }
 
+/** Source of truth is the is_open column (set false by createReceipt below),
+ * not an inferred join against receipts. */
 export async function listDispatchesWithoutReceipt() {
-  const [{ data: dispatches, error: dErr }, { data: receipts, error: rErr }] = await Promise.all([
-    supabase.from('job order dispatch').select('*'),
-    supabase.from('job order receipt').select('dc_no'),
-  ])
-  if (dErr) throw dErr
-  if (rErr) throw rErr
-  const receivedDcNos = new Set(receipts.map((r) => r.dc_no))
-  return dispatches.filter((d) => !receivedDcNos.has(d.dc_no))
+  const { data, error } = await supabase.from('job order dispatch').select('*').eq('is_open', true)
+  if (error) throw error
+  return data
 }
 
 /**
@@ -63,7 +75,9 @@ export async function listDispatchesWithoutReceipt() {
  * 'Received' -- without this, an Outsourced stage stays 'Pending' forever
  * (the "job order status" view only derives a display label from
  * dispatch+receipt, it never touches production route card stages), which
- * permanently blocks isStageReachable() for every stage after it.
+ * permanently blocks a stage's downstream work. It also flips the
+ * dispatch's is_open to false directly, at the point the receipt actually
+ * happens -- not inferred from the receipt row's mere existence elsewhere.
  */
 export async function createReceipt(payload) {
   const { data: dispatch, error: dispatchErr } = await supabase
@@ -81,6 +95,12 @@ export async function createReceipt(payload) {
     .update({ status: 'Received', actual_date: payload.receipt_date ?? new Date().toISOString().slice(0, 10) })
     .eq('id', dispatch.stage_id)
   if (stageErr) throw stageErr
+
+  const { error: closeErr } = await supabase
+    .from('job order dispatch')
+    .update({ is_open: false })
+    .eq('dc_no', payload.dc_no)
+  if (closeErr) throw closeErr
 
   return data
 }

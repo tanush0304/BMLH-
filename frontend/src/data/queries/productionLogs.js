@@ -72,9 +72,8 @@ export async function getStageAggregatesForPrd(prdNo) {
  * check whether one already exists: if it does, the operator picking up
  * that stage in a new session should keep logging hours against it, not
  * open a second log (which would double-reserve the stage's share of the
- * upstream pool). There is no "closed" flag on production logs -- a stage
- * only stops being offered at all once it's marked Completed, so any log
- * found here for a still-Pending stage is by definition still open.
+ * upstream pool). Uses the is_open column directly (set by
+ * createProductionLog/closeProductionLog below), not an inference.
  */
 export async function getOpenLogForStage(prdNo, stageId) {
   const { data, error } = await supabase
@@ -82,6 +81,7 @@ export async function getOpenLogForStage(prdNo, stageId) {
     .select('*')
     .eq('prd_no', prdNo)
     .eq('stage_id', stageId)
+    .eq('is_open', true)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -89,10 +89,34 @@ export async function getOpenLogForStage(prdNo, stageId) {
   return data
 }
 
+/**
+ * The actual concurrency lock: "production logs" has a partial unique index
+ * on (prd_no, stage_id) where is_open, so a second log for a stage that
+ * already has one open fails at the database with 23505 -- getOpenLogForStage
+ * above is just a courtesy check to resume instead of even attempting a
+ * second insert in the common case; this catch handles the race where two
+ * inserts both got past that check.
+ */
 export async function createProductionLog(payload) {
-  const { data, error } = await supabase.from('production logs').insert(payload).select().single()
-  if (error) throw error
+  const { data, error } = await supabase
+    .from('production logs')
+    .insert({ ...payload, is_open: true })
+    .select()
+    .single()
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Someone already started this stage. Refresh and resume their session instead.')
+    }
+    throw error
+  }
   return data
+}
+
+/** Set explicitly at the point a log is marked complete -- not inferred from
+ * the stage's status or from output reaching its target elsewhere. */
+export async function closeProductionLog(logId) {
+  const { error } = await supabase.from('production logs').update({ is_open: false }).eq('id', logId)
+  if (error) throw error
 }
 
 export async function addProductionLogHour(payload) {

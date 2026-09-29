@@ -17,6 +17,7 @@ import {
   getLogTotals,
   getOpenLogForStage,
   listLogHoursForLogIds,
+  closeProductionLog,
 } from '../../data/queries/productionLogs'
 import {
   computeStageAvailability,
@@ -224,6 +225,7 @@ export default function MachineEntryScreen() {
     setError(null)
     try {
       await updateStageStatus(resolvedStage.id, 'Completed')
+      if (activeLog) await closeProductionLog(activeLog.id)
       // Stage is done -- clear the resolved state and refresh which PRDs
       // are still eligible on this machine (the next stage, if Internal and
       // on this machine, will now show up).
