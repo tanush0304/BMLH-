@@ -4,6 +4,7 @@ import { Factory, Cog, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
 import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOps'
@@ -77,10 +78,6 @@ export default function MachineMaster() {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
-  function toggleOperation(op) {
-    setOperations((ops) => (ops.includes(op) ? ops.filter((o) => o !== op) : [...ops, op]))
-  }
-
   function handleNew() {
     setForm(EMPTY_FORM)
     setOperations([])
@@ -125,7 +122,7 @@ export default function MachineMaster() {
       } else {
         await createMachine(form)
       }
-      await setMachineOperations(form.machine_id, operations)
+      await setMachineOperations(form.machine_id, operations.filter(Boolean))
       await refresh()
       setMode('view')
     } catch (e) {
@@ -199,8 +196,7 @@ export default function MachineMaster() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="w-full lg:w-[31%]">
+        <div className="flex flex-col gap-3">
           <FormSection icon={Factory} title="1. Machine Details">
             <Field label="Machine ID" required>
               <TextInput value={form.machine_id} onChange={handleField('machine_id')} disabled={idLocked} />
@@ -220,9 +216,7 @@ export default function MachineMaster() {
               />
             </Field>
           </FormSection>
-          </div>
 
-          <div className="w-full lg:w-[31%]">
           <FormSection icon={Cog} title="2. Asset Details">
             <Field label="Machine Type">
               <TextInput value={form.machine_type} onChange={handleField('machine_type')} disabled={readOnly} />
@@ -237,26 +231,19 @@ export default function MachineMaster() {
               <TextInput value={form.serial_no} onChange={handleField('serial_no')} disabled={readOnly} />
             </Field>
           </FormSection>
-          </div>
 
-          <div className="w-full lg:w-[31%]">
-          <FormSection icon={ListChecks} title="3. Nature of Operation" columns={1}>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {OPERATION_OPTIONS.map((op) => (
-                <label key={op} className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={operations.includes(op)}
-                    onChange={() => toggleOperation(op)}
-                    disabled={readOnly}
-                    className="rounded border-gray-300"
-                  />
-                  {op}
-                </label>
-              ))}
-            </div>
+          <FormSection icon={ListChecks} title="3. Nature of Operation">
+            <Field label="Operations Performed" width="long">
+              <MultiSelectDropdown
+                options={OPERATION_OPTIONS}
+                selected={operations}
+                onChange={setOperations}
+                disabled={readOnly}
+                placeholder="Select operations..."
+                key={mode === 'new' ? 'new' : form.machine_id}
+              />
+            </Field>
           </FormSection>
-          </div>
         </div>
 
         <RecordsList

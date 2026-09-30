@@ -29,7 +29,7 @@ const WIDTH_CLASS = {
 export function Field({ label, required, width = 'medium', className = '', children }) {
   return (
     <label className={`flex flex-col gap-0.5 text-xs ${WIDTH_CLASS[width] ?? WIDTH_CLASS.medium} ${className}`}>
-      <span className="text-gray-700">
+      <span className="text-gray-700 min-h-[32px] flex items-end">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {children}

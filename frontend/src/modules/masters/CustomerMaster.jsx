@@ -44,8 +44,8 @@ const SECTIONS = [
     columns: 2,
     width: 'narrow',
     fields: [
-      { key: 'customer_id', label: 'Customer ID', required: true, lockOnEdit: true },
-      { key: 'customer_name', label: 'Customer Name', required: true },
+      { key: 'customer_id', label: 'Customer ID', required: true, lockOnEdit: true, width: 'short' },
+      { key: 'customer_name', label: 'Customer Name', required: true, width: 'short' },
     ],
   },
   {
