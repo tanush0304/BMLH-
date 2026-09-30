@@ -4,10 +4,26 @@ import { Truck as TruckIcon, Phone, Landmark, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
 import { listVendors, createVendor, updateVendor, deleteVendor } from '../../data/queries/vendors'
-import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
+import { listJobWorkTypes, createJobWorkType } from '../../data/queries/jobWorkTypes'
 import { listJobWorkTypesForVendor, setVendorJobWorkTypes } from '../../data/queries/vendorJobWorkTypes'
+
+// Job work master IS a real, shared table (unlike Machine Master's hardcoded
+// operations list), so a custom "Other" value typed here can genuinely become
+// a permanent selectable type for every vendor going forward -- generated at
+// save time, not per keystroke, since typing shouldn't create DB rows.
+function generateJobWorkCode(name, existingCodes) {
+  const base = 'JW-' + name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24)
+  let code = base
+  let i = 1
+  while (existingCodes.includes(code)) {
+    code = `${base}_${i}`
+    i += 1
+  }
+  return code
+}
 
 const EMPTY_FORM = {
   vendor_id: '',
@@ -44,7 +60,7 @@ export default function VendorMaster() {
   const [listSearch, setListSearch] = useState('')
   const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
-  const [selectedJobWorkCodes, setSelectedJobWorkCodes] = useState([])
+  const [selectedTypeNames, setSelectedTypeNames] = useState([])
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -71,22 +87,16 @@ export default function VendorMaster() {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
-  function toggleJobWorkCode(code) {
-    setSelectedJobWorkCodes((codes) =>
-      codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]
-    )
-  }
-
   function handleNew() {
     setForm(EMPTY_FORM)
-    setSelectedJobWorkCodes([])
+    setSelectedTypeNames([])
     setMode('new')
     setSaveError(null)
   }
 
   function handleClear() {
     setForm(EMPTY_FORM)
-    setSelectedJobWorkCodes([])
+    setSelectedTypeNames([])
     setMode('new')
     setSaveError(null)
   }
@@ -97,7 +107,10 @@ export default function VendorMaster() {
     setSaveError(null)
     try {
       const links = await listJobWorkTypesForVendor(row.vendor_id)
-      setSelectedJobWorkCodes(links.map((l) => l.job_work_code))
+      const names = links
+        .map((l) => jobWorkTypes.find((j) => j.job_work_code === l.job_work_code)?.type_of_job_work)
+        .filter(Boolean)
+      setSelectedTypeNames(names)
     } catch (e) {
       setSaveError(e.message)
     }
@@ -122,7 +135,26 @@ export default function VendorMaster() {
       } else {
         await createVendor(payload)
       }
-      await setVendorJobWorkTypes(form.vendor_id, selectedJobWorkCodes)
+
+      // Resolve each selected type name to its job_work_code, creating a new
+      // permanent Job Work Type row for any name that isn't an existing one
+      // yet (the "Other" free-text entry) -- not just a one-off note on this
+      // vendor, it becomes selectable for every vendor from here on.
+      let knownTypes = jobWorkTypes
+      const codes = []
+      for (const name of selectedTypeNames) {
+        const existing = knownTypes.find((j) => j.type_of_job_work === name)
+        if (existing) {
+          codes.push(existing.job_work_code)
+        } else {
+          const code = generateJobWorkCode(name, knownTypes.map((j) => j.job_work_code))
+          const created = await createJobWorkType({ job_work_code: code, type_of_job_work: name, lead_time_days: null })
+          knownTypes = [...knownTypes, created]
+          codes.push(created.job_work_code)
+        }
+      }
+      await setVendorJobWorkTypes(form.vendor_id, codes)
+
       await refresh()
       setMode('view')
     } catch (e) {
@@ -230,24 +262,17 @@ export default function VendorMaster() {
           </div>
 
           <div className="w-full lg:w-[31%]">
-          <FormSection icon={ListChecks} title="3. Job Work Types Performed" subtitle="Outsourced operations they handle" columns={1}>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {jobWorkTypes.map((jwt) => (
-                <label key={jwt.job_work_code} className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={selectedJobWorkCodes.includes(jwt.job_work_code)}
-                    onChange={() => toggleJobWorkCode(jwt.job_work_code)}
-                    disabled={readOnly}
-                    className="rounded border-gray-300"
-                  />
-                  {jwt.type_of_job_work}
-                </label>
-              ))}
-              {jobWorkTypes.length === 0 && (
-                <p className="text-sm text-gray-400">No job work types defined yet.</p>
-              )}
-            </div>
+          <FormSection icon={ListChecks} title="3. Job Work Types Performed" subtitle="Outsourced operations they handle">
+            <Field label="Job Work Types" width="long">
+              <MultiSelectDropdown
+                options={jobWorkTypes.map((jwt) => jwt.type_of_job_work)}
+                selected={selectedTypeNames}
+                onChange={setSelectedTypeNames}
+                disabled={readOnly}
+                placeholder="Select job work types..."
+                key={mode === 'new' ? 'new' : form.vendor_id}
+              />
+            </Field>
           </FormSection>
           </div>
 
