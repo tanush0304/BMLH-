@@ -1,4 +1,4 @@
-import { User, Phone, Home, MapPin, Landmark, Settings } from 'lucide-react'
+import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
 import MasterFormScreen from '../../components/MasterFormScreen'
 import {
   listCustomers,
@@ -84,28 +84,36 @@ const SECTIONS = [
     ],
   },
   {
-    icon: Landmark,
-    title: '5. Statutory & Commercial Details',
-    width: 'full',
+    icon: FileText,
+    title: '5. Statutory Details',
+    width: 'half',
     fields: [
-      { key: 'gstin_number', label: 'GSTIN Number' },
-      { key: 'pan_number', label: 'PAN Number' },
-      { key: 'msme_udyam_no', label: 'MSME / Udyam No.' },
-      { key: 'gst_registered', label: 'GST Registered', type: 'select', options: ['true', 'false'] },
+      { key: 'gstin_number', label: 'GSTIN Number', width: 'tiny' },
+      { key: 'pan_number', label: 'PAN Number', width: 'tiny' },
+      { key: 'msme_udyam_no', label: 'MSME / Udyam No.', width: 'tiny' },
+      { key: 'gst_registered', label: 'GST Registered', type: 'select', options: ['true', 'false'], width: 'tiny' },
+    ],
+  },
+  {
+    icon: Landmark,
+    title: '6. Commercial Details',
+    width: 'half',
+    fields: [
       {
         key: 'payment_terms',
         label: 'Payment Terms',
         required: true,
         type: 'select',
         options: ['30 Days', '45 Days', '60 Days'],
+        width: 'short',
       },
-      { key: 'currency', label: 'Currency', required: true, type: 'select', options: ['INR', 'USD', 'EURO'] },
-      { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] },
+      { key: 'currency', label: 'Currency', required: true, type: 'select', options: ['INR', 'USD', 'EURO'], width: 'short' },
+      { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], width: 'short' },
     ],
   },
   {
     icon: Settings,
-    title: '6. Customer Product & Drawing Details',
+    title: '7. Customer Product & Drawing Details',
     width: 'full',
     fields: [
       { key: 'customer_product_part_number', label: 'Customer Product Part Number' },

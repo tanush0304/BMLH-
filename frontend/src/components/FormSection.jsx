@@ -21,6 +21,7 @@ export default function FormSection({ icon: Icon, title, columns, children }) {
 // only one 'long' field per row reads well; use 'medium' for more than one
 // wide-ish field on the same row.
 const WIDTH_CLASS = {
+  tiny: 'w-24',
   short: 'w-28',
   medium: 'w-48',
   long: 'flex-1 min-w-[220px]',
