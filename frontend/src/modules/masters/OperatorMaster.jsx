@@ -16,6 +16,7 @@ const SECTIONS = [
   {
     icon: UserCog,
     title: '1. Operator Details',
+    subtitle: 'Employee identity and role',
     width: 'full',
     fields: [
       { key: 'operator_emp_id', label: 'Employee ID', required: true, lockOnEdit: true },

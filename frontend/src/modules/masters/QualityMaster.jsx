@@ -198,7 +198,7 @@ export default function QualityMaster() {
           </div>
         )}
 
-        <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" columns={3}>
+        <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Standard and tolerance" columns={3}>
           <Field label="Product Code">
             <SelectInput
               value={form.product_code}

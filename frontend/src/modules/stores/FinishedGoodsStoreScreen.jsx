@@ -320,7 +320,7 @@ export default function FinishedGoodsStoreScreen() {
         )}
 
         {mode === 'dispatch' ? (
-          <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" columns={2}>
+          <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" subtitle="Dispatch to customer" columns={2}>
             <Field label="User ID" required>
               <SelectInput
                 value={dispatchForm.operator_emp_id}
@@ -396,7 +396,7 @@ export default function FinishedGoodsStoreScreen() {
             </p>
           </FormSection>
         ) : (
-          <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" columns={2}>
+          <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" subtitle="Receive from production" columns={2}>
             <Field label="User ID" required>
               <SelectInput
                 value={receiptForm.operator_emp_id}

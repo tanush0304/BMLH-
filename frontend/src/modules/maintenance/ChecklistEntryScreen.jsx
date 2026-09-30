@@ -154,7 +154,7 @@ export default function ChecklistEntryScreen() {
           </div>
         )}
 
-        <FormSection icon={Wrench} title="1. Visit Details" columns={4}>
+        <FormSection icon={Wrench} title="1. Visit Details" subtitle="Maintenance visit and machine" columns={4}>
           <Field label="Machine" required>
             <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => m.machine_id)} />
           </Field>

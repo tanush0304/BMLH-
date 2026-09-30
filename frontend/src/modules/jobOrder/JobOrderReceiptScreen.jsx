@@ -110,7 +110,7 @@ export default function JobOrderReceiptScreen() {
           </div>
         )}
 
-        <FormSection icon={PackageCheck} title="1. Receipt Details" columns={3}>
+        <FormSection icon={PackageCheck} title="1. Receipt Details" subtitle="Batch returned from a vendor" columns={3}>
           <Field label="Dispatch (DC No)" required>
             <SelectInput value={dcNo} onChange={(e) => setDcNo(e.target.value)} options={pending.map((d) => d.dc_no)} />
           </Field>

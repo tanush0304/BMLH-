@@ -17,6 +17,7 @@ const SECTIONS = [
   {
     icon: Truck,
     title: '1. Job Work Type Details',
+    subtitle: 'Outsourced operation and lead time',
     width: 'full',
     fields: [
       { key: 'job_work_code', label: 'Job Work Code', required: true, lockOnEdit: true },

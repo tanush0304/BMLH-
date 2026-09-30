@@ -262,7 +262,7 @@ export default function MachineEntryScreen() {
           </div>
         )}
 
-        <FormSection icon={Factory} title="1. Select Machine & Order" columns={3}>
+        <FormSection icon={Factory} title="1. Select Machine & Order" subtitle="Pick machine and order" columns={3}>
           <Field label="Machine" required>
             <SelectInput value={machineId} onChange={handleMachineChange} options={machines.map((m) => m.machine_id)} />
           </Field>
@@ -301,7 +301,7 @@ export default function MachineEntryScreen() {
         </FormSection>
 
         {resolvedStage && (
-          <FormSection icon={PlayCircle} title="2. Auto-Resolved Stage" columns={3}>
+          <FormSection icon={PlayCircle} title="2. Auto-Resolved Stage" subtitle="Stage resolved automatically" columns={3}>
             <Field label="Operation">
               <TextInput value={resolvedStage.operation} disabled />
             </Field>
@@ -341,7 +341,7 @@ export default function MachineEntryScreen() {
         )}
 
         {activeLog && (
-          <FormSection icon={Clock3} title="3. Hourly Entry" columns={4}>
+          <FormSection icon={Clock3} title="3. Hourly Entry" subtitle="Log output for this hour" columns={4}>
             <Field label="Qty Produced">
               <TextInput
                 type="number"

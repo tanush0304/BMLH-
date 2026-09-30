@@ -219,7 +219,7 @@ export default function CycleTimeMaster() {
           </div>
         )}
 
-        <FormSection icon={Route} title="1. Route Step Details" columns={3}>
+        <FormSection icon={Route} title="1. Route Step Details" subtitle="One operation in a route" columns={3}>
           <Field label="Product Code" required>
             <SelectInput
               value={form.product_code}

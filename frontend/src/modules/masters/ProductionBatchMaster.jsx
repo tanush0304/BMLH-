@@ -172,7 +172,7 @@ export default function ProductionBatchMaster() {
           </div>
         )}
 
-        <FormSection icon={Layers} title="1. Batch Details" columns={2}>
+        <FormSection icon={Layers} title="1. Batch Details" subtitle="Standard qty per product" columns={2}>
           <Field label="Product Code" required>
             <SelectInput
               value={form.product_code}

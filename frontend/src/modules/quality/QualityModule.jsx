@@ -244,7 +244,7 @@ export default function QualityModule() {
         )}
 
         {step === 'header' && (
-          <FormSection icon={ClipboardCheck} title="1. Inspection Header" columns={3}>
+          <FormSection icon={ClipboardCheck} title="1. Inspection Header" subtitle="Who, what and where inspected" columns={3}>
             <Field label="Operator" required>
               <SelectInput
                 value={header.operator_emp_id}

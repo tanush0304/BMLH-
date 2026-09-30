@@ -318,7 +318,7 @@ export default function RawMaterialStoreScreen() {
         )}
 
         {mode === 'issue' ? (
-          <FormSection icon={Boxes} title="Stores Module - Raw Material & Consumables Issue Details" columns={2}>
+          <FormSection icon={Boxes} title="Stores Module - Raw Material & Consumables Issue Details" subtitle="Issue to production" columns={2}>
             <Field label="User ID" required>
               <SelectInput
                 value={issueForm.operator_emp_id}
@@ -387,7 +387,7 @@ export default function RawMaterialStoreScreen() {
             </p>
           </FormSection>
         ) : (
-          <FormSection icon={PackagePlus} title="Stores Module - Raw Material & Consumables Receipt Details" columns={2}>
+          <FormSection icon={PackagePlus} title="Stores Module - Raw Material & Consumables Receipt Details" subtitle="Receive from supplier" columns={2}>
             <Field label="User ID" required>
               <SelectInput
                 value={receiptForm.operator_emp_id}

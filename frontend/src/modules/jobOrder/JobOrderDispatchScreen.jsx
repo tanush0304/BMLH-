@@ -179,7 +179,7 @@ export default function JobOrderDispatchScreen() {
           </div>
         )}
 
-        <FormSection icon={Truck} title="1. Dispatch Details" columns={3}>
+        <FormSection icon={Truck} title="1. Dispatch Details" subtitle="Batch sent out to a vendor" columns={3}>
           <Field label="Production Order (PRD No)" required>
             <SelectInput value={prdNo} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>

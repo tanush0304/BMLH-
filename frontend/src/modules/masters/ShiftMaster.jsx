@@ -16,6 +16,7 @@ const SECTIONS = [
   {
     icon: Clock,
     title: '1. Shift Details',
+    subtitle: 'Working hours and break schedule',
     width: 'full',
     columns: 2,
     fields: [

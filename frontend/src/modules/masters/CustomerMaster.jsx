@@ -41,6 +41,7 @@ const SECTIONS = [
   {
     icon: User,
     title: '1. Customer Details',
+    subtitle: 'Primary identification details',
     columns: 2,
     width: 'narrow',
     fields: [
@@ -51,6 +52,7 @@ const SECTIONS = [
   {
     icon: Phone,
     title: '2. Contact Information',
+    subtitle: 'Communication details',
     width: 'wide',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name', required: true, width: 'short' },
@@ -62,6 +64,7 @@ const SECTIONS = [
   {
     icon: Home,
     title: '3. Registered Address',
+    subtitle: 'Official registered address',
     width: 'full',
     fields: [
       { key: 'registered_address', label: 'Address', required: true, colSpan: 'lg:col-span-2' },
@@ -74,6 +77,7 @@ const SECTIONS = [
   {
     icon: MapPin,
     title: '4. Delivery Location',
+    subtitle: 'Where goods are shipped',
     width: 'full',
     fields: [
       { key: 'delivery_address', label: 'Address', required: true, colSpan: 'lg:col-span-2' },
@@ -86,6 +90,7 @@ const SECTIONS = [
   {
     icon: FileText,
     title: '5. Statutory Details',
+    subtitle: 'Tax and compliance identifiers',
     width: 'half',
     fields: [
       { key: 'gstin_number', label: 'GSTIN Number', width: 'tiny' },
@@ -97,6 +102,7 @@ const SECTIONS = [
   {
     icon: Landmark,
     title: '6. Commercial Details',
+    subtitle: 'Payment and currency terms',
     width: 'half',
     fields: [
       {
@@ -114,6 +120,7 @@ const SECTIONS = [
   {
     icon: Settings,
     title: '7. Customer Product & Drawing Details',
+    subtitle: 'Linked product and drawing refs',
     width: 'full',
     fields: [
       { key: 'customer_product_part_number', label: 'Customer Product Part Number' },

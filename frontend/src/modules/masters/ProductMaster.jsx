@@ -15,6 +15,7 @@ const SECTIONS = [
   {
     icon: Package,
     title: '1. Product Details',
+    subtitle: 'Core product identity',
     columns: 2,
     width: 'narrow',
     fields: [
@@ -25,6 +26,7 @@ const SECTIONS = [
   {
     icon: Tags,
     title: '2. Classification',
+    subtitle: 'Category, type and status',
     columns: 2,
     width: 'wide',
     fields: [

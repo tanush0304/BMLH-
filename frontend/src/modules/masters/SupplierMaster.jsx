@@ -29,6 +29,7 @@ const SECTIONS = [
   {
     icon: TruckIcon,
     title: '1. Supplier Details',
+    subtitle: 'Core supplier identity',
     columns: 2,
     width: 'half',
     fields: [
@@ -40,6 +41,7 @@ const SECTIONS = [
   {
     icon: Phone,
     title: '2. Contact Information',
+    subtitle: 'Communication details',
     width: 'half',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name' },
@@ -51,6 +53,7 @@ const SECTIONS = [
   {
     icon: Landmark,
     title: '3. Statutory & Commercial Details',
+    subtitle: 'Tax IDs and payment terms',
     width: 'full',
     fields: [
       { key: 'gstin_no', label: 'GSTIN No' },

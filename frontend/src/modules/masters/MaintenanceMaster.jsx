@@ -178,7 +178,7 @@ export default function MaintenanceMaster() {
           </div>
         )}
 
-        <FormSection icon={Wrench} title="1. Checklist Item Details" columns={2}>
+        <FormSection icon={Wrench} title="1. Checklist Item Details" subtitle="Reusable item per machine" columns={2}>
           <Field label="Machine">
             <SelectInput
               value={form.machine_id}

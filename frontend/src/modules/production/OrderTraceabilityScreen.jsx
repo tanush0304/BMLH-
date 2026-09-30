@@ -31,7 +31,7 @@ export default function OrderTraceabilityScreen() {
           </div>
         )}
 
-        <FormSection icon={SearchIcon} title="1. Select Order" columns={2}>
+        <FormSection icon={SearchIcon} title="1. Select Order" subtitle="Pick an order to trace" columns={2}>
           <Field label="Production Order (PRD No)">
             <SelectInput value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
           </Field>

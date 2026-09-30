@@ -198,7 +198,7 @@ export default function VendorMaster() {
 
         <div className="flex flex-wrap items-start gap-3">
           <div className="w-full lg:w-[31%]">
-          <FormSection icon={TruckIcon} title="1. Vendor Details" columns={2}>
+          <FormSection icon={TruckIcon} title="1. Vendor Details" subtitle="Core vendor identity" columns={2}>
             <Field label="Vendor ID" required>
               <TextInput value={form.vendor_id} onChange={handleField('vendor_id')} disabled={idLocked} />
             </Field>
@@ -212,7 +212,7 @@ export default function VendorMaster() {
           </div>
 
           <div className="w-full lg:w-[31%]">
-          <FormSection icon={Phone} title="2. Contact Information">
+          <FormSection icon={Phone} title="2. Contact Information" subtitle="Communication details">
             <Field label="Contact Person Name">
               <TextInput
                 value={form.contact_person_name}
@@ -230,7 +230,7 @@ export default function VendorMaster() {
           </div>
 
           <div className="w-full lg:w-[31%]">
-          <FormSection icon={ListChecks} title="3. Job Work Types Performed" columns={1}>
+          <FormSection icon={ListChecks} title="3. Job Work Types Performed" subtitle="Outsourced operations they handle" columns={1}>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {jobWorkTypes.map((jwt) => (
                 <label key={jwt.job_work_code} className="flex items-center gap-1.5 text-sm text-gray-700">
@@ -252,7 +252,7 @@ export default function VendorMaster() {
           </div>
 
           <div className="w-full">
-          <FormSection icon={Landmark} title="4. Statutory & Commercial Details" columns={2}>
+          <FormSection icon={Landmark} title="4. Statutory & Commercial Details" subtitle="Tax IDs and payment terms" columns={2}>
             <Field label="GSTIN No">
               <TextInput value={form.gstin_no} onChange={handleField('gstin_no')} disabled={readOnly} />
             </Field>

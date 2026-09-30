@@ -192,7 +192,7 @@ export default function CustomerEnquiryScreen() {
           </div>
         )}
 
-        <FormSection icon={FileText} title="1. Enquiry Details" columns={3}>
+        <FormSection icon={FileText} title="1. Enquiry Details" subtitle="Prospective customer request" columns={3}>
           <Field label="QTN No" required>
             <TextInput value={form.qtn_no} onChange={handleField('qtn_no')} disabled={idLocked} />
           </Field>

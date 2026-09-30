@@ -266,7 +266,7 @@ export default function RawMaterialMaster() {
 
         <div className="flex flex-wrap items-start gap-3">
           <div className="w-full lg:w-[48.5%]">
-          <FormSection icon={Boxes} title="1. Material Details">
+          <FormSection icon={Boxes} title="1. Material Details" subtitle="Core material identity">
             <Field label="Raw Material Code" required>
               <TextInput
                 value={form.raw_material_code}
@@ -301,7 +301,7 @@ export default function RawMaterialMaster() {
           </div>
 
           <div className="w-full lg:w-[48.5%]">
-          <FormSection icon={Ruler} title="2. Dimensions">
+          <FormSection icon={Ruler} title="2. Dimensions" subtitle="Physical size specifications">
             <Field label="Diameter (mm)">
               <TextInput value={form.diameter_mm} onChange={handleField('diameter_mm')} disabled={readOnly} />
             </Field>

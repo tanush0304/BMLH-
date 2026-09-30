@@ -197,7 +197,7 @@ export default function MachineMaster() {
         )}
 
         <div className="flex flex-col gap-3">
-          <FormSection icon={Factory} title="1. Machine Details">
+          <FormSection icon={Factory} title="1. Machine Details" subtitle="Identity and classification">
             <Field label="Machine ID" required>
               <TextInput value={form.machine_id} onChange={handleField('machine_id')} disabled={idLocked} />
             </Field>
@@ -217,7 +217,7 @@ export default function MachineMaster() {
             </Field>
           </FormSection>
 
-          <FormSection icon={Cog} title="2. Asset Details">
+          <FormSection icon={Cog} title="2. Asset Details" subtitle="Make, model and serial number">
             <Field label="Machine Type">
               <TextInput value={form.machine_type} onChange={handleField('machine_type')} disabled={readOnly} />
             </Field>
@@ -232,7 +232,7 @@ export default function MachineMaster() {
             </Field>
           </FormSection>
 
-          <FormSection icon={ListChecks} title="3. Nature of Operation">
+          <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
             <Field label="Operations Performed" width="long">
               <MultiSelectDropdown
                 options={OPERATION_OPTIONS}

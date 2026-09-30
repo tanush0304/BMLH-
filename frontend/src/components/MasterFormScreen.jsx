@@ -196,6 +196,7 @@ export default function MasterFormScreen({
             <FormSection
               icon={section.icon}
               title={section.title}
+              subtitle={section.subtitle}
               columns={section.columns ?? 2}
             >
               {section.fields.map((f) => (

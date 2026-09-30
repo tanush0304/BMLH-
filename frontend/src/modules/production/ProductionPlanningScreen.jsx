@@ -150,7 +150,7 @@ export default function ProductionPlanningScreen() {
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
         )}
 
-        <FormSection icon={ClipboardList} title="Production Planning Details" columns={2}>
+        <FormSection icon={ClipboardList} title="Production Planning Details" subtitle="Plan an order into production" columns={2}>
           <Field label="Customer Order No" required>
             <SelectInput value={form.prd_no} onChange={handleSelectPrd} options={orders.map((o) => o.prd_no)} />
           </Field>

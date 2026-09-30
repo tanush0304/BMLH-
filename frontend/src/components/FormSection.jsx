@@ -3,12 +3,32 @@
 // on one row, each field sized to its own width tier (see Field's `width`
 // prop) rather than a fixed column split, and only wraps to a second line
 // if it genuinely doesn't fit at the current viewport width.
-export default function FormSection({ icon: Icon, title, columns, children }) {
+//
+// The numbered badge is parsed off an existing "N. Title" convention already
+// used everywhere (so call sites don't need a separate number prop) -- title
+// text after the number is what's actually displayed, the digit moves into
+// the badge instead of staying inline. A title with no leading number (a
+// screen with only one section) just gets badge "1". Badge color is fixed
+// (bmlhblue) for every section -- the only thing that varies section to
+// section is the subtitle text and the icon.
+export default function FormSection({ icon: Icon, title, subtitle, columns, children }) {
+  const match = /^(\d+)\.\s*(.*)$/.exec(title)
+  const number = match ? match[1] : '1'
+  const displayTitle = match ? match[2] : title
+
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-1.5 bg-bmlhsky border-b border-gray-200 px-3 py-1">
-        {Icon && <Icon size={13} className="text-bmlhnavy" />}
-        <h2 className="text-xs font-semibold text-bmlhnavy">{title}</h2>
+      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1.5">
+        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-bmlhblue text-white text-[10px] font-bold shrink-0">
+          {number}
+        </span>
+        {Icon && <Icon size={13} className="text-bmlhnavy shrink-0" />}
+        <h2 className="text-xs font-semibold text-bmlhnavy truncate">{displayTitle}</h2>
+        {subtitle && (
+          <span className="ml-auto pl-2 text-[10px] text-gray-500 font-normal whitespace-nowrap truncate">
+            {subtitle}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-2.5">{children}</div>
     </div>

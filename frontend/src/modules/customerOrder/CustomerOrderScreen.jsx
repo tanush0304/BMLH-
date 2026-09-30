@@ -196,7 +196,7 @@ export default function CustomerOrderScreen() {
           </div>
         )}
 
-        <FormSection icon={ClipboardList} title="1. Order Details" columns={3}>
+        <FormSection icon={ClipboardList} title="1. Order Details" subtitle="Confirmed purchase order" columns={3}>
           <Field label="PRD No" required>
             <TextInput value={form.prd_no} onChange={handleField('prd_no')} disabled={idLocked} />
           </Field>
