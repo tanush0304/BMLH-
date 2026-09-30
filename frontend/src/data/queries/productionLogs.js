@@ -69,7 +69,7 @@ export async function getStageAggregatesForPrd(prdNo) {
 /**
  * A stage's planned_qty is reserved once, when its log is first opened --
  * it does not change on resume. So before opening a new log for a stage,
- * check whether one already exists: if it does, the operator picking up
+ * check whether one already exists: if it does, the user picking up
  * that stage in a new session should keep logging hours against it, not
  * open a second log (which would double-reserve the stage's share of the
  * upstream pool). Uses the is_open column directly (set by

@@ -4,7 +4,7 @@ import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus } from '../../data/queries/routeCards'
@@ -34,7 +34,7 @@ const HOUR_COLUMNS = [
 
 export default function MachineEntryScreen() {
   const [machines, setMachines] = useState([])
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -51,7 +51,7 @@ export default function MachineEntryScreen() {
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
   const [completing, setCompleting] = useState(false)
 
-  const [operatorId, setOperatorId] = useState('')
+  const [userId, setUserId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
 
   const [starting, setStarting] = useState(false)
@@ -66,9 +66,9 @@ export default function MachineEntryScreen() {
       setLoading(true)
       setError(null)
       try {
-        const [machs, ops, shf] = await Promise.all([listMachines(), listOperators(), listShifts()])
+        const [machs, usrs, shf] = await Promise.all([listMachines(), listUsers(), listShifts()])
         setMachines(machs)
-        setOperators(ops)
+        setUsers(usrs)
         setShifts(shf)
       } catch (e) {
         setError(e.message)
@@ -118,7 +118,7 @@ export default function MachineEntryScreen() {
     if (choices.length === 1) {
       resolveStage(prd, choices[0])
     }
-    // If there's more than one, wait for the operator to pick via
+    // If there's more than one, wait for the user to pick via
     // handleStageChoice below -- don't guess which one they mean.
   }
 
@@ -163,7 +163,7 @@ export default function MachineEntryScreen() {
   }
 
   async function handleStart() {
-    if (!machineId || !prdNo || !resolvedStage || !operatorId || !shiftCode) {
+    if (!machineId || !prdNo || !resolvedStage || !userId || !shiftCode) {
       setError('Machine, PRD, User and Shift are all required to start.')
       return
     }
@@ -174,7 +174,7 @@ export default function MachineEntryScreen() {
         prd_no: prdNo,
         stage_id: resolvedStage.id,
         machine_id: machineId,
-        user_emp_id: operatorId,
+        user_emp_id: userId,
         shift_code: shiftCode,
         start_time: new Date().toISOString(),
         planned_qty: plannedQty,
@@ -316,9 +316,9 @@ export default function MachineEntryScreen() {
             </Field>
             <Field label="User" required>
               <SelectInput
-                value={operatorId}
-                onChange={(e) => setOperatorId(e.target.value)}
-                options={operators.map((o) => o.user_emp_id)}
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                options={users.map((o) => o.user_emp_id)}
               />
             </Field>
             <Field label="Shift" required>

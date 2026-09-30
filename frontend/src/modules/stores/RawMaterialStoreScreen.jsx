@@ -5,7 +5,7 @@ import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../c
 import RecordsList from '../../components/RecordsList'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProducts } from '../../data/queries/products'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { listSuppliers } from '../../data/queries/suppliers'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -65,7 +65,7 @@ export default function RawMaterialStoreScreen() {
   const [mode, setMode] = useState('issue') // 'issue' | 'receipt'
   const [rawMaterials, setRawMaterials] = useState([])
   const [products, setProducts] = useState([])
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [balances, setBalances] = useState([])
@@ -83,10 +83,10 @@ export default function RawMaterialStoreScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [rms, prods, ops, shf, sups, bal, txns, userId] = await Promise.all([
+      const [rms, prods, usrs, shf, sups, bal, txns, userId] = await Promise.all([
         listRawMaterials(),
         listProducts(),
-        listOperators(),
+        listUsers(),
         listShifts(),
         listSuppliers(),
         listRawMaterialStockBalance(),
@@ -95,7 +95,7 @@ export default function RawMaterialStoreScreen() {
       ])
       setRawMaterials(rms)
       setProducts(prods)
-      setOperators(ops)
+      setUsers(usrs)
       setShifts(shf)
       setSuppliers(sups)
       setBalances(bal)
@@ -112,8 +112,8 @@ export default function RawMaterialStoreScreen() {
     refresh()
   }, [])
 
-  function operatorName(id) {
-    return operators.find((o) => o.user_emp_id === id)?.operator_name ?? ''
+  function userName(id) {
+    return users.find((o) => o.user_emp_id === id)?.user_name ?? ''
   }
 
   function materialName(code) {
@@ -212,7 +212,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Issue')
     .map((t) => ({
       ...t,
-      user_name: operatorName(t.user_emp_id),
+      user_name: userName(t.user_emp_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
       units_producible: '—',
@@ -222,7 +222,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Receipt')
     .map((t) => ({
       ...t,
-      user_name: operatorName(t.user_emp_id),
+      user_name: userName(t.user_emp_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
     }))
@@ -323,7 +323,7 @@ export default function RawMaterialStoreScreen() {
               <SelectInput
                 value={issueForm.user_emp_id}
                 onChange={handleIssueField('user_emp_id')}
-                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
+                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Current Stock">
@@ -331,7 +331,7 @@ export default function RawMaterialStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(issueForm.user_emp_id)} />
+              <AutoFillBox value={userName(issueForm.user_emp_id)} />
             </Field>
             <Field label="Number of units can be produced">
               <AutoFillBox value="" unit="Nos" />
@@ -392,7 +392,7 @@ export default function RawMaterialStoreScreen() {
               <SelectInput
                 value={receiptForm.user_emp_id}
                 onChange={handleReceiptField('user_emp_id')}
-                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
+                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Current Stock">
@@ -400,7 +400,7 @@ export default function RawMaterialStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(receiptForm.user_emp_id)} />
+              <AutoFillBox value={userName(receiptForm.user_emp_id)} />
             </Field>
             <Field label="Supplier">
               <SelectInput

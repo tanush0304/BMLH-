@@ -1,15 +1,15 @@
 import { UserCog } from 'lucide-react'
 import MasterFormScreen from '../../components/MasterFormScreen'
-import { listOperators, createOperator, updateOperator, deleteOperator } from '../../data/queries/operators'
+import { listUsers, createUser, updateUser, deleteUser } from '../../data/queries/users'
 
 const EMPTY_FORM = {
   user_emp_id: '',
-  operator_name: '',
+  user_name: '',
   department: '',
   designation: '',
   employee_type: '',
   joining_date: '',
-  operator_status: '',
+  user_status: '',
 }
 
 const SECTIONS = [
@@ -20,7 +20,7 @@ const SECTIONS = [
     width: 'full',
     fields: [
       { key: 'user_emp_id', label: 'Employee ID', required: true, lockOnEdit: true },
-      { key: 'operator_name', label: 'User Name', required: true },
+      { key: 'user_name', label: 'User Name', required: true },
       { key: 'department', label: 'Department' },
       { key: 'designation', label: 'Designation' },
       {
@@ -30,21 +30,21 @@ const SECTIONS = [
         options: ['Permanent', 'Contract', 'Apprentice'],
       },
       { key: 'joining_date', label: 'Joining Date', type: 'date' },
-      { key: 'operator_status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] },
+      { key: 'user_status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] },
     ],
   },
 ]
 
 const LIST_COLUMNS = [
   { key: 'user_emp_id', label: 'Employee ID' },
-  { key: 'operator_name', label: 'User Name' },
+  { key: 'user_name', label: 'User Name' },
   { key: 'department', label: 'Department' },
   { key: 'designation', label: 'Designation' },
   { key: 'employee_type', label: 'Employee Type' },
-  { key: 'operator_status', label: 'Status', type: 'status' },
+  { key: 'user_status', label: 'Status', type: 'status' },
 ]
 
-export default function OperatorMaster() {
+export default function UserMaster() {
   return (
     <MasterFormScreen
       title="User Master"
@@ -53,8 +53,8 @@ export default function OperatorMaster() {
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}
-      searchFields={['user_emp_id', 'operator_name']}
-      api={{ list: listOperators, create: createOperator, update: updateOperator, remove: deleteOperator }}
+      searchFields={['user_emp_id', 'user_name']}
+      api={{ list: listUsers, create: createUser, update: updateUser, remove: deleteUser }}
       exportFilename="user_master.csv"
     />
   )

@@ -5,7 +5,7 @@ import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../c
 import RecordsList from '../../components/RecordsList'
 import StatusPill from '../../components/StatusPill'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
@@ -64,7 +64,7 @@ const RECEIPT_COLUMNS = [
 export default function FinishedGoodsStoreScreen() {
   const [mode, setMode] = useState('dispatch') // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [balances, setBalances] = useState([])
   const [transactions, setTransactions] = useState([])
@@ -82,9 +82,9 @@ export default function FinishedGoodsStoreScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [ords, ops, shf, bal, txns, status, userId] = await Promise.all([
+      const [ords, usrs, shf, bal, txns, status, userId] = await Promise.all([
         listCustomerOrders(),
-        listOperators(),
+        listUsers(),
         listShifts(),
         listFinishedGoodsStockBalance(),
         listFinishedGoodsTransactions(),
@@ -92,7 +92,7 @@ export default function FinishedGoodsStoreScreen() {
         getCurrentUserId(),
       ])
       setOrders(ords)
-      setOperators(ops)
+      setUsers(usrs)
       setShifts(shf)
       setBalances(bal)
       setTransactions(txns)
@@ -117,8 +117,8 @@ export default function FinishedGoodsStoreScreen() {
     return (e) => setReceiptForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
-  function operatorName(id) {
-    return operators.find((o) => o.user_emp_id === id)?.operator_name ?? ''
+  function userName(id) {
+    return users.find((o) => o.user_emp_id === id)?.user_name ?? ''
   }
 
   const selectedDispatchOrder = orders.find((o) => o.prd_no === dispatchForm.prd_no)
@@ -216,7 +216,7 @@ export default function FinishedGoodsStoreScreen() {
       const status = orderStatus.find((s) => s.prd_no === t.prd_no)
       return {
         ...t,
-        user_name: operatorName(t.user_emp_id),
+        user_name: userName(t.user_emp_id),
         order_qty: order?.order_qty ?? '',
         qty_in_stock: qtyInStockForProduct(t.product_code),
         qty_received: qtyReceivedForPrd(t.prd_no),
@@ -227,7 +227,7 @@ export default function FinishedGoodsStoreScreen() {
 
   const receiptRows = transactions
     .filter((t) => t.transaction_type === 'Production Receipt')
-    .map((t) => ({ ...t, user_name: operatorName(t.user_emp_id) }))
+    .map((t) => ({ ...t, user_name: userName(t.user_emp_id) }))
 
   const activeRows = mode === 'dispatch' ? dispatchRows : receiptRows
   const filteredRows = activeRows.filter((r) => {
@@ -325,7 +325,7 @@ export default function FinishedGoodsStoreScreen() {
               <SelectInput
                 value={dispatchForm.user_emp_id}
                 onChange={handleDispatchField('user_emp_id')}
-                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
+                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Order Quantity">
@@ -333,7 +333,7 @@ export default function FinishedGoodsStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(dispatchForm.user_emp_id)} />
+              <AutoFillBox value={userName(dispatchForm.user_emp_id)} />
             </Field>
             <Field label="Quantity in Stock">
               <AutoFillBox value={qtyInStockForProduct(selectedDispatchOrder?.product_code)} unit="Nos" />
@@ -401,7 +401,7 @@ export default function FinishedGoodsStoreScreen() {
               <SelectInput
                 value={receiptForm.user_emp_id}
                 onChange={handleReceiptField('user_emp_id')}
-                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
+                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Product Code">
@@ -409,7 +409,7 @@ export default function FinishedGoodsStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(receiptForm.user_emp_id)} />
+              <AutoFillBox value={userName(receiptForm.user_emp_id)} />
             </Field>
             <Field label="Quantity Received" required>
               <div className="flex rounded overflow-hidden border border-gray-300">

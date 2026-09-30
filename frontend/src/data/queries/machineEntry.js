@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
  * PRD -- including MORE THAN ONE stage for the same PRD, now that sequence
  * doesn't collapse the candidates for you (WIP Receipt/Issue means a stage
  * can legitimately be fed out of order). The caller (MachineEntryScreen) is
- * responsible for asking the operator which stage they mean when a PRD has
+ * responsible for asking the user which stage they mean when a PRD has
  * more than one; this used to silently pick the lowest-seq one, which is
  * the gap that was fixed.
  *

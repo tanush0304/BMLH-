@@ -5,7 +5,7 @@ import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import {
   listChecklistItemsForMachine,
@@ -23,14 +23,14 @@ const LOG_COLUMNS = [
 
 export default function ChecklistEntryScreen() {
   const [machines, setMachines] = useState([])
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [recentLogs, setRecentLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const [machineId, setMachineId] = useState('')
-  const [operatorId, setOperatorId] = useState('')
+  const [userId, setUserId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
   const [logDate, setLogDate] = useState('')
   const [checklistItems, setChecklistItems] = useState([])
@@ -44,14 +44,14 @@ export default function ChecklistEntryScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [machs, ops, shf, logs] = await Promise.all([
+      const [machs, usrs, shf, logs] = await Promise.all([
         listMachines(),
-        listOperators(),
+        listUsers(),
         listShifts(),
         listRecentMaintenanceLogs(),
       ])
       setMachines(machs)
-      setOperators(ops)
+      setUsers(usrs)
       setShifts(shf)
       setRecentLogs(logs)
     } catch (e) {
@@ -81,7 +81,7 @@ export default function ChecklistEntryScreen() {
   }
 
   async function handleStartVisit() {
-    if (!machineId || !operatorId || !shiftCode || !logDate) {
+    if (!machineId || !userId || !shiftCode || !logDate) {
       setError('Machine, Engineer, Shift and Date are all required to start a visit.')
       return
     }
@@ -90,7 +90,7 @@ export default function ChecklistEntryScreen() {
     try {
       const log = await createMaintenanceLog({
         machine_id: machineId,
-        user_emp_id: operatorId,
+        user_emp_id: userId,
         shift_code: shiftCode,
         log_date: logDate,
       })
@@ -159,7 +159,7 @@ export default function ChecklistEntryScreen() {
             <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => m.machine_id)} />
           </Field>
           <Field label="Maintenance Engineer" required>
-            <SelectInput value={operatorId} onChange={(e) => setOperatorId(e.target.value)} disabled={!!activeLog} options={operators.map((o) => o.user_emp_id)} />
+            <SelectInput value={userId} onChange={(e) => setUserId(e.target.value)} disabled={!!activeLog} options={users.map((o) => o.user_emp_id)} />
           </Field>
           <Field label="Shift" required>
             <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} disabled={!!activeLog} options={shifts.map((s) => s.shift_code)} />

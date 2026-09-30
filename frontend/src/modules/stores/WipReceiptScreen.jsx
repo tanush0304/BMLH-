@@ -5,7 +5,7 @@ import FormSection, { Field, SelectInput, TextInput } from '../../components/For
 import RecordsList from '../../components/RecordsList'
 import { listPrdsWithRouteCard } from '../../data/queries/qualityLogs'
 import { getStagesForPrd } from '../../data/queries/routeCards'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipReceipt, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
@@ -14,7 +14,7 @@ const EMPTY_FORM = { prd_no: '', stage_id: '', qty: '', user_emp_id: '', shift_c
 
 export default function WipReceiptScreen() {
   const [orders, setOrders] = useState([])
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [completedStages, setCompletedStages] = useState([])
   const [balances, setBalances] = useState([])
@@ -24,10 +24,10 @@ export default function WipReceiptScreen() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([listPrdsWithRouteCard(), listOperators(), listShifts()])
-      .then(([o, ops, shf]) => {
+    Promise.all([listPrdsWithRouteCard(), listUsers(), listShifts()])
+      .then(([o, usrs, shf]) => {
         setOrders(o)
-        setOperators(ops)
+        setUsers(usrs)
         setShifts(shf)
       })
       .catch((e) => setError(e.message))
@@ -122,7 +122,7 @@ export default function WipReceiptScreen() {
             <SelectInput
               value={form.user_emp_id}
               onChange={handleField('user_emp_id')}
-              options={operators.map((o) => ({ value: o.user_emp_id, label: o.operator_name }))}
+              options={users.map((o) => ({ value: o.user_emp_id, label: o.user_name }))}
             />
           </Field>
           <Field label="Shift" required>

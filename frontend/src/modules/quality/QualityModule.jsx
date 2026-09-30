@@ -4,7 +4,7 @@ import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import StatusPill from '../../components/StatusPill'
-import { listOperators } from '../../data/queries/operators'
+import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listPrdsWithRouteCard, createQualityLog, createQualityLogReadings, listQualityInspectionHistory } from '../../data/queries/qualityLogs'
@@ -44,7 +44,7 @@ function computeResult(standard, upperTolerance, lowerTolerance, observedValue) 
 export default function QualityModule() {
   const [step, setStep] = useState('header')
 
-  const [operators, setOperators] = useState([])
+  const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
   const [machines, setMachines] = useState([])
   const [orders, setOrders] = useState([])
@@ -67,14 +67,14 @@ export default function QualityModule() {
     setLoading(true)
     setError(null)
     try {
-      const [ops, shf, machs, ords, hist] = await Promise.all([
-        listOperators(),
+      const [usrs, shf, machs, ords, hist] = await Promise.all([
+        listUsers(),
         listShifts(),
         listMachines(),
         listPrdsWithRouteCard(),
         listQualityInspectionHistory(),
       ])
-      setOperators(ops)
+      setUsers(usrs)
       setShifts(shf)
       setMachines(machs)
       setOrders(ords)
@@ -249,7 +249,7 @@ export default function QualityModule() {
               <SelectInput
                 value={header.user_emp_id}
                 onChange={(e) => setHeader((f) => ({ ...f, user_emp_id: e.target.value }))}
-                options={operators.map((o) => ({ value: o.user_emp_id, label: o.operator_name }))}
+                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_name }))}
               />
             </Field>
             <Field label="Shift" required>
