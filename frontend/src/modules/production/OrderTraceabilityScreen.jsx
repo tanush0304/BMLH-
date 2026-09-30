@@ -22,7 +22,7 @@ export default function OrderTraceabilityScreen() {
   }, [])
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Order Traceability" subtitle="Stage-by-Stage Progress for One Production Order" />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (

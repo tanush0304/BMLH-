@@ -16,6 +16,7 @@ const SECTIONS = [
     icon: Package,
     title: '1. Product Details',
     columns: 2,
+    width: 'narrow',
     fields: [
       { key: 'product_code', label: 'Product Code', required: true, lockOnEdit: true },
       { key: 'product_name', label: 'Product Name', required: true },
@@ -25,6 +26,7 @@ const SECTIONS = [
     icon: Tags,
     title: '2. Classification',
     columns: 2,
+    width: 'wide',
     fields: [
       {
         key: 'product_category',

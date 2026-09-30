@@ -16,6 +16,7 @@ const SECTIONS = [
   {
     icon: Clock,
     title: '1. Shift Details',
+    width: 'full',
     columns: 2,
     fields: [
       { key: 'shift_code', label: 'Shift Code', required: true, lockOnEdit: true },

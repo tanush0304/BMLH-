@@ -123,7 +123,7 @@ export default function ProductionPlanningScreen() {
   const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-40'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Production Planning" subtitle="Plan Today | Produce Efficiently | Deliver On Time" />
 
       <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">

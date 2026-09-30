@@ -35,7 +35,7 @@ export default function MasterList() {
   const Screen = entity?.component
 
   return (
-    <div className="flex-1 flex min-w-0">
+    <div className="flex-1 flex min-w-0 min-h-0">
       <div className="w-52 shrink-0 bg-white border-r border-gray-200 py-3 overflow-y-auto">
         {ENTITIES.map((e) => (
           <button
@@ -51,7 +51,7 @@ export default function MasterList() {
           </button>
         ))}
       </div>
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <Screen />
       </div>
     </div>

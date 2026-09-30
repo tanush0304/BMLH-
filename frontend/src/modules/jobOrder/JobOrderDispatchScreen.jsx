@@ -162,7 +162,7 @@ export default function JobOrderDispatchScreen() {
   })
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Job Order Dispatch" subtitle="Send a Batch Out to a Vendor" />
       <ActionToolbar
         showCrudButtons={false}

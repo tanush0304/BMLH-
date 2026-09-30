@@ -1,3 +1,4 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Boxes, Ruler, Trash2, Plus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -205,17 +206,12 @@ export default function RawMaterialMaster() {
     }
   }
 
-  function handleExport() {
-    const header = LIST_COLUMNS.map((c) => c.label).join(',')
-    const rows = filteredRecords.map((r) => LIST_COLUMNS.map((c) => r[c.key] ?? '').join(','))
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'raw_material_master.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  function handleExportExcel() {
+    exportToCsv(LIST_COLUMNS, filteredRecords, 'raw_material_master.csv')
+  }
+
+  function handleExportPdf() {
+    exportToPdf(LIST_COLUMNS, filteredRecords, 'Raw Material Master', 'raw_material_master')
   }
 
   function handleToolbarSearch() {
@@ -239,7 +235,7 @@ export default function RawMaterialMaster() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Raw Material Master"
         subtitle="Manage Raw Material Inventory  |  Track Type, Dimensions & Suppliers"
@@ -257,7 +253,8 @@ export default function RawMaterialMaster() {
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
         searchPlaceholder="Search by RM Code / Name..."
-        onExport={handleExport}
+        onExportExcel={handleExportExcel}
+        onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -267,7 +264,8 @@ export default function RawMaterialMaster() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="w-full lg:w-[48.5%]">
           <FormSection icon={Boxes} title="1. Material Details">
             <Field label="Raw Material Code" required>
               <TextInput
@@ -300,7 +298,9 @@ export default function RawMaterialMaster() {
               />
             </Field>
           </FormSection>
+          </div>
 
+          <div className="w-full lg:w-[48.5%]">
           <FormSection icon={Ruler} title="2. Dimensions">
             <Field label="Diameter (mm)">
               <TextInput value={form.diameter_mm} onChange={handleField('diameter_mm')} disabled={readOnly} />
@@ -332,6 +332,7 @@ export default function RawMaterialMaster() {
               />
             </Field>
           </FormSection>
+          </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-md overflow-hidden">

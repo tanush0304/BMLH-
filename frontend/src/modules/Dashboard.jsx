@@ -30,7 +30,7 @@ export default function Dashboard({ onNavigate }) {
   }, [])
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Dashboard" subtitle="Overview of shop-floor operations" />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (

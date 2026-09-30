@@ -249,7 +249,7 @@ export default function MachineEntryScreen() {
   const noEligiblePrd = machineId && !resolving && eligibleStages.length === 0
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Machine Entry"
         subtitle="Operator picks the machine + order; the stage resolves itself"

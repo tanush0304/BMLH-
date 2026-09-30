@@ -42,6 +42,7 @@ const SECTIONS = [
     icon: User,
     title: '1. Customer Details',
     columns: 2,
+    width: 'narrow',
     fields: [
       { key: 'customer_id', label: 'Customer ID', required: true, lockOnEdit: true },
       { key: 'customer_name', label: 'Customer Name', required: true },
@@ -50,6 +51,7 @@ const SECTIONS = [
   {
     icon: Phone,
     title: '2. Contact Information',
+    width: 'wide',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name', required: true },
       { key: 'mobile_number', label: 'Mobile Number', required: true },
@@ -60,6 +62,7 @@ const SECTIONS = [
   {
     icon: Home,
     title: '3. Registered Address',
+    width: 'full',
     fields: [
       { key: 'registered_address', label: 'Address', required: true, colSpan: 'lg:col-span-2' },
       { key: 'registered_city', label: 'City', required: true },
@@ -71,6 +74,7 @@ const SECTIONS = [
   {
     icon: MapPin,
     title: '4. Delivery Location',
+    width: 'full',
     fields: [
       { key: 'delivery_address', label: 'Address', required: true, colSpan: 'lg:col-span-2' },
       { key: 'delivery_city', label: 'City', required: true },
@@ -82,6 +86,7 @@ const SECTIONS = [
   {
     icon: FileText,
     title: '5. Statutory Details',
+    width: 'half',
     fields: [
       { key: 'gstin_number', label: 'GSTIN Number' },
       { key: 'pan_number', label: 'PAN Number' },
@@ -92,6 +97,7 @@ const SECTIONS = [
   {
     icon: Landmark,
     title: '6. Commercial Details',
+    width: 'half',
     fields: [
       {
         key: 'payment_terms',
@@ -107,6 +113,7 @@ const SECTIONS = [
   {
     icon: Settings,
     title: '7. Customer Product & Drawing Details',
+    width: 'full',
     fields: [
       { key: 'customer_product_part_number', label: 'Customer Product Part Number' },
       { key: 'customer_drawing_ref_no', label: 'Customer Drawing Reference No', required: true },

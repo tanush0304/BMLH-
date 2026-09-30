@@ -96,7 +96,7 @@ export default function WipReceiptScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="WIP Receipt" subtitle="Log Completed Output Into Work-In-Progress Holding" />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (

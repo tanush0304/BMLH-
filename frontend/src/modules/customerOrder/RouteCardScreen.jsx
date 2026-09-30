@@ -60,7 +60,7 @@ export default function RouteCardScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Production Route Cards"
         subtitle="Generated From Production Planning  |  Frozen Snapshot Per Order"

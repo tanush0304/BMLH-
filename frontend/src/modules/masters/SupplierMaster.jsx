@@ -30,6 +30,7 @@ const SECTIONS = [
     icon: TruckIcon,
     title: '1. Supplier Details',
     columns: 2,
+    width: 'half',
     fields: [
       { key: 'supplier_id', label: 'Supplier ID', required: true, lockOnEdit: true },
       { key: 'supplier_name', label: 'Supplier Name', required: true },
@@ -39,6 +40,7 @@ const SECTIONS = [
   {
     icon: Phone,
     title: '2. Contact Information',
+    width: 'half',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name' },
       { key: 'mobile_number', label: 'Mobile Number' },
@@ -49,6 +51,7 @@ const SECTIONS = [
   {
     icon: Landmark,
     title: '3. Statutory & Commercial Details',
+    width: 'full',
     fields: [
       { key: 'gstin_no', label: 'GSTIN No' },
       { key: 'pan_no', label: 'PAN No' },

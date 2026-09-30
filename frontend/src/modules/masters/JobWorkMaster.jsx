@@ -17,6 +17,7 @@ const SECTIONS = [
   {
     icon: Truck,
     title: '1. Job Work Type Details',
+    width: 'full',
     fields: [
       { key: 'job_work_code', label: 'Job Work Code', required: true, lockOnEdit: true },
       { key: 'type_of_job_work', label: 'Type of Job Work', required: true },

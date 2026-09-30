@@ -50,7 +50,7 @@ export default function ProductionScheduleScreen() {
   })
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Production Schedule" subtitle="Every Route Card Stage, Across All Orders" />
       <ActionToolbar
         showCrudButtons={false}

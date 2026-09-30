@@ -1,3 +1,4 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Truck as TruckIcon, Phone, Landmark, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -147,17 +148,12 @@ export default function VendorMaster() {
     }
   }
 
-  function handleExport() {
-    const header = LIST_COLUMNS.map((c) => c.label).join(',')
-    const rows = filteredRecords.map((r) => LIST_COLUMNS.map((c) => r[c.key] ?? '').join(','))
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'vendor_master.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  function handleExportExcel() {
+    exportToCsv(LIST_COLUMNS, filteredRecords, 'vendor_master.csv')
+  }
+
+  function handleExportPdf() {
+    exportToPdf(LIST_COLUMNS, filteredRecords, 'Vendor Master', 'vendor_master')
   }
 
   function handleToolbarSearch() {
@@ -174,7 +170,7 @@ export default function VendorMaster() {
   const idLocked = mode !== 'new'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Vendor Master" subtitle="Manage Vendor Information  |  Outsourcing Partners" />
       <ActionToolbar
         onNew={handleNew}
@@ -189,7 +185,8 @@ export default function VendorMaster() {
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
         searchPlaceholder="Search by Vendor ID / Name..."
-        onExport={handleExport}
+        onExportExcel={handleExportExcel}
+        onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -199,7 +196,8 @@ export default function VendorMaster() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={TruckIcon} title="1. Vendor Details" columns={2}>
             <Field label="Vendor ID" required>
               <TextInput value={form.vendor_id} onChange={handleField('vendor_id')} disabled={idLocked} />
@@ -211,7 +209,9 @@ export default function VendorMaster() {
               <TextInput value={form.vendor_address} onChange={handleField('vendor_address')} disabled={readOnly} />
             </Field>
           </FormSection>
+          </div>
 
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={Phone} title="2. Contact Information">
             <Field label="Contact Person Name">
               <TextInput
@@ -227,7 +227,9 @@ export default function VendorMaster() {
               <TextInput type="email" value={form.email_id} onChange={handleField('email_id')} disabled={readOnly} />
             </Field>
           </FormSection>
+          </div>
 
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={ListChecks} title="3. Job Work Types Performed" columns={1}>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {jobWorkTypes.map((jwt) => (
@@ -247,7 +249,9 @@ export default function VendorMaster() {
               )}
             </div>
           </FormSection>
+          </div>
 
+          <div className="w-full">
           <FormSection icon={Landmark} title="4. Statutory & Commercial Details" columns={2}>
             <Field label="GSTIN No">
               <TextInput value={form.gstin_no} onChange={handleField('gstin_no')} disabled={readOnly} />
@@ -295,6 +299,7 @@ export default function VendorMaster() {
               <TextInput value={form.ifsc_code} onChange={handleField('ifsc_code')} disabled={readOnly} />
             </Field>
           </FormSection>
+          </div>
         </div>
 
         <RecordsList

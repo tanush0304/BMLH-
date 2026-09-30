@@ -1,3 +1,4 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Factory, Cog, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -150,17 +151,12 @@ export default function MachineMaster() {
     }
   }
 
-  function handleExport() {
-    const header = LIST_COLUMNS.map((c) => c.label).join(',')
-    const rows = filteredRecords.map((r) => LIST_COLUMNS.map((c) => r[c.key] ?? '').join(','))
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'machine_master.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  function handleExportExcel() {
+    exportToCsv(LIST_COLUMNS, filteredRecords, 'machine_master.csv')
+  }
+
+  function handleExportPdf() {
+    exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')
   }
 
   function handleToolbarSearch() {
@@ -177,7 +173,7 @@ export default function MachineMaster() {
   const idLocked = mode !== 'new'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Machine Master" subtitle="Manage Machine Inventory  |  Track Assets & Capabilities" />
       <ActionToolbar
         onNew={handleNew}
@@ -192,7 +188,8 @@ export default function MachineMaster() {
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
         searchPlaceholder="Search by Machine ID / Name..."
-        onExport={handleExport}
+        onExportExcel={handleExportExcel}
+        onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -202,7 +199,8 @@ export default function MachineMaster() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={Factory} title="1. Machine Details">
             <Field label="Machine ID" required>
               <TextInput value={form.machine_id} onChange={handleField('machine_id')} disabled={idLocked} />
@@ -222,7 +220,9 @@ export default function MachineMaster() {
               />
             </Field>
           </FormSection>
+          </div>
 
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={Cog} title="2. Asset Details">
             <Field label="Machine Type">
               <TextInput value={form.machine_type} onChange={handleField('machine_type')} disabled={readOnly} />
@@ -237,7 +237,9 @@ export default function MachineMaster() {
               <TextInput value={form.serial_no} onChange={handleField('serial_no')} disabled={readOnly} />
             </Field>
           </FormSection>
+          </div>
 
+          <div className="w-full lg:w-[31%]">
           <FormSection icon={ListChecks} title="3. Nature of Operation" columns={1}>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {OPERATION_OPTIONS.map((op) => (
@@ -254,6 +256,7 @@ export default function MachineMaster() {
               ))}
             </div>
           </FormSection>
+          </div>
         </div>
 
         <RecordsList

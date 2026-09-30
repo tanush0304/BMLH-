@@ -93,7 +93,7 @@ export default function JobOrderReceiptScreen() {
   })
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Job Order Receipt" subtitle="Batch Coming Back From a Vendor" />
       <ActionToolbar
         showCrudButtons={false}
