@@ -1,3 +1,4 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Wrench } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -125,17 +126,12 @@ export default function MaintenanceMaster() {
     }
   }
 
-  function handleExport() {
-    const header = LIST_COLUMNS.map((c) => c.label).join(',')
-    const rows = filteredRecords.map((r) => LIST_COLUMNS.map((c) => r[c.key] ?? '').join(','))
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'maintenance_master.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  function handleExportExcel() {
+    exportToCsv(LIST_COLUMNS, filteredRecords, 'maintenance_master.csv')
+  }
+
+  function handleExportPdf() {
+    exportToPdf(LIST_COLUMNS, filteredRecords, 'Maintenance Master', 'maintenance_master')
   }
 
   function handleToolbarSearch() {
@@ -153,7 +149,7 @@ export default function MaintenanceMaster() {
   const readOnly = mode === 'view'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Maintenance Master"
         subtitle="Manage Maintenance Checklists  |  Reusable Items Per Machine"
@@ -171,7 +167,8 @@ export default function MaintenanceMaster() {
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
         searchPlaceholder="Search by Machine ID / Checklist Item..."
-        onExport={handleExport}
+        onExportExcel={handleExportExcel}
+        onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">

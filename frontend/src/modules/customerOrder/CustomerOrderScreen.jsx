@@ -1,3 +1,4 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -147,17 +148,12 @@ export default function CustomerOrderScreen() {
     }
   }
 
-  function handleExport() {
-    const header = LIST_COLUMNS.map((c) => c.label).join(',')
-    const rows = filteredRecords.map((r) => LIST_COLUMNS.map((c) => r[c.key] ?? '').join(','))
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'customer_orders.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  function handleExportExcel() {
+    exportToCsv(LIST_COLUMNS, filteredRecords, 'customer_orders.csv')
+  }
+
+  function handleExportPdf() {
+    exportToPdf(LIST_COLUMNS, filteredRecords, 'Customer Orders', 'customer_orders')
   }
 
   function handleToolbarSearch() {
@@ -174,7 +170,7 @@ export default function CustomerOrderScreen() {
   const idLocked = mode !== 'new'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Customer Orders" subtitle="Purchase Order Stage  |  One Row Per PRD" />
       <ActionToolbar
         onNew={handleNew}
@@ -189,7 +185,8 @@ export default function CustomerOrderScreen() {
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
         searchPlaceholder="Search by PRD No / PO Number..."
-        onExport={handleExport}
+        onExportExcel={handleExportExcel}
+        onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">

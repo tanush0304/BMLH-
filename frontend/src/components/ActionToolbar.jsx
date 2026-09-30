@@ -1,4 +1,5 @@
-import { Plus, Save, Pencil, Trash2, X, Search, Download, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Save, Pencil, Trash2, X, Search, Download, ChevronDown, FileSpreadsheet, FileText } from 'lucide-react'
 
 const BUTTON_BASE =
   'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:hover:bg-gray-200'
@@ -18,8 +19,11 @@ export default function ActionToolbar({
   onSearch,
   searchPlaceholder = 'Search...',
   showExport = true,
-  onExport,
+  onExportExcel,
+  onExportPdf,
 }) {
+  const [exportOpen, setExportOpen] = useState(false)
+
   return (
     <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">
       {showCrudButtons && (
@@ -71,12 +75,37 @@ export default function ActionToolbar({
       </button>
 
       {showExport && (
-        <button
-          className={`${BUTTON_BASE} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`}
-          onClick={onExport}
-        >
-          <Download size={16} /> Export <ChevronDown size={14} />
-        </button>
+        <div className="relative ml-auto">
+          <button
+            className={`${BUTTON_BASE} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6]`}
+            onClick={() => setExportOpen((v) => !v)}
+            onBlur={() => setTimeout(() => setExportOpen(false), 150)}
+          >
+            <Download size={16} /> Export <ChevronDown size={14} />
+          </button>
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 w-40 overflow-hidden">
+              <button
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                onClick={() => {
+                  setExportOpen(false)
+                  onExportExcel?.()
+                }}
+              >
+                <FileSpreadsheet size={14} /> Excel
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 border-t border-gray-100"
+                onClick={() => {
+                  setExportOpen(false)
+                  onExportPdf?.()
+                }}
+              >
+                <FileText size={14} /> PDF
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
