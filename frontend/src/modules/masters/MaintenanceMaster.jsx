@@ -194,7 +194,7 @@ export default function MaintenanceMaster() {
               disabled={readOnly}
             />
           </Field>
-          <Field label="Remarks" className="sm:col-span-2">
+          <Field label="Remarks" width="long">
             <TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} />
           </Field>
         </FormSection>

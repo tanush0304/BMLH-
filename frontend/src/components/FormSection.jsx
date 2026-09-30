@@ -1,22 +1,34 @@
-export default function FormSection({ icon: Icon, title, columns = 3, children }) {
-  const colClass = { 1: 'grid-cols-1', 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' }[
-    columns
-  ] ?? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-
+// `columns` is accepted but no longer drives layout -- kept so existing call
+// sites don't need touching. Fields lay out with flex-wrap: everything sits
+// on one row, each field sized to its own width tier (see Field's `width`
+// prop) rather than a fixed column split, and only wraps to a second line
+// if it genuinely doesn't fit at the current viewport width.
+export default function FormSection({ icon: Icon, title, columns, children }) {
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
       <div className="flex items-center gap-1.5 bg-bmlhsky border-b border-gray-200 px-3 py-1">
         {Icon && <Icon size={13} className="text-bmlhnavy" />}
         <h2 className="text-xs font-semibold text-bmlhnavy">{title}</h2>
       </div>
-      <div className={`grid ${colClass} gap-x-2.5 gap-y-2 p-2.5`}>{children}</div>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-2.5">{children}</div>
     </div>
   )
 }
 
-export function Field({ label, required, className = '', children }) {
+// Width tiers replace the old fixed 50%/33% grid columns -- pick the tier
+// that matches the field's own content, not to force equal widths. 'long'
+// grows to fill leftover row space (an Address next to short fields), so
+// only one 'long' field per row reads well; use 'medium' for more than one
+// wide-ish field on the same row.
+const WIDTH_CLASS = {
+  short: 'w-28',
+  medium: 'w-48',
+  long: 'flex-1 min-w-[220px]',
+}
+
+export function Field({ label, required, width = 'medium', className = '', children }) {
   return (
-    <label className={`flex flex-col gap-0.5 text-xs ${className}`}>
+    <label className={`flex flex-col gap-0.5 text-xs ${WIDTH_CLASS[width] ?? WIDTH_CLASS.medium} ${className}`}>
       <span className="text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
@@ -30,7 +42,7 @@ export function TextInput(props) {
     <input
       {...props}
       type={props.type ?? 'text'}
-      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
     />
   )
 }
@@ -44,7 +56,7 @@ export function SelectInput({ options = [], ...props }) {
   return (
     <select
       {...props}
-      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
     >
       <option value="">Select...</option>
       {normalized.map((opt) => (

@@ -205,7 +205,7 @@ export default function VendorMaster() {
             <Field label="Vendor Name" required>
               <TextInput value={form.vendor_name} onChange={handleField('vendor_name')} disabled={readOnly} />
             </Field>
-            <Field label="Address" className="sm:col-span-2">
+            <Field label="Address" width="long">
               <TextInput value={form.vendor_address} onChange={handleField('vendor_address')} disabled={readOnly} />
             </Field>
           </FormSection>

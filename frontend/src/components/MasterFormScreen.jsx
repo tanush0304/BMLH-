@@ -199,7 +199,7 @@ export default function MasterFormScreen({
               columns={section.columns ?? 2}
             >
               {section.fields.map((f) => (
-                <Field key={f.key} label={f.label} required={f.required} className={f.colSpan}>
+                <Field key={f.key} label={f.label} required={f.required} width={f.width ?? (f.colSpan ? 'long' : 'medium')}>
                   {f.type === 'select' ? (
                     <SelectInput
                       value={form[f.key] ?? ''}
