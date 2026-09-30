@@ -183,14 +183,14 @@ export default function MasterFormScreen({
         onExportPdf={handleExportPdf}
       />
 
-      <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-[#F5F7FA]">
         {saveError && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {saveError}
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="flex flex-wrap items-start gap-2">
           {sections.map((section) => (
             <div key={section.title} className={WIDTH_CLASS[section.width ?? 'half']}>
             <FormSection

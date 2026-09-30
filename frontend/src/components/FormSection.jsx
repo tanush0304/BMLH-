@@ -18,19 +18,19 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
 
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1.5">
-        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-bmlhblue text-white text-[10px] font-bold shrink-0">
+      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1">
+        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-bmlhblue text-white text-[9px] font-bold shrink-0">
           {number}
         </span>
-        {Icon && <Icon size={13} className="text-bmlhnavy shrink-0" />}
-        <h2 className="text-xs font-semibold text-bmlhnavy truncate">{displayTitle}</h2>
+        {Icon && <Icon size={12} className="text-bmlhnavy shrink-0" />}
+        <h2 className="text-[11px] font-semibold text-bmlhnavy truncate">{displayTitle}</h2>
         {subtitle && (
           <span className="ml-auto pl-2 text-[10px] text-gray-500 font-normal whitespace-nowrap truncate">
             {subtitle}
           </span>
         )}
       </div>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-2.5">{children}</div>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 p-2">{children}</div>
     </div>
   )
 }
