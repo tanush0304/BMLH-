@@ -36,15 +36,17 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
 }
 
 // Width tiers replace the old fixed 50%/33% grid columns -- pick the tier
-// that matches the field's own content, not to force equal widths. 'long'
-// grows to fill leftover row space (an Address next to short fields), so
-// only one 'long' field per row reads well; use 'medium' for more than one
-// wide-ish field on the same row.
+// that matches the field's own content, not to force equal widths. Every
+// tier now both starts at its own basis AND grows (flex-grow > 0), so a
+// row of fields always reaches the card's right edge instead of leaving
+// dead space after the last one -- the grow ratio scales with the basis
+// so a 'long' field still ends up visibly wider than a 'tiny' one sharing
+// its row, not just an equal split.
 const WIDTH_CLASS = {
-  tiny: 'w-24',
-  short: 'w-28',
-  medium: 'w-48',
-  long: 'flex-1 min-w-[220px]',
+  tiny: 'flex-[1_0_96px]',
+  short: 'flex-[1.5_0_112px]',
+  medium: 'flex-[2.5_0_192px]',
+  long: 'flex-[4_0_220px]',
 }
 
 export function Field({ label, required, width = 'medium', className = '', children }) {

@@ -45,9 +45,9 @@ export default function RecordsList({
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-gray-50 text-bmlhnavy text-left">
-              <th className="px-3 py-1.5 font-semibold w-10">S.No</th>
+              <th className="px-3 py-1 font-semibold w-10">S.No</th>
               {columns.map((col) => (
-                <th key={col.key} className="px-3 py-1.5 font-semibold whitespace-nowrap">
+                <th key={col.key} className="px-3 py-1 font-semibold whitespace-nowrap">
                   {col.label}
                 </th>
               ))}
@@ -85,9 +85,9 @@ export default function RecordsList({
                     rowKey && selectedKey === row[rowKey] ? 'bg-bmlhsky/70' : ''
                   }`}
                 >
-                  <td className="px-3 py-1 text-gray-500">{i + 1}</td>
+                  <td className="px-3 py-0.5 text-gray-500">{i + 1}</td>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-3 py-1 whitespace-nowrap">
+                    <td key={col.key} className="px-3 py-0.5 whitespace-nowrap">
                       {col.type === 'status' ? (
                         <StatusPill status={row[col.key]} />
                       ) : col.render ? (
