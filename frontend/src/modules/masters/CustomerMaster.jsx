@@ -1,4 +1,4 @@
-import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
+import { User, Phone, Home, MapPin, Landmark, Settings } from 'lucide-react'
 import MasterFormScreen from '../../components/MasterFormScreen'
 import {
   listCustomers,
@@ -84,21 +84,14 @@ const SECTIONS = [
     ],
   },
   {
-    icon: FileText,
-    title: '5. Statutory Details',
-    width: 'half',
+    icon: Landmark,
+    title: '5. Statutory & Commercial Details',
+    width: 'full',
     fields: [
       { key: 'gstin_number', label: 'GSTIN Number' },
       { key: 'pan_number', label: 'PAN Number' },
       { key: 'msme_udyam_no', label: 'MSME / Udyam No.' },
       { key: 'gst_registered', label: 'GST Registered', type: 'select', options: ['true', 'false'] },
-    ],
-  },
-  {
-    icon: Landmark,
-    title: '6. Commercial Details',
-    width: 'half',
-    fields: [
       {
         key: 'payment_terms',
         label: 'Payment Terms',
@@ -112,7 +105,7 @@ const SECTIONS = [
   },
   {
     icon: Settings,
-    title: '7. Customer Product & Drawing Details',
+    title: '6. Customer Product & Drawing Details',
     width: 'full',
     fields: [
       { key: 'customer_product_part_number', label: 'Customer Product Part Number' },
