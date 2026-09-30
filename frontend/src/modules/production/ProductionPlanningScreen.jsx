@@ -23,7 +23,7 @@ const LIST_COLUMNS = [
   { key: 'status', label: 'Status', type: 'status' },
 ]
 
-const EMPTY_FORM = { prd_no: '', batch_qty: '' }
+const EMPTY_FORM = { prd_no: '', batch_qty: '', shift_hours: '' }
 
 export default function ProductionPlanningScreen() {
   const [orders, setOrders] = useState([])
@@ -64,7 +64,7 @@ export default function ProductionPlanningScreen() {
     const prd = e.target.value
     const order = orders.find((o) => o.prd_no === prd)
     const batch = batches.find((b) => b.product_code === order?.product_code)
-    setForm({ prd_no: prd, batch_qty: batch?.production_batch_quantity ?? '' })
+    setForm((f) => ({ prd_no: prd, batch_qty: batch?.production_batch_quantity ?? '', shift_hours: f.shift_hours }))
   }
 
   function handleReset() {
@@ -88,6 +88,10 @@ export default function ProductionPlanningScreen() {
       setError('Planned production batch quantity must be greater than 0.')
       return
     }
+    if (!form.shift_hours || Number(form.shift_hours) <= 0) {
+      setError('Shift Hours must be greater than 0.')
+      return
+    }
     setSaving(true)
     try {
       // Keep one route card per PRD (current primary key). Open question: should
@@ -97,9 +101,7 @@ export default function ProductionPlanningScreen() {
         prdNo: form.prd_no,
         productCode: selectedOrder?.product_code,
         batchQty: form.batch_qty,
-        // TODO: no Shift Hours field on this screen per the mockup/spec --
-        // shift_hours stays null, no "shifts planned" is computed anywhere.
-        shiftHours: '',
+        shiftHours: form.shift_hours,
       })
       handleReset()
       await refresh()
@@ -190,9 +192,22 @@ export default function ProductionPlanningScreen() {
               onChange={(e) => setForm((f) => ({ ...f, batch_qty: e.target.value }))}
             />
           </Field>
+          <Field label="Shift Hours" required>
+            <TextInput
+              type="number"
+              value={form.shift_hours}
+              onChange={(e) => setForm((f) => ({ ...f, shift_hours: e.target.value }))}
+            />
+          </Field>
         </FormSection>
 
-        {viewedPrd && <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} />}
+        {viewedPrd && (
+          <StageTraceTable
+            prdNo={viewedPrd}
+            title={`Route Card Stages for ${viewedPrd}`}
+            card={plans.find((p) => p.prd_no === viewedPrd)}
+          />
+        )}
 
         <RecordsList
           title="Production Planning List"

@@ -10,15 +10,30 @@ const CARD_COLUMNS = [
   { key: 'planned_date', label: 'Planned Date' },
 ]
 
-const STAGE_COLUMNS = [
-  { key: 'seq', label: 'Seq' },
-  { key: 'operation', label: 'Operation' },
-  { key: 'type', label: 'Type' },
-  { key: 'machine_id', label: 'Machine ID' },
-  { key: 'job_work_code', label: 'Job Work Code' },
-  { key: 'cycle_time_min', label: 'Cycle Time (min)' },
-  { key: 'status', label: 'Status', type: 'status' },
-]
+// No of Shifts Planned = cycle_time_min * batch_qty / (shift_hours * 60), the
+// client's own Route Card formula -- derived at display time from the card's
+// batch_qty/shift_hours, never stored, same pattern as every other computed
+// figure in this app (see StageTraceTable's available_qty, for instance).
+function shiftsPlannedColumns(card) {
+  return [
+    { key: 'seq', label: 'Seq' },
+    { key: 'operation', label: 'Operation' },
+    { key: 'type', label: 'Type' },
+    { key: 'machine_id', label: 'Machine ID' },
+    { key: 'job_work_code', label: 'Job Work Code' },
+    { key: 'cycle_time_min', label: 'Cycle Time (min)' },
+    {
+      key: 'shifts_planned',
+      label: 'No of Shifts Planned',
+      render: (r) => {
+        if (!card?.batch_qty || !card?.shift_hours || !r.cycle_time_min) return '—'
+        const shifts = (r.cycle_time_min * card.batch_qty) / (card.shift_hours * 60)
+        return shifts.toFixed(2)
+      },
+    },
+    { key: 'status', label: 'Status', type: 'status' },
+  ]
+}
 
 /** Route card generation now lives in Production > Production Planning, whose
  * Submit is what creates the card and snapshots its stages. This screen is a
@@ -28,7 +43,7 @@ export default function RouteCardScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [viewedCardPrd, setViewedCardPrd] = useState('')
+  const [viewedCard, setViewedCard] = useState(null)
   const [stages, setStages] = useState([])
   const [stagesLoading, setStagesLoading] = useState(false)
 
@@ -48,7 +63,7 @@ export default function RouteCardScreen() {
   }, [])
 
   async function handleViewCard(row) {
-    setViewedCardPrd(row.prd_no)
+    setViewedCard(row)
     setStagesLoading(true)
     try {
       setStages(await getStagesForPrd(row.prd_no))
@@ -78,14 +93,14 @@ export default function RouteCardScreen() {
           loading={loading}
           error={null}
           rowKey="prd_no"
-          selectedKey={viewedCardPrd}
+          selectedKey={viewedCard?.prd_no}
           onRowClick={handleViewCard}
         />
 
-        {viewedCardPrd && (
+        {viewedCard && (
           <RecordsList
-            title={`Stages for ${viewedCardPrd}`}
-            columns={STAGE_COLUMNS}
+            title={`Stages for ${viewedCard.prd_no}`}
+            columns={shiftsPlannedColumns(viewedCard)}
             rows={stages}
             loading={stagesLoading}
             error={null}
