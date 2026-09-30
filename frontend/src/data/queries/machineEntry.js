@@ -35,3 +35,26 @@ export async function listEligibleStagesForMachine(machineId) {
 
   return candidates
 }
+
+/**
+ * The reverse lookup of listEligibleStagesForMachine above -- given the set
+ * of operations a PRD's own eligible (Pending, Internal) stages need, finds
+ * every machine capable of performing at least one of them. Used now that
+ * Machine Entry picks the Production Order before the Machine, so the
+ * Machine dropdown needs to be filtered by PRD instead of the PRD dropdown
+ * being filtered by Machine.
+ *
+ * Returns raw {machine_id, operation} rows, not deduped by machine_id, so
+ * the caller can intersect one specific machine's own capabilities against
+ * the PRD's stage list once Machine is actually chosen (to resolve which
+ * stage, when more than one is eligible) without a second query.
+ */
+export async function listMachinesForOperations(operations) {
+  if (operations.length === 0) return []
+  const { data, error } = await supabase
+    .from('machine ops')
+    .select('machine_id, operation')
+    .in('operation', operations)
+  if (error) throw error
+  return data
+}

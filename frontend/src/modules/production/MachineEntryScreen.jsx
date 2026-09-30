@@ -3,12 +3,11 @@ import { Factory, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
-import { listMachines } from '../../data/queries/machines'
 import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
-import { getStagesForPrd, updateStageStatus } from '../../data/queries/routeCards'
-import { listEligibleStagesForMachine } from '../../data/queries/machineEntry'
+import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
+import { listMachinesForOperations } from '../../data/queries/machineEntry'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
   getStageAggregatesForPrd,
@@ -33,26 +32,27 @@ const HOUR_COLUMNS = [
 ]
 
 export default function MachineEntryScreen() {
-  const [machines, setMachines] = useState([])
   const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
+  const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [machineId, setMachineId] = useState('')
-  const [eligibleStages, setEligibleStages] = useState([]) // every eligible stage, possibly several per PRD
-  const [resolving, setResolving] = useState(false)
+  const [userId, setUserId] = useState('')
+  const [shiftCode, setShiftCode] = useState('')
 
   const [prdNo, setPrdNo] = useState('')
-  const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible stage
+  const [prdStages, setPrdStages] = useState([]) // this PRD's own eligible stages, any machine
+  const [machineOpsForPrd, setMachineOpsForPrd] = useState([]) // {machine_id, operation} rows capable of one of prdStages' operations
+  const [resolving, setResolving] = useState(false)
+
+  const [machineId, setMachineId] = useState('')
+  const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible stage on this machine
   const [resolvedStage, setResolvedStage] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
   const [stageTarget, setStageTarget] = useState(null)
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
   const [completing, setCompleting] = useState(false)
-
-  const [userId, setUserId] = useState('')
-  const [shiftCode, setShiftCode] = useState('')
 
   const [starting, setStarting] = useState(false)
   const [activeLog, setActiveLog] = useState(null)
@@ -61,15 +61,20 @@ export default function MachineEntryScreen() {
   const [hourForm, setHourForm] = useState({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   const [savingHour, setSavingHour] = useState(false)
 
+  async function loadPendingStages() {
+    const allStages = await listAllStages()
+    setPendingStages(allStages.filter((s) => s.type === 'Internal' && s.status === 'Pending'))
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true)
       setError(null)
       try {
-        const [machs, usrs, shf] = await Promise.all([listMachines(), listUsers(), listShifts()])
-        setMachines(machs)
+        const [usrs, shf] = await Promise.all([listUsers(), listShifts()])
         setUsers(usrs)
         setShifts(shf)
+        await loadPendingStages()
       } catch (e) {
         setError(e.message)
       } finally {
@@ -79,19 +84,32 @@ export default function MachineEntryScreen() {
     load()
   }, [])
 
-  async function handleMachineChange(e) {
-    const id = e.target.value
-    setMachineId(id)
-    setPrdNo('')
+  // Machines eligible for the currently-selected PRD -- distinct machine_ids
+  // capable of at least one of this PRD's eligible stage operations.
+  const eligibleMachineIds = [...new Set(machineOpsForPrd.map((r) => r.machine_id))]
+
+  async function handlePrdChange(e) {
+    const prd = e.target.value
+    setPrdNo(prd)
+    setMachineId('')
+    setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
+    setStageTarget(null)
+    setStageOutputSoFar(0)
     setActiveLog(null)
-    setEligibleStages([])
-    if (!id) return
+    setMachineOpsForPrd([])
+    if (!prd) {
+      setPrdStages([])
+      return
+    }
     setResolving(true)
     setError(null)
     try {
-      setEligibleStages(await listEligibleStagesForMachine(id))
+      const stages = pendingStages.filter((s) => s.prd_no === prd)
+      setPrdStages(stages)
+      const operations = [...new Set(stages.map((s) => s.operation))]
+      setMachineOpsForPrd(await listMachinesForOperations(operations))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -99,24 +117,28 @@ export default function MachineEntryScreen() {
     }
   }
 
-  // Stages eligible for the currently-selected PRD on this machine -- more
-  // than one is now a real, expected case (WIP can feed any stage), not an
-  // edge case to collapse silently.
-  const stageChoicesForPrd = prdNo ? eligibleStages.filter((s) => s.prd_no === prdNo) : []
+  // Stages eligible for the currently-selected PRD on the currently-selected
+  // machine -- more than one is a real, expected case (WIP can feed any
+  // stage), not an edge case to collapse silently.
+  const stageChoicesForPrd = machineId
+    ? prdStages.filter((s) => machineOpsForPrd.some((r) => r.machine_id === machineId && r.operation === s.operation))
+    : []
 
-  function handlePrdChange(e) {
-    const prd = e.target.value
-    setPrdNo(prd)
+  function handleMachineChange(e) {
+    const id = e.target.value
+    setMachineId(id)
     setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
     setStageTarget(null)
     setStageOutputSoFar(0)
     setActiveLog(null)
-    if (!prd) return
-    const choices = eligibleStages.filter((s) => s.prd_no === prd)
+    if (!id) return
+    const choices = prdStages.filter((s) =>
+      machineOpsForPrd.some((r) => r.machine_id === id && r.operation === s.operation)
+    )
     if (choices.length === 1) {
-      resolveStage(prd, choices[0])
+      resolveStage(prdNo, choices[0])
     }
     // If there's more than one, wait for the user to pick via
     // handleStageChoice below -- don't guess which one they mean.
@@ -226,10 +248,10 @@ export default function MachineEntryScreen() {
     try {
       await updateStageStatus(resolvedStage.id, 'Completed')
       if (activeLog) await closeProductionLog(activeLog.id)
-      // Stage is done -- clear the resolved state and refresh which PRDs
-      // are still eligible on this machine (the next stage, if Internal and
-      // on this machine, will now show up).
+      // Stage is done -- clear the resolved state and refresh the pending
+      // stage list (the next stage, if Internal, will now show up).
       setPrdNo('')
+      setMachineId('')
       setStageChoiceId('')
       setResolvedStage(null)
       setPlannedQty(null)
@@ -238,7 +260,9 @@ export default function MachineEntryScreen() {
       setActiveLog(null)
       setLogHours([])
       setTotals(null)
-      setEligibleStages(await listEligibleStagesForMachine(machineId))
+      setPrdStages([])
+      setMachineOpsForPrd([])
+      await loadPendingStages()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -246,13 +270,13 @@ export default function MachineEntryScreen() {
     }
   }
 
-  const noEligiblePrd = machineId && !resolving && eligibleStages.length === 0
+  const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Machine Entry"
-        subtitle="User picks the machine + order; the stage resolves itself"
+        subtitle="User picks the order + machine; the stage resolves itself"
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -262,19 +286,26 @@ export default function MachineEntryScreen() {
           </div>
         )}
 
-        <FormSection icon={Factory} title="1. Select Machine & Order" subtitle="Pick machine and order" columns={3}>
-          <Field label="Machine" required>
-            <SelectInput value={machineId} onChange={handleMachineChange} options={machines.map((m) => m.machine_id)} />
+        <FormSection icon={Factory} title="1. Select User, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
+          <Field label="User" required>
+            <SelectInput value={userId} onChange={(e) => setUserId(e.target.value)} options={users.map((o) => o.user_emp_id)} />
           </Field>
           <Field label="Production Order (PRD No)" required>
             <SelectInput
               value={prdNo}
               onChange={handlePrdChange}
-              disabled={!machineId || eligibleStages.length === 0}
-              options={[...new Set(eligibleStages.map((s) => s.prd_no))]}
+              options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
-          {stageChoicesForPrd.length > 1 ? (
+          <Field label="Machine" required>
+            <SelectInput
+              value={machineId}
+              onChange={handleMachineChange}
+              disabled={!prdNo || eligibleMachineIds.length === 0}
+              options={eligibleMachineIds}
+            />
+          </Field>
+          {stageChoicesForPrd.length > 1 && (
             <Field label="Which Stage?" required>
               <SelectInput
                 value={stageChoiceId}
@@ -282,14 +313,11 @@ export default function MachineEntryScreen() {
                 options={stageChoicesForPrd.map((s) => ({ value: s.id, label: `Seq ${s.seq} - ${s.operation}` }))}
               />
             </Field>
-          ) : (
-            <div className="flex items-end text-sm text-gray-400">
-              {resolving && 'Resolving...'}
-            </div>
           )}
-          {noEligiblePrd && (
+          {resolving && <div className="flex items-end text-sm text-gray-400">Resolving...</div>}
+          {noEligibleMachine && (
             <p className="text-sm text-amber-600 sm:col-span-3">
-              This machine has no eligible pending stage on any production order right now.
+              No machine is currently set up to perform the operation this production order needs next.
             </p>
           )}
           {stageChoicesForPrd.length > 1 && (
@@ -313,13 +341,6 @@ export default function MachineEntryScreen() {
             </Field>
             <Field label="Planned Qty (available from upstream)">
               <TextInput value={plannedQty ?? ''} disabled />
-            </Field>
-            <Field label="User" required>
-              <SelectInput
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                options={users.map((o) => o.user_emp_id)}
-              />
             </Field>
             <Field label="Shift" required>
               <SelectInput
