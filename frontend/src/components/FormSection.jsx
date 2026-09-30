@@ -17,8 +17,12 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
   const displayTitle = match ? match[2] : title
 
   return (
-    <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1">
+    <div className="bg-white border border-gray-200 rounded-md">
+      {/* Rounding lives on the header itself (not overflow-hidden on the
+          card) so a child dropdown's popup panel -- e.g. MultiSelectDropdown,
+          absolutely positioned inside this card -- can render past the
+          card's own edge instead of being clipped by it. */}
+      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1 rounded-t-md">
         <span className="flex items-center justify-center w-4 h-4 rounded-full bg-bmlhblue text-white text-[9px] font-bold shrink-0">
           {number}
         </span>
