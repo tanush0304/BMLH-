@@ -13,13 +13,19 @@ import MaintenanceModule from './modules/maintenance/MaintenanceModule'
 import StoresModule from './modules/stores/StoresModule'
 import { ModuleThemeProvider } from './components/ModuleTheme'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
+import { NAV_ITEMS } from './utils/constants'
 
 const TITLES = {}
+
+function firstSubKey(topKey) {
+  return NAV_ITEMS.find((n) => n.key === topKey)?.subItems?.[0]?.key ?? null
+}
 
 function App() {
   const [session, setSession] = useState(undefined) // undefined = still checking, null = signed out
   const [role, setRole] = useState(undefined) // undefined = still resolving, null = no row found
   const [activeKey, setActiveKey] = useState('dashboard')
+  const [activeSubKey, setActiveSubKey] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -51,6 +57,20 @@ function App() {
     }
   }, [session])
 
+  // Used by the Sidebar for leaf top-level items (Dashboard, Quality) and by
+  // Dashboard's own shortcut buttons, which only know the top-level key --
+  // default to that module's first sub-item so there's always something to
+  // show.
+  function handleSelect(key) {
+    setActiveKey(key)
+    setActiveSubKey(firstSubKey(key))
+  }
+
+  function handleSelectSub(topKey, subKey) {
+    setActiveKey(topKey)
+    setActiveSubKey(subKey)
+  }
+
   if (session === undefined) {
     return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
   }
@@ -67,24 +87,26 @@ function App() {
 
   let content
   let themeKey = activeKey
-  if (activeKey === 'dashboard') content = <Dashboard onNavigate={setActiveKey} />
-  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList />
+  if (activeKey === 'dashboard') content = <Dashboard onNavigate={handleSelect} />
+  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} />
   else if (activeKey === 'masters') {
     content = <Dashboard />
     themeKey = 'dashboard'
-  } else if (activeKey === 'customer-order') content = <CustomerOrderModule />
-  else if (activeKey === 'production') content = <ProductionModule />
+  } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} />
+  else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} />
   else if (activeKey === 'quality') content = <QualityModule />
-  else if (activeKey === 'job-order') content = <JobOrderModule />
-  else if (activeKey === 'maintenance') content = <MaintenanceModule />
-  else if (activeKey === 'stores') content = <StoresModule />
+  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} />
+  else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} />
+  else if (activeKey === 'stores') content = <StoresModule activeTab={activeSubKey} />
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
       <Sidebar
         activeKey={activeKey}
-        onSelect={setActiveKey}
+        activeSubKey={activeSubKey}
+        onSelect={handleSelect}
+        onSelectSub={handleSelectSub}
         userEmail={session.user.email}
         onSignOut={() => supabase.auth.signOut()}
         role={role}

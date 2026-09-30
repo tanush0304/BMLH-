@@ -1,37 +1,21 @@
-import { useState } from 'react'
 import RawMaterialStoreScreen from './RawMaterialStoreScreen'
 import FinishedGoodsStoreScreen from './FinishedGoodsStoreScreen'
+import WipReceiptScreen from './WipReceiptScreen'
+import WipIssueScreen from './WipIssueScreen'
 
 const TABS = [
-  { key: 'rm', label: 'Raw Material Stores', component: RawMaterialStoreScreen },
-  { key: 'fg', label: 'Finished Goods Stores', component: FinishedGoodsStoreScreen },
+  { key: 'rm', component: RawMaterialStoreScreen },
+  { key: 'fg', component: FinishedGoodsStoreScreen },
+  { key: 'wip-receipt', component: WipReceiptScreen },
+  { key: 'wip-issue', component: WipIssueScreen },
 ]
 
-export default function StoresModule() {
-  const [active, setActive] = useState('rm')
-  const tab = TABS.find((t) => t.key === active)
+// Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
+// 'stores' subItems) -- this just maps the active key to a screen.
+// WIP Receipt/Issue moved here from Production (file + nav location both),
+// no logic touched -- they still call the same wip.js query layer.
+export default function StoresModule({ activeTab }) {
+  const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
-
-  return (
-    <div className="flex-1 flex min-w-0 min-h-0">
-      <div className="w-52 shrink-0 bg-white border-r border-gray-200 py-3 overflow-y-auto">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActive(t.key)}
-            className={`w-full text-left px-4 py-2.5 text-sm border-l-4 ${
-              active === t.key
-                ? 'border-bmlhnavy bg-bmlhsky text-bmlhnavy font-medium'
-                : 'border-transparent text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <Screen />
-      </div>
-    </div>
-  )
+  return <Screen />
 }

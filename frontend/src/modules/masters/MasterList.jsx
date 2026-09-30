@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import CustomerMaster from './CustomerMaster'
 import ProductMaster from './ProductMaster'
 import MachineMaster from './MachineMaster'
@@ -14,46 +13,25 @@ import MaintenanceMaster from './MaintenanceMaster'
 import ProductionBatchMaster from './ProductionBatchMaster'
 
 const ENTITIES = [
-  { key: 'product', label: 'Product Master', component: ProductMaster },
-  { key: 'machine', label: 'Machine Master', component: MachineMaster },
-  { key: 'job-work', label: 'Job Work Master', component: JobWorkMaster },
-  { key: 'cycle-time', label: 'Cycle Time Master', component: CycleTimeMaster },
-  { key: 'customer', label: 'Customer Master', component: CustomerMaster },
-  { key: 'raw-material', label: 'Raw Material Master', component: RawMaterialMaster },
-  { key: 'supplier', label: 'Supplier Master', component: SupplierMaster },
-  { key: 'shift', label: 'Shift Master', component: ShiftMaster },
-  { key: 'operator', label: 'Operator Master', component: OperatorMaster },
-  { key: 'vendor', label: 'Vendor Master', component: VendorMaster },
-  { key: 'quality', label: 'Quality Master', component: QualityMaster },
-  { key: 'maintenance', label: 'Maintenance Master', component: MaintenanceMaster },
-  { key: 'production-batch', label: 'Production Batch Master', component: ProductionBatchMaster },
+  { key: 'product', component: ProductMaster },
+  { key: 'machine', component: MachineMaster },
+  { key: 'job-work', component: JobWorkMaster },
+  { key: 'cycle-time', component: CycleTimeMaster },
+  { key: 'customer', component: CustomerMaster },
+  { key: 'raw-material', component: RawMaterialMaster },
+  { key: 'supplier', component: SupplierMaster },
+  { key: 'shift', component: ShiftMaster },
+  { key: 'operator', component: OperatorMaster },
+  { key: 'vendor', component: VendorMaster },
+  { key: 'quality', component: QualityMaster },
+  { key: 'maintenance', component: MaintenanceMaster },
+  { key: 'production-batch', component: ProductionBatchMaster },
 ]
 
-export default function MasterList() {
-  const [active, setActive] = useState('customer')
-  const entity = ENTITIES.find((e) => e.key === active)
-  const Screen = entity?.component
-
-  return (
-    <div className="flex-1 flex min-w-0 min-h-0">
-      <div className="w-52 shrink-0 bg-white border-r border-gray-200 py-3 overflow-y-auto">
-        {ENTITIES.map((e) => (
-          <button
-            key={e.key}
-            onClick={() => setActive(e.key)}
-            className={`w-full text-left px-4 py-2.5 text-sm border-l-4 ${
-              active === e.key
-                ? 'border-bmlhnavy bg-bmlhsky text-bmlhnavy font-medium'
-                : 'border-transparent text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <Screen />
-      </div>
-    </div>
-  )
+// Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
+// 'masters' subItems) -- this just maps the active key to a screen.
+export default function MasterList({ activeTab }) {
+  const entity = ENTITIES.find((e) => e.key === activeTab) ?? ENTITIES[0]
+  const Screen = entity.component
+  return <Screen />
 }
