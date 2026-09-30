@@ -1,9 +1,9 @@
 import { supabase } from '../../lib/supabaseClient'
 
-const TABLE = 'operators master'
+const TABLE = 'users master'
 
 export async function listOperators() {
-  const { data, error } = await supabase.from(TABLE).select('*').order('operator_emp_id')
+  const { data, error } = await supabase.from(TABLE).select('*').order('user_emp_id')
   if (error) throw error
   return data
 }
@@ -18,7 +18,7 @@ export async function updateOperator(operatorEmpId, payload) {
   const { data, error } = await supabase
     .from(TABLE)
     .update(payload)
-    .eq('operator_emp_id', operatorEmpId)
+    .eq('user_emp_id', operatorEmpId)
     .select()
     .single()
   if (error) throw error
@@ -26,6 +26,6 @@ export async function updateOperator(operatorEmpId, payload) {
 }
 
 export async function deleteOperator(operatorEmpId) {
-  const { error } = await supabase.from(TABLE).delete().eq('operator_emp_id', operatorEmpId)
+  const { error } = await supabase.from(TABLE).delete().eq('user_emp_id', operatorEmpId)
   if (error) throw error
 }

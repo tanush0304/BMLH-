@@ -10,7 +10,7 @@ import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipIssue, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
 
-const EMPTY_FORM = { prd_no: '', pool_stage_id: '', target_stage_id: '', qty: '', operator_emp_id: '', shift_code: '', remarks: '' }
+const EMPTY_FORM = { prd_no: '', pool_stage_id: '', target_stage_id: '', qty: '', user_emp_id: '', shift_code: '', remarks: '' }
 
 export default function WipIssueScreen() {
   const [orders, setOrders] = useState([])
@@ -46,7 +46,7 @@ export default function WipIssueScreen() {
 
   async function handlePrdChange(e) {
     const prd = e.target.value
-    setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, operator_emp_id: f.operator_emp_id, shift_code: f.shift_code }))
+    setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, user_emp_id: f.user_emp_id, shift_code: f.shift_code }))
     setStages([])
     setBalances([])
     setTransactions([])
@@ -66,8 +66,8 @@ export default function WipIssueScreen() {
 
   async function handleSave() {
     setError(null)
-    if (!form.prd_no || !form.pool_stage_id || !form.target_stage_id || !form.qty || Number(form.qty) <= 0 || !form.operator_emp_id || !form.shift_code) {
-      setError('Production Order, WIP Pool, Target Stage, Qty, Operator and Shift are all required.')
+    if (!form.prd_no || !form.pool_stage_id || !form.target_stage_id || !form.qty || Number(form.qty) <= 0 || !form.user_emp_id || !form.shift_code) {
+      setError('Production Order, WIP Pool, Target Stage, Qty, User and Shift are all required.')
       return
     }
     setSaving(true)
@@ -78,12 +78,12 @@ export default function WipIssueScreen() {
         nature_of_operation_stage_id: Number(form.pool_stage_id),
         target_stage_id: Number(form.target_stage_id),
         qty: Number(form.qty),
-        operator_emp_id: form.operator_emp_id,
+        user_emp_id: form.user_emp_id,
         shift_code: form.shift_code,
         remarks: form.remarks || null,
         user_id: userId,
       })
-      setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, operator_emp_id: f.operator_emp_id, shift_code: f.shift_code }))
+      setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, user_emp_id: f.user_emp_id, shift_code: f.shift_code }))
       await refresh(form.prd_no)
     } catch (e) {
       setError(e.message)
@@ -136,11 +136,11 @@ export default function WipIssueScreen() {
           <Field label="Qty" required>
             <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
           </Field>
-          <Field label="Operator" required>
+          <Field label="User" required>
             <SelectInput
-              value={form.operator_emp_id}
-              onChange={handleField('operator_emp_id')}
-              options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_name }))}
+              value={form.user_emp_id}
+              onChange={handleField('user_emp_id')}
+              options={operators.map((o) => ({ value: o.user_emp_id, label: o.operator_name }))}
             />
           </Field>
           <Field label="Shift" required>

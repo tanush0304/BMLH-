@@ -18,7 +18,7 @@ export const NAV_ITEMS = [
       { key: 'raw-material', label: 'Raw Material Master' },
       { key: 'supplier', label: 'Supplier Master' },
       { key: 'shift', label: 'Shift Master' },
-      { key: 'operator', label: 'Operator Master' },
+      { key: 'operator', label: 'User Master' },
       { key: 'vendor', label: 'Vendor Master' },
       { key: 'quality', label: 'Quality Master' },
       { key: 'maintenance', label: 'Maintenance Master' },

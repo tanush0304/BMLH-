@@ -16,7 +16,7 @@ import {
 
 const LOG_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
-  { key: 'operator_emp_id', label: 'Engineer' },
+  { key: 'user_emp_id', label: 'Engineer' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'log_date', label: 'Date' },
 ]
@@ -90,7 +90,7 @@ export default function ChecklistEntryScreen() {
     try {
       const log = await createMaintenanceLog({
         machine_id: machineId,
-        operator_emp_id: operatorId,
+        user_emp_id: operatorId,
         shift_code: shiftCode,
         log_date: logDate,
       })
@@ -159,7 +159,7 @@ export default function ChecklistEntryScreen() {
             <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => m.machine_id)} />
           </Field>
           <Field label="Maintenance Engineer" required>
-            <SelectInput value={operatorId} onChange={(e) => setOperatorId(e.target.value)} disabled={!!activeLog} options={operators.map((o) => o.operator_emp_id)} />
+            <SelectInput value={operatorId} onChange={(e) => setOperatorId(e.target.value)} disabled={!!activeLog} options={operators.map((o) => o.user_emp_id)} />
           </Field>
           <Field label="Shift" required>
             <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} disabled={!!activeLog} options={shifts.map((s) => s.shift_code)} />

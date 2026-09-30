@@ -12,7 +12,7 @@ import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { supabase } from '../../lib/supabaseClient'
 
-const EMPTY_HEADER = { operator_emp_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
+const EMPTY_HEADER = { user_emp_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
 
 const HISTORY_COLUMNS = [
   { key: 'log_date', label: 'Date' },
@@ -148,8 +148,8 @@ export default function QualityModule() {
 
   async function handleSubmitHeader() {
     setError(null)
-    if (!header.operator_emp_id || !header.shift_code || !header.prd_no || !header.machine_id || !header.operation || !resolvedStage) {
-      setError('Operator, Shift, Production Order, Machine and Type of Operation are all required.')
+    if (!header.user_emp_id || !header.shift_code || !header.prd_no || !header.machine_id || !header.operation || !resolvedStage) {
+      setError('User, Shift, Production Order, Machine and Type of Operation are all required.')
       return
     }
     setSubmitting(true)
@@ -202,7 +202,7 @@ export default function QualityModule() {
         prd_no: header.prd_no,
         stage_id: resolvedStage.id,
         machine_id: header.machine_id,
-        operator_emp_id: header.operator_emp_id,
+        user_emp_id: header.user_emp_id,
         shift_code: header.shift_code,
       })
       await createQualityLogReadings(
@@ -245,11 +245,11 @@ export default function QualityModule() {
 
         {step === 'header' && (
           <FormSection icon={ClipboardCheck} title="1. Inspection Header" subtitle="Who, what and where inspected" columns={3}>
-            <Field label="Operator" required>
+            <Field label="User" required>
               <SelectInput
-                value={header.operator_emp_id}
-                onChange={(e) => setHeader((f) => ({ ...f, operator_emp_id: e.target.value }))}
-                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_name }))}
+                value={header.user_emp_id}
+                onChange={(e) => setHeader((f) => ({ ...f, user_emp_id: e.target.value }))}
+                options={operators.map((o) => ({ value: o.user_emp_id, label: o.operator_name }))}
               />
             </Field>
             <Field label="Shift" required>

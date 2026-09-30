@@ -164,7 +164,7 @@ export default function MachineEntryScreen() {
 
   async function handleStart() {
     if (!machineId || !prdNo || !resolvedStage || !operatorId || !shiftCode) {
-      setError('Machine, PRD, Operator and Shift are all required to start.')
+      setError('Machine, PRD, User and Shift are all required to start.')
       return
     }
     setStarting(true)
@@ -174,7 +174,7 @@ export default function MachineEntryScreen() {
         prd_no: prdNo,
         stage_id: resolvedStage.id,
         machine_id: machineId,
-        operator_emp_id: operatorId,
+        user_emp_id: operatorId,
         shift_code: shiftCode,
         start_time: new Date().toISOString(),
         planned_qty: plannedQty,
@@ -252,7 +252,7 @@ export default function MachineEntryScreen() {
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Machine Entry"
-        subtitle="Operator picks the machine + order; the stage resolves itself"
+        subtitle="User picks the machine + order; the stage resolves itself"
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -314,11 +314,11 @@ export default function MachineEntryScreen() {
             <Field label="Planned Qty (available from upstream)">
               <TextInput value={plannedQty ?? ''} disabled />
             </Field>
-            <Field label="Operator" required>
+            <Field label="User" required>
               <SelectInput
                 value={operatorId}
                 onChange={(e) => setOperatorId(e.target.value)}
-                options={operators.map((o) => o.operator_emp_id)}
+                options={operators.map((o) => o.user_emp_id)}
               />
             </Field>
             <Field label="Shift" required>

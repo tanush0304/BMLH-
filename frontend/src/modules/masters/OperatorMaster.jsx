@@ -3,7 +3,7 @@ import MasterFormScreen from '../../components/MasterFormScreen'
 import { listOperators, createOperator, updateOperator, deleteOperator } from '../../data/queries/operators'
 
 const EMPTY_FORM = {
-  operator_emp_id: '',
+  user_emp_id: '',
   operator_name: '',
   department: '',
   designation: '',
@@ -15,12 +15,12 @@ const EMPTY_FORM = {
 const SECTIONS = [
   {
     icon: UserCog,
-    title: '1. Operator Details',
+    title: '1. User Details',
     subtitle: 'Employee identity and role',
     width: 'full',
     fields: [
-      { key: 'operator_emp_id', label: 'Employee ID', required: true, lockOnEdit: true },
-      { key: 'operator_name', label: 'Operator Name', required: true },
+      { key: 'user_emp_id', label: 'Employee ID', required: true, lockOnEdit: true },
+      { key: 'operator_name', label: 'User Name', required: true },
       { key: 'department', label: 'Department' },
       { key: 'designation', label: 'Designation' },
       {
@@ -36,8 +36,8 @@ const SECTIONS = [
 ]
 
 const LIST_COLUMNS = [
-  { key: 'operator_emp_id', label: 'Employee ID' },
-  { key: 'operator_name', label: 'Operator Name' },
+  { key: 'user_emp_id', label: 'Employee ID' },
+  { key: 'operator_name', label: 'User Name' },
   { key: 'department', label: 'Department' },
   { key: 'designation', label: 'Designation' },
   { key: 'employee_type', label: 'Employee Type' },
@@ -47,15 +47,15 @@ const LIST_COLUMNS = [
 export default function OperatorMaster() {
   return (
     <MasterFormScreen
-      title="Operator Master"
-      subtitle="Manage Operator Information  |  Shop Floor Workforce"
-      pkField="operator_emp_id"
+      title="User Master"
+      subtitle="Manage User Information  |  Shop Floor Workforce"
+      pkField="user_emp_id"
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}
-      searchFields={['operator_emp_id', 'operator_name']}
+      searchFields={['user_emp_id', 'operator_name']}
       api={{ list: listOperators, create: createOperator, update: updateOperator, remove: deleteOperator }}
-      exportFilename="operator_master.csv"
+      exportFilename="user_master.csv"
     />
   )
 }

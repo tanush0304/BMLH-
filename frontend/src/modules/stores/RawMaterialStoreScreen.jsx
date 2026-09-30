@@ -21,7 +21,7 @@ function todayISO() {
 }
 
 const EMPTY_ISSUE_FORM = {
-  operator_emp_id: '',
+  user_emp_id: '',
   shift_code: '',
   raw_material_code: '',
   product_code: '',
@@ -30,7 +30,7 @@ const EMPTY_ISSUE_FORM = {
 }
 
 const EMPTY_RECEIPT_FORM = {
-  operator_emp_id: '',
+  user_emp_id: '',
   shift_code: '',
   raw_material_code: '',
   supplier_id: '',
@@ -40,7 +40,7 @@ const EMPTY_RECEIPT_FORM = {
 
 const ISSUE_COLUMNS = [
   { key: 'transaction_date', label: 'Issue Date' },
-  { key: 'operator_emp_id', label: 'User ID' },
+  { key: 'user_emp_id', label: 'User ID' },
   { key: 'user_name', label: 'User Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
@@ -52,7 +52,7 @@ const ISSUE_COLUMNS = [
 
 const RECEIPT_COLUMNS = [
   { key: 'transaction_date', label: 'Receipt Date' },
-  { key: 'operator_emp_id', label: 'User ID' },
+  { key: 'user_emp_id', label: 'User ID' },
   { key: 'user_name', label: 'User Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
@@ -113,7 +113,7 @@ export default function RawMaterialStoreScreen() {
   }, [])
 
   function operatorName(id) {
-    return operators.find((o) => o.operator_emp_id === id)?.operator_name ?? ''
+    return operators.find((o) => o.user_emp_id === id)?.operator_name ?? ''
   }
 
   function materialName(code) {
@@ -140,7 +140,7 @@ export default function RawMaterialStoreScreen() {
 
   async function handleSaveIssue() {
     const f = issueForm
-    if (!f.operator_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
+    if (!f.user_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
       setError('User Name, Shift, Raw Material / Consumable, Quantity Issued and Issue Date are all required.')
       return
     }
@@ -153,7 +153,7 @@ export default function RawMaterialStoreScreen() {
         qty: Number(f.qty),
         transaction_date: f.transaction_date,
         product_code: f.product_code || null,
-        operator_emp_id: f.operator_emp_id,
+        user_emp_id: f.user_emp_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -168,7 +168,7 @@ export default function RawMaterialStoreScreen() {
 
   async function handleSaveReceipt() {
     const f = receiptForm
-    if (!f.operator_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
+    if (!f.user_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
       setError('User Name, Shift, Raw Material / Consumable, Quantity Received and Receipt Date are all required.')
       return
     }
@@ -181,7 +181,7 @@ export default function RawMaterialStoreScreen() {
         qty: Number(f.qty),
         transaction_date: f.transaction_date,
         supplier_id: f.supplier_id || null,
-        operator_emp_id: f.operator_emp_id,
+        user_emp_id: f.user_emp_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -212,7 +212,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Issue')
     .map((t) => ({
       ...t,
-      user_name: operatorName(t.operator_emp_id),
+      user_name: operatorName(t.user_emp_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
       units_producible: '—',
@@ -222,7 +222,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Receipt')
     .map((t) => ({
       ...t,
-      user_name: operatorName(t.operator_emp_id),
+      user_name: operatorName(t.user_emp_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
     }))
@@ -233,7 +233,7 @@ export default function RawMaterialStoreScreen() {
     const q = search.toLowerCase()
     return (
       r.transaction_date?.toLowerCase().includes(q) ||
-      r.operator_emp_id?.toLowerCase().includes(q) ||
+      r.user_emp_id?.toLowerCase().includes(q) ||
       r.material_name?.toLowerCase().includes(q)
     )
   })
@@ -321,9 +321,9 @@ export default function RawMaterialStoreScreen() {
           <FormSection icon={Boxes} title="Stores Module - Raw Material & Consumables Issue Details" subtitle="Issue to production" columns={2}>
             <Field label="User ID" required>
               <SelectInput
-                value={issueForm.operator_emp_id}
-                onChange={handleIssueField('operator_emp_id')}
-                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
+                value={issueForm.user_emp_id}
+                onChange={handleIssueField('user_emp_id')}
+                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Current Stock">
@@ -331,7 +331,7 @@ export default function RawMaterialStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(issueForm.operator_emp_id)} />
+              <AutoFillBox value={operatorName(issueForm.user_emp_id)} />
             </Field>
             <Field label="Number of units can be produced">
               <AutoFillBox value="" unit="Nos" />
@@ -380,7 +380,7 @@ export default function RawMaterialStoreScreen() {
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "User ID" picks who's physically issuing the material (Operator Master); the account you're
+              "User ID" picks who's physically issuing the material (User Master); the account you're
               logged in as is recorded automatically. Current Stock auto-fills from the selected material.
               Number of units can be produced needs a Bill of Materials, which isn't set up yet, so it stays
               blank for now.
@@ -390,9 +390,9 @@ export default function RawMaterialStoreScreen() {
           <FormSection icon={PackagePlus} title="Stores Module - Raw Material & Consumables Receipt Details" subtitle="Receive from supplier" columns={2}>
             <Field label="User ID" required>
               <SelectInput
-                value={receiptForm.operator_emp_id}
-                onChange={handleReceiptField('operator_emp_id')}
-                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
+                value={receiptForm.user_emp_id}
+                onChange={handleReceiptField('user_emp_id')}
+                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Current Stock">
@@ -400,7 +400,7 @@ export default function RawMaterialStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(receiptForm.operator_emp_id)} />
+              <AutoFillBox value={operatorName(receiptForm.user_emp_id)} />
             </Field>
             <Field label="Supplier">
               <SelectInput

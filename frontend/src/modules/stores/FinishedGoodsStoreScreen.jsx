@@ -21,7 +21,7 @@ function todayISO() {
 }
 
 const EMPTY_DISPATCH_FORM = {
-  operator_emp_id: '',
+  user_emp_id: '',
   shift_code: '',
   transaction_date: todayISO(),
   prd_no: '',
@@ -29,7 +29,7 @@ const EMPTY_DISPATCH_FORM = {
 }
 
 const EMPTY_RECEIPT_FORM = {
-  operator_emp_id: '',
+  user_emp_id: '',
   shift_code: '',
   transaction_date: todayISO(),
   prd_no: '',
@@ -38,7 +38,7 @@ const EMPTY_RECEIPT_FORM = {
 
 const DISPATCH_COLUMNS = [
   { key: 'transaction_date', label: 'Date' },
-  { key: 'operator_emp_id', label: 'User ID' },
+  { key: 'user_emp_id', label: 'User ID' },
   { key: 'user_name', label: 'User Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'prd_no', label: 'Production Order No.' },
@@ -53,7 +53,7 @@ const DISPATCH_COLUMNS = [
 
 const RECEIPT_COLUMNS = [
   { key: 'transaction_date', label: 'Date' },
-  { key: 'operator_emp_id', label: 'User ID' },
+  { key: 'user_emp_id', label: 'User ID' },
   { key: 'user_name', label: 'User Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'prd_no', label: 'Production Order No.' },
@@ -118,7 +118,7 @@ export default function FinishedGoodsStoreScreen() {
   }
 
   function operatorName(id) {
-    return operators.find((o) => o.operator_emp_id === id)?.operator_name ?? ''
+    return operators.find((o) => o.user_emp_id === id)?.operator_name ?? ''
   }
 
   const selectedDispatchOrder = orders.find((o) => o.prd_no === dispatchForm.prd_no)
@@ -140,7 +140,7 @@ export default function FinishedGoodsStoreScreen() {
 
   async function handleSaveDispatch() {
     const f = dispatchForm
-    if (!f.operator_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+    if (!f.user_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
       setError('User Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
       return
     }
@@ -154,7 +154,7 @@ export default function FinishedGoodsStoreScreen() {
         transaction_date: f.transaction_date,
         prd_no: f.prd_no,
         customer_id: selectedDispatchOrder?.customer_id ?? null,
-        operator_emp_id: f.operator_emp_id,
+        user_emp_id: f.user_emp_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -169,7 +169,7 @@ export default function FinishedGoodsStoreScreen() {
 
   async function handleSaveReceipt() {
     const f = receiptForm
-    if (!f.operator_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+    if (!f.user_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
       setError('User Name, Shift, Production Order Number, Quantity Received and Date are all required.')
       return
     }
@@ -182,7 +182,7 @@ export default function FinishedGoodsStoreScreen() {
         qty: Number(f.qty),
         transaction_date: f.transaction_date,
         prd_no: f.prd_no,
-        operator_emp_id: f.operator_emp_id,
+        user_emp_id: f.user_emp_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -216,7 +216,7 @@ export default function FinishedGoodsStoreScreen() {
       const status = orderStatus.find((s) => s.prd_no === t.prd_no)
       return {
         ...t,
-        user_name: operatorName(t.operator_emp_id),
+        user_name: operatorName(t.user_emp_id),
         order_qty: order?.order_qty ?? '',
         qty_in_stock: qtyInStockForProduct(t.product_code),
         qty_received: qtyReceivedForPrd(t.prd_no),
@@ -227,7 +227,7 @@ export default function FinishedGoodsStoreScreen() {
 
   const receiptRows = transactions
     .filter((t) => t.transaction_type === 'Production Receipt')
-    .map((t) => ({ ...t, user_name: operatorName(t.operator_emp_id) }))
+    .map((t) => ({ ...t, user_name: operatorName(t.user_emp_id) }))
 
   const activeRows = mode === 'dispatch' ? dispatchRows : receiptRows
   const filteredRows = activeRows.filter((r) => {
@@ -323,9 +323,9 @@ export default function FinishedGoodsStoreScreen() {
           <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" subtitle="Dispatch to customer" columns={2}>
             <Field label="User ID" required>
               <SelectInput
-                value={dispatchForm.operator_emp_id}
-                onChange={handleDispatchField('operator_emp_id')}
-                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
+                value={dispatchForm.user_emp_id}
+                onChange={handleDispatchField('user_emp_id')}
+                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Order Quantity">
@@ -333,7 +333,7 @@ export default function FinishedGoodsStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(dispatchForm.operator_emp_id)} />
+              <AutoFillBox value={operatorName(dispatchForm.user_emp_id)} />
             </Field>
             <Field label="Quantity in Stock">
               <AutoFillBox value={qtyInStockForProduct(selectedDispatchOrder?.product_code)} unit="Nos" />
@@ -391,7 +391,7 @@ export default function FinishedGoodsStoreScreen() {
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "User ID" picks who's physically despatching the goods (Operator Master); the account you're
+              "User ID" picks who's physically despatching the goods (User Master); the account you're
               logged in as is recorded automatically.
             </p>
           </FormSection>
@@ -399,9 +399,9 @@ export default function FinishedGoodsStoreScreen() {
           <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" subtitle="Receive from production" columns={2}>
             <Field label="User ID" required>
               <SelectInput
-                value={receiptForm.operator_emp_id}
-                onChange={handleReceiptField('operator_emp_id')}
-                options={operators.map((o) => ({ value: o.operator_emp_id, label: o.operator_emp_id }))}
+                value={receiptForm.user_emp_id}
+                onChange={handleReceiptField('user_emp_id')}
+                options={operators.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
               />
             </Field>
             <Field label="Product Code">
@@ -409,7 +409,7 @@ export default function FinishedGoodsStoreScreen() {
             </Field>
 
             <Field label="User Name">
-              <AutoFillBox value={operatorName(receiptForm.operator_emp_id)} />
+              <AutoFillBox value={operatorName(receiptForm.user_emp_id)} />
             </Field>
             <Field label="Quantity Received" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
