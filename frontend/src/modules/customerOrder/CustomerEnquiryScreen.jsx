@@ -1,21 +1,25 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, GitBranch } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import {
   listCustomerEnquiries,
   createCustomerEnquiry,
   updateCustomerEnquiry,
   deleteCustomerEnquiry,
+  generateNextQtnNo,
+  createEnquiryRevision,
 } from '../../data/queries/customerEnquiries'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 
 const EMPTY_FORM = {
   qtn_no: '',
+  parent_qtn_no: '',
+  revision_no: '',
   customer_id: '',
   drawing_number: '',
   product_code: '',
@@ -27,6 +31,8 @@ const EMPTY_FORM = {
 
 const LIST_COLUMNS = [
   { key: 'qtn_no', label: 'QTN No' },
+  { key: 'parent_qtn_no', label: 'Revision Of', render: (r) => r.parent_qtn_no ?? '—' },
+  { key: 'revision_no', label: 'Rev No', render: (r) => r.revision_no ?? '—' },
   { key: 'customer_id', label: 'Customer' },
   { key: 'product_code', label: 'Product' },
   { key: 'quoted_price', label: 'Quoted Price' },
@@ -46,6 +52,10 @@ export default function CustomerEnquiryScreen() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  // Set only while drafting a revision of an existing enquiry -- the root
+  // QTN this new row will link back to via parent_qtn_no. Not the same as
+  // form.parent_qtn_no, which (once saved) reflects what's actually stored.
+  const [revisingRoot, setRevisingRoot] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -77,18 +87,21 @@ export default function CustomerEnquiryScreen() {
   function handleNew() {
     setForm(EMPTY_FORM)
     setMode('new')
+    setRevisingRoot(null)
     setSaveError(null)
   }
 
   function handleClear() {
     setForm(EMPTY_FORM)
     setMode('new')
+    setRevisingRoot(null)
     setSaveError(null)
   }
 
   function handleRowClick(row) {
     setForm({ ...EMPTY_FORM, ...row })
     setMode('view')
+    setRevisingRoot(null)
     setSaveError(null)
   }
 
@@ -97,9 +110,22 @@ export default function CustomerEnquiryScreen() {
     setMode('edit')
   }
 
+  // Starts a new enquiry pre-filled from the one currently being viewed,
+  // linked back to it as a revision on save -- root is the CURRENT row's
+  // own root (its parent_qtn_no if it's already a revision, else its own
+  // qtn_no), so every revision of an enquiry points to one common original
+  // instead of chaining off whichever revision happened to be open.
+  function handleCreateRevision() {
+    const root = form.parent_qtn_no || form.qtn_no
+    setRevisingRoot(root)
+    setForm({ ...form, qtn_no: '', parent_qtn_no: '', revision_no: '' })
+    setMode('new')
+    setSaveError(null)
+  }
+
   async function handleSave() {
-    if (!form.qtn_no || !form.customer_id) {
-      setSaveError('QTN No and Customer are required.')
+    if (!form.customer_id) {
+      setSaveError('Customer is required.')
       return
     }
     setSaving(true)
@@ -114,11 +140,18 @@ export default function CustomerEnquiryScreen() {
         supply_lead_time_days: form.supply_lead_time_days === '' ? null : Number(form.supply_lead_time_days),
         revision_status: form.revision_status || null,
       }
+      let saved
       if (mode === 'edit') {
-        await updateCustomerEnquiry(form.qtn_no, payload)
+        // qtn_no is never user-editable, including in edit mode.
+        saved = await updateCustomerEnquiry(form.qtn_no, payload)
+      } else if (revisingRoot) {
+        saved = await createEnquiryRevision(revisingRoot, payload)
       } else {
-        await createCustomerEnquiry({ qtn_no: form.qtn_no, ...payload })
+        const qtnNo = await generateNextQtnNo()
+        saved = await createCustomerEnquiry({ qtn_no: qtnNo, ...payload })
       }
+      setRevisingRoot(null)
+      setForm({ ...EMPTY_FORM, ...saved })
       await refresh()
       setMode('view')
     } catch (e) {
@@ -163,7 +196,6 @@ export default function CustomerEnquiryScreen() {
   })
 
   const readOnly = mode === 'view'
-  const idLocked = mode !== 'new'
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -193,9 +225,27 @@ export default function CustomerEnquiryScreen() {
         )}
 
         <FormSection icon={FileText} title="1. Enquiry Details" subtitle="Prospective customer request" columns={3}>
-          <Field label="QTN No" required>
-            <TextInput value={form.qtn_no} onChange={handleField('qtn_no')} disabled={idLocked} />
+          <Field label="QTN No">
+            {/* Auto-generated on save (QTN-001, QTN-002, ...) -- never
+                user-entered, so there's nothing to type or lock here. */}
+            <AutoFillBox value={form.qtn_no || (revisingRoot ? `New revision of ${revisingRoot}` : '(auto-generated on save)')} />
           </Field>
+          {form.parent_qtn_no && (
+            <Field label="Revision Of">
+              <AutoFillBox value={`${form.parent_qtn_no} (Rev ${form.revision_no})`} />
+            </Field>
+          )}
+          {readOnly && form.qtn_no && (
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleCreateRevision}
+                className="inline-flex items-center gap-1.5 bg-bmlhsky text-bmlhblue rounded px-3 py-1.5 text-xs font-medium hover:bg-[#c9def6]"
+              >
+                <GitBranch size={14} /> Create Revision
+              </button>
+            </div>
+          )}
           <Field label="Customer" required>
             <SelectInput
               value={form.customer_id}
