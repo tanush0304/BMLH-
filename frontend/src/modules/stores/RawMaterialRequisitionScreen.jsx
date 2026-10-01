@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ClipboardPlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { listProductRawMaterials } from '../../data/queries/productRawMaterials'
@@ -10,6 +10,7 @@ import {
   listRequisitions,
   createRequisition,
   listOrderMaterialRequirement,
+  generateNextRequisitionNo,
 } from '../../data/queries/rawMaterialRequisitions'
 
 const EMPTY_FORM = {
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
 }
 
 const LIST_COLUMNS = [
+  { key: 'requisition_no', label: 'Requisition No' },
   { key: 'prd_no', label: 'PRD No' },
   { key: 'raw_material_code', label: 'Raw Material' },
   { key: 'part_name', label: 'Part Name' },
@@ -114,7 +116,9 @@ export default function RawMaterialRequisitionScreen() {
     }
     setSaving(true)
     try {
+      const requisitionNo = await generateNextRequisitionNo()
       await createRequisition({
+        requisition_no: requisitionNo,
         prd_no: form.prd_no,
         raw_material_code: form.raw_material_code,
         part_name: form.part_name || null,
@@ -147,6 +151,10 @@ export default function RawMaterialRequisitionScreen() {
         )}
 
         <FormSection icon={ClipboardPlus} title="1. Requisition Details" subtitle="Pick order, material and part">
+          <Field label="Requisition No">
+            {/* Auto-generated on save (REQ-2026-001, ...), never user-entered. */}
+            <AutoFillBox value="(auto-generated on save)" />
+          </Field>
           <Field label="Production Order (PRD No)" required>
             <SelectInput value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
