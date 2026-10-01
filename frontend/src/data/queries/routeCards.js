@@ -39,7 +39,7 @@ export async function updateStageStatus(stageId, status, actualDate) {
  * copy at this moment, per §5. Later edits to Cycle Time Master must not
  * retroactively change an already-generated card.
  */
-export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHours }) {
+export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHours, availableRmQtySnapshot, unitsProducible }) {
   const { data: cycleRows, error: cycleErr } = await supabase
     .from('cycle time master')
     .select('*')
@@ -57,6 +57,13 @@ export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHou
       prd_no: prdNo,
       batch_qty: batchQty === '' ? null : Number(batchQty),
       shift_hours: shiftHours === '' ? null : Number(shiftHours),
+      // Snapshotted at planning time, same as batch_qty/shift_hours -- a
+      // frozen record of what was available/producible when this was
+      // planned, not a live-recomputed figure. Left null when the product
+      // has no BOM row yet (Production Planning shows "Pending BOM" for
+      // that case and never computes a value to pass here).
+      available_rm_qty_snapshot: availableRmQtySnapshot ?? null,
+      units_producible: unitsProducible ?? null,
     })
     .select()
     .single()

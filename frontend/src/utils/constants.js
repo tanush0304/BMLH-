@@ -69,6 +69,7 @@ export const NAV_ITEMS = [
       { key: 'fg', label: 'Finished Goods Stores' },
       { key: 'wip-receipt', label: 'WIP Receipt' },
       { key: 'wip-issue', label: 'WIP Issue' },
+      { key: 'rm-requisition', label: 'Raw Material Requisition' },
     ],
   },
 ]

@@ -9,6 +9,8 @@ import { listProductionBatches } from '../../data/queries/productionBatch'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { generateRouteCard } from '../../data/queries/routeCards'
+import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock'
+import { listOrderMaterialRequirement, listOrderMaterialShortfall } from '../../data/queries/rawMaterialRequisitions'
 
 const LIST_COLUMNS = [
   { key: 'customer_order_no', label: 'Customer Order No' },
@@ -31,6 +33,8 @@ export default function ProductionPlanningScreen() {
   const [batches, setBatches] = useState([])
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
+  const [materialRequirement, setMaterialRequirement] = useState([])
+  const [stockBalance, setStockBalance] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -38,18 +42,22 @@ export default function ProductionPlanningScreen() {
   const [viewedPrd, setViewedPrd] = useState(null)
 
   async function refresh() {
-    const [availableOrders, planRows, batchRows, customerRows, productRows] = await Promise.all([
+    const [availableOrders, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows] = await Promise.all([
       listOrdersAvailableForPlanning(),
       listProductionPlans(),
       listProductionBatches(),
       listCustomers(),
       listProducts(),
+      listOrderMaterialRequirement(),
+      listRawMaterialStockBalance(),
     ])
     setOrders(availableOrders)
     setPlans(planRows)
     setBatches(batchRows)
     setCustomers(customerRows)
     setProducts(productRows)
+    setMaterialRequirement(requirementRows)
+    setStockBalance(balanceRows)
   }
 
   useEffect(() => {
@@ -59,6 +67,31 @@ export default function ProductionPlanningScreen() {
   const selectedOrder = orders.find((o) => o.prd_no === form.prd_no)
   const selectedCustomer = customers.find((c) => c.customer_id === selectedOrder?.customer_id)
   const selectedProduct = products.find((p) => p.product_code === selectedOrder?.product_code)
+
+  // "order material requirement" only has a row for a PRD whose product has
+  // at least one Bill of Materials entry -- no row means no BOM yet, so we
+  // keep showing "Pending BOM" for that product rather than guessing or
+  // erroring. consumption_per_unit lives on the requirement view; current
+  // stock comes from "raw material stock balance" per the material it names.
+  const requirementRowsForOrder = materialRequirement.filter((r) => r.prd_no === form.prd_no)
+  const materialAvailability = requirementRowsForOrder.map((r) => {
+    const stock = stockBalance.find((b) => b.raw_material_code === r.raw_material_code)?.current_stock ?? 0
+    return {
+      raw_material_code: r.raw_material_code,
+      current_stock: stock,
+      units_producible: r.consumption_per_unit > 0 ? Math.floor(stock / r.consumption_per_unit) : null,
+    }
+  })
+  const hasBom = materialAvailability.length > 0
+  // With more than one material (rare -- most products use exactly one),
+  // the order's real capacity is bottlenecked by whichever material runs
+  // out first.
+  const unitsProducible = hasBom ? Math.min(...materialAvailability.map((m) => m.units_producible)) : null
+  const availableRmQtyDisplay = hasBom
+    ? materialAvailability.length === 1
+      ? materialAvailability[0].current_stock
+      : materialAvailability.map((m) => `${m.raw_material_code}: ${m.current_stock}`).join(', ')
+    : 'Pending BOM'
 
   function handleSelectPrd(e) {
     const prd = e.target.value
@@ -94,6 +127,20 @@ export default function ProductionPlanningScreen() {
     }
     setSaving(true)
     try {
+      // BMLH's decision: block saving outright when any required material
+      // falls short -- re-fetched here rather than reusing the on-screen
+      // figures, so the check reflects current stock at the moment of
+      // saving, not whatever was last loaded. No override.
+      const shortfallRows = (await listOrderMaterialShortfall()).filter(
+        (r) => r.prd_no === form.prd_no && r.shortfall > 0
+      )
+      if (shortfallRows.length > 0) {
+        const detail = shortfallRows.map((r) => `${r.raw_material_code} short by ${r.shortfall}`).join('; ')
+        setError(`Cannot save -- insufficient raw material stock: ${detail}.`)
+        setSaving(false)
+        return
+      }
+
       // Keep one route card per PRD (current primary key). Open question: should
       // planning instead be per-batch when order_qty exceeds batch_qty? Not
       // changing the key until the client confirms -- see spec discussion.
@@ -102,6 +149,8 @@ export default function ProductionPlanningScreen() {
         productCode: selectedOrder?.product_code,
         batchQty: form.batch_qty,
         shiftHours: form.shift_hours,
+        availableRmQtySnapshot: hasBom ? materialAvailability[0].current_stock : null,
+        unitsProducible: hasBom ? unitsProducible : null,
       })
       handleReset()
       await refresh()
@@ -172,14 +221,10 @@ export default function ProductionPlanningScreen() {
             <AutoFillBox value={selectedOrder?.expected_delivery ?? ''} />
           </Field>
           <Field label="Available RM Qty Stock">
-            {/* TODO: no product-to-raw-material link exists in the schema yet
-                (needs a BOM table). Do not invent a formula -- shown as
-                "Pending BOM" and saved as null (available_rm_qty_snapshot). */}
-            <AutoFillBox value="Pending BOM" unit="Nos" />
+            <AutoFillBox value={availableRmQtyDisplay} unit={hasBom ? 'Nos' : undefined} />
           </Field>
           <Field label="Total Units Can Be Produced">
-            {/* TODO: same BOM gap as above -- saved as null (units_producible). */}
-            <AutoFillBox value="Pending BOM" unit="Nos" />
+            <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
           <Field label="Planned Production Batch Quantity" required>
             {/* Prefilled from Production Batch Master by product_code; left
