@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Truck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
@@ -13,6 +13,7 @@ import {
   listVendorsForJobWorkCode,
   listDispatches,
   createDispatch,
+  generateNextDcNo,
 } from '../../data/queries/jobOrders'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import { computeStageAvailability } from '../../utils/calculations'
@@ -40,7 +41,7 @@ export default function JobOrderDispatchScreen() {
   const [vendorOptions, setVendorOptions] = useState([])
   const [availableQty, setAvailableQty] = useState(null)
 
-  const [form, setForm] = useState({ dc_no: '', vendor_id: '', qty: '', dispatch_date: '' })
+  const [form, setForm] = useState({ vendor_id: '', qty: '', dispatch_date: '' })
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -125,15 +126,16 @@ export default function JobOrderDispatchScreen() {
   }
 
   async function handleSave() {
-    if (!form.dc_no || !prdNo || !selectedStage || !form.vendor_id || !form.qty || !form.dispatch_date) {
-      setError('DC No, PRD, Stage, Vendor, Qty and Dispatch Date are all required.')
+    if (!prdNo || !selectedStage || !form.vendor_id || !form.qty || !form.dispatch_date) {
+      setError('PRD, Stage, Vendor, Qty and Dispatch Date are all required.')
       return
     }
     setSaving(true)
     setError(null)
     try {
+      const dcNo = await generateNextDcNo()
       await createDispatch({
-        dc_no: form.dc_no,
+        dc_no: dcNo,
         prd_no: prdNo,
         stage_id: selectedStage.id,
         job_work_code: selectedStage.job_work_code,
@@ -143,7 +145,7 @@ export default function JobOrderDispatchScreen() {
         dispatch_date: form.dispatch_date,
         expected_receipt_date: expectedReceiptDate() || null,
       })
-      setForm({ dc_no: '', vendor_id: '', qty: '', dispatch_date: '' })
+      setForm({ vendor_id: '', qty: '', dispatch_date: '' })
       setPrdNo('')
       setStageId('')
       setEligibleStages([])
@@ -205,8 +207,12 @@ export default function JobOrderDispatchScreen() {
           <Field label={`Qty${availableQty !== null ? ` (available: ${availableQty})` : ''}`} required>
             <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
           </Field>
-          <Field label="DC No" required>
-            <TextInput value={form.dc_no} onChange={handleField('dc_no')} placeholder="e.g. DC 001 HT PRD 001" />
+          <Field label="DC No">
+            {/* Auto-generated on save (DC-001, DC-002, ...) -- never
+                user-entered. None of the existing dispatches followed a
+                consistent format, so this starts a fresh sequence rather
+                than continuing one; they're left exactly as they are. */}
+            <AutoFillBox value="(auto-generated on save)" />
           </Field>
           <Field label="Dispatch Date" required>
             <TextInput type="date" value={form.dispatch_date} onChange={handleField('dispatch_date')} />

@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import {
   listCustomerOrders,
   createCustomerOrder,
   updateCustomerOrder,
   deleteCustomerOrder,
+  generateNextPrdNo,
 } from '../../data/queries/customerOrders'
 import { listCustomerEnquiries } from '../../data/queries/customerEnquiries'
 import { listCustomers } from '../../data/queries/customers'
@@ -102,8 +103,8 @@ export default function CustomerOrderScreen() {
   }
 
   async function handleSave() {
-    if (!form.prd_no || !form.customer_id || !form.po_number || !form.po_date || !form.product_code || !form.order_qty) {
-      setSaveError('PRD No, Customer, PO Number, PO Date, Product and Order Qty are required.')
+    if (!form.customer_id || !form.po_number || !form.po_date || !form.product_code || !form.order_qty) {
+      setSaveError('Customer, PO Number, PO Date, Product and Order Qty are required.')
       return
     }
     setSaving(true)
@@ -118,11 +119,15 @@ export default function CustomerOrderScreen() {
         order_qty: Number(form.order_qty),
         expected_delivery: form.expected_delivery || null,
       }
+      let saved
       if (mode === 'edit') {
-        await updateCustomerOrder(form.prd_no, payload)
+        // prd_no is never user-editable, including in edit mode.
+        saved = await updateCustomerOrder(form.prd_no, payload)
       } else {
-        await createCustomerOrder({ prd_no: form.prd_no, ...payload })
+        const prdNo = await generateNextPrdNo()
+        saved = await createCustomerOrder({ prd_no: prdNo, ...payload })
       }
+      setForm({ ...EMPTY_FORM, ...saved })
       await refresh()
       setMode('view')
     } catch (e) {
@@ -167,7 +172,6 @@ export default function CustomerOrderScreen() {
   })
 
   const readOnly = mode === 'view'
-  const idLocked = mode !== 'new'
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -197,8 +201,13 @@ export default function CustomerOrderScreen() {
         )}
 
         <FormSection icon={ClipboardList} title="1. Order Details" subtitle="Confirmed purchase order" columns={3}>
-          <Field label="PRD No" required>
-            <TextInput value={form.prd_no} onChange={handleField('prd_no')} disabled={idLocked} />
+          <Field label="PRD No">
+            {/* Auto-generated on save (PRD-001, PRD-002, ...) -- never
+                user-entered. A couple of existing orders (PRD-HPV-A,
+                PRD-HPV-B, from an earlier pilot) don't follow this shape;
+                they're untouched and simply ignored when computing the
+                next number. */}
+            <AutoFillBox value={form.prd_no || '(auto-generated on save)'} />
           </Field>
           <Field label="Linked Enquiry (QTN No)">
             <SelectInput

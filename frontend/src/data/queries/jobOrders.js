@@ -42,6 +42,25 @@ export async function listDispatches() {
 }
 
 /**
+ * Next DC number is the highest existing "DC-NNN" suffix + 1. Unlike PRD
+ * numbers, NONE of the existing dispatches ("DC-001-BR-PRD004",
+ * "DC-HPV-BR-01", "DC-HPV-TG-01") match this shape -- there was no
+ * consistent DC numbering convention to continue, so this introduces one
+ * from scratch starting at DC-001. Existing rows are left exactly as they
+ * are and simply ignored when computing the max. dc_no is this table's
+ * primary key, so a genuine collision surfaces as a real Postgres 23505.
+ */
+export async function generateNextDcNo() {
+  const { data, error } = await supabase.from('job order dispatch').select('dc_no')
+  if (error) throw error
+  const maxNum = data.reduce((max, r) => {
+    const match = /^DC-(\d+)$/.exec(r.dc_no ?? '')
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+  return `DC-${String(maxNum + 1).padStart(3, '0')}`
+}
+
+/**
  * The actual concurrency lock: "job order dispatch" has a partial unique
  * index on stage_id where is_open, so a second dispatch for a stage that
  * already has one open fails at the database with 23505 -- this check is
