@@ -8,6 +8,7 @@ import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
 import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOps'
+import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/machineOperations'
 
 const EMPTY_FORM = {
   machine_id: '',
@@ -19,23 +20,6 @@ const EMPTY_FORM = {
   model: '',
   serial_no: '',
 }
-
-// No master table of operation names exists in the schema (machine ops
-// just stores free text) -- this is a working list of shop-floor
-// operations, not a live-fetched lookup. Adjust here if BMLH's actual
-// operation vocabulary differs.
-const OPERATION_OPTIONS = [
-  'Turning',
-  'Milling',
-  'Drilling',
-  'Grinding',
-  'Cutting',
-  'Broaching',
-  'Boring',
-  'Tapping',
-  'Deburring',
-  'Inspection',
-]
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
@@ -54,6 +38,7 @@ export default function MachineMaster() {
   const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [operations, setOperations] = useState([])
+  const [operationOptions, setOperationOptions] = useState([])
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -62,7 +47,9 @@ export default function MachineMaster() {
     setLoading(true)
     setError(null)
     try {
-      setRecords(await listMachines())
+      const [machs, opts] = await Promise.all([listMachines(), listMachineOperationOptions()])
+      setRecords(machs)
+      setOperationOptions(opts)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -122,7 +109,22 @@ export default function MachineMaster() {
       } else {
         await createMachine(form)
       }
-      await setMachineOperations(form.machine_id, operations.filter(Boolean))
+
+      // Any selected operation not already in the master table is a new
+      // one (typed via "Add new..." this session) -- persist it so it's a
+      // real, reusable option for every machine from here on, not a
+      // one-off note on this record. Mirrors Vendor Master's Job Work
+      // Types resolution.
+      const validOperations = operations.filter(Boolean)
+      const newOperations = validOperations.filter((op) => !operationOptions.includes(op))
+      for (const op of newOperations) {
+        await createMachineOperationOption(op)
+      }
+      if (newOperations.length > 0) {
+        setOperationOptions((opts) => [...opts, ...newOperations].sort())
+      }
+
+      await setMachineOperations(form.machine_id, validOperations)
       await refresh()
       setMode('view')
     } catch (e) {
@@ -235,7 +237,7 @@ export default function MachineMaster() {
           <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
             <Field label="Operations Performed" width="long">
               <MultiSelectDropdown
-                options={OPERATION_OPTIONS}
+                options={operationOptions}
                 selected={operations}
                 onChange={setOperations}
                 disabled={readOnly}
