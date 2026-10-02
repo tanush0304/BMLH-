@@ -30,6 +30,7 @@ export const NAV_ITEMS = [
     label: 'Production',
     subItems: [
       { key: 'machine-entry', label: 'Machine Entry' },
+      { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'schedule', label: 'Production Schedule' },
       { key: 'traceability', label: 'Order Traceability' },
       { key: 'planning', label: 'Production Planning' },

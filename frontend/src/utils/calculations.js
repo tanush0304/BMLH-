@@ -7,20 +7,21 @@
  * machine (Internal) or is sent out via Job Order (Outsourced), since both
  * draw from the same upstream pool.
  *
- * Manual stages (De-Burring, Final Inspection, Final Dispatch, ...) have no
- * logging screen of their own, so they're a pass-through: their "output",
- * for linkage purposes, is whatever the nearest prior stage produced.
+ * Manual stages (De-Burring, Final Inspection, Final Dispatch, ...) log
+ * through Manual Operations exactly like Internal stages log through
+ * Machine Entry -- same production_logs/production_log_hours tables, same
+ * `output` aggregation -- so they're treated identically here, not skipped.
  *
  * @param {Array<{id: number|string, seq: number, type: 'Internal'|'Outsourced'|'Manual'}>} stages
  *   Sorted or unsorted stages for one PRD; sorted internally by seq.
  * @param {number} orderQty - the customer order's order_qty, caps stage 1.
  * @param {Record<string, {output: number, consumed: number}>} stageAggregates
- *   Keyed by stage id. `output` = actual qty produced (Internal, from
+ *   Keyed by stage id. `output` = actual qty produced (Internal/Manual, from
  *   production log hours) or received (Outsourced, from job order receipt)
- *   at that stage. `consumed` = qty already logged (Internal, from
+ *   at that stage. `consumed` = qty already logged (Internal/Manual, from
  *   production logs' planned_qty) or already dispatched (Outsourced, from
  *   job order dispatch qty) at that stage -- i.e. already drawn from the
- *   upstream pool. Manual stages need no entry (they're never looked up).
+ *   upstream pool.
  * @param {{receiptedFrom?: Record<string, number>, issuedTo?: Record<string, number>}} [wipAggregates]
  *   From getWipAggregatesForPrd. `receiptedFrom[stageId]` = how much of that
  *   stage's output was pulled OUT into WIP holding instead of flowing
@@ -33,14 +34,17 @@ export function computeStageAvailability(stages, orderQty, stageAggregates, wipA
   const { receiptedFrom = {}, issuedTo = {} } = wipAggregates
   const sorted = [...stages].sort((a, b) => a.seq - b.seq)
 
-  // Same "skip past Manual pass-through stages" walk computeStageUpstreamTargets
-  // does, but also surfacing WHICH stage's output is being carried forward --
-  // WIP receipts/issues are keyed by stage id, so the carry-forward math needs
-  // to know which upstream stage they're relative to, not just its output.
+  // Manual stages used to be skipped here entirely (pass-through), back when
+  // they had no logging screen of their own and so could never carry a real
+  // output. Now that Manual Operations logs real production_logs/hours
+  // against them exactly like Internal stages, they're treated the same
+  // way: their own stageAggregates output feeds the next stage. A Manual
+  // stage that's never been logged still aggregates to 0, same as before,
+  // so this is a no-op for every stage that hasn't started using the new
+  // screen yet.
   function resolveUpstream(index) {
     if (index < 0) return { output: orderQty, stageId: null }
     const stage = sorted[index]
-    if (stage.type === 'Manual') return resolveUpstream(index - 1)
     return { output: stageAggregates[stage.id]?.output ?? 0, stageId: stage.id }
   }
 
@@ -58,10 +62,10 @@ export function computeStageAvailability(stages, orderQty, stageAggregates, wipA
 /**
  * The upstream pool size for each stage -- what it should ultimately produce
  * once fed everything available to it (order_qty for stage 1, otherwise the
- * previous loggable stage's total output, skipping past Manual pass-through
- * stages). Used both by computeStageAvailability (upstream minus what's
- * already been drawn) and to auto-suggest when a stage looks finished
- * (actual output has caught up to this target).
+ * previous stage's total output -- Manual included, same as Internal). Used
+ * both by computeStageAvailability (upstream minus what's already been
+ * drawn) and to auto-suggest when a stage looks finished (actual output has
+ * caught up to this target).
  */
 export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
   const sorted = [...stages].sort((a, b) => a.seq - b.seq)
@@ -69,7 +73,6 @@ export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
   function effectiveOutput(index) {
     if (index < 0) return orderQty
     const stage = sorted[index]
-    if (stage.type === 'Manual') return effectiveOutput(index - 1)
     return stageAggregates[stage.id]?.output ?? 0
   }
 

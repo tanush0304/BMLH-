@@ -1,10 +1,12 @@
 import MachineEntryScreen from './MachineEntryScreen'
+import ManualOperationsScreen from './ManualOperationsScreen'
 import ProductionScheduleScreen from './ProductionScheduleScreen'
 import OrderTraceabilityScreen from './OrderTraceabilityScreen'
 import ProductionPlanningScreen from './ProductionPlanningScreen'
 
 const TABS = [
   { key: 'machine-entry', component: MachineEntryScreen },
+  { key: 'manual-operations', component: ManualOperationsScreen },
   { key: 'schedule', component: ProductionScheduleScreen },
   { key: 'traceability', component: OrderTraceabilityScreen },
   { key: 'planning', component: ProductionPlanningScreen },
