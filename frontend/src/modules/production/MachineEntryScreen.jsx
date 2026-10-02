@@ -5,9 +5,11 @@ import FormSection, { Field, TextInput, SelectInput } from '../../components/For
 import RecordsList from '../../components/RecordsList'
 import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
+import { listMachines } from '../../data/queries/machines'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
 import { listMachinesForOperations } from '../../data/queries/machineEntry'
+import { buildMachineLabelMap } from '../../utils/machineLabel'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
   getStageAggregatesForPrd,
@@ -34,6 +36,7 @@ const HOUR_COLUMNS = [
 export default function MachineEntryScreen() {
   const [users, setUsers] = useState([])
   const [shifts, setShifts] = useState([])
+  const [machineLabels, setMachineLabels] = useState({}) // machine_id -> "Name (ID)", for dropdown display only
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -71,9 +74,10 @@ export default function MachineEntryScreen() {
       setLoading(true)
       setError(null)
       try {
-        const [usrs, shf] = await Promise.all([listUsers(), listShifts()])
+        const [usrs, shf, machs] = await Promise.all([listUsers(), listShifts(), listMachines()])
         setUsers(usrs)
         setShifts(shf)
+        setMachineLabels(buildMachineLabelMap(machs))
         await loadPendingStages()
       } catch (e) {
         setError(e.message)
@@ -302,7 +306,7 @@ export default function MachineEntryScreen() {
               value={machineId}
               onChange={handleMachineChange}
               disabled={!prdNo || eligibleMachineIds.length === 0}
-              options={eligibleMachineIds}
+              options={eligibleMachineIds.map((id) => ({ value: id, label: machineLabels[id] ?? id }))}
             />
           </Field>
           {stageChoicesForPrd.length > 1 && (

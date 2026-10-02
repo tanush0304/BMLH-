@@ -13,6 +13,7 @@ import {
 } from '../../data/queries/qualityParameters'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
+import { machineOptionLabel } from '../../utils/machineLabel'
 
 const EMPTY_FORM = {
   id: '',
@@ -219,7 +220,7 @@ export default function QualityMaster() {
               value={form.machine_id}
               onChange={handleField('machine_id')}
               disabled={readOnly}
-              options={machines.map((m) => m.machine_id)}
+              options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
             />
           </Field>
           <Field label="Type of Operation">

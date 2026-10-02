@@ -3,6 +3,7 @@ import { ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
+import { machineOptionLabel } from '../../utils/machineLabel'
 import StatusPill from '../../components/StatusPill'
 import { listUsers } from '../../data/queries/users'
 import { listShifts } from '../../data/queries/shifts'
@@ -272,7 +273,7 @@ export default function QualityModule() {
               <SelectInput
                 value={header.machine_id}
                 onChange={handleMachineChange}
-                options={machines.map((m) => ({ value: m.machine_id, label: m.machine_name }))}
+                options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
               />
             </Field>
             <Field label="Type of Operation" required>

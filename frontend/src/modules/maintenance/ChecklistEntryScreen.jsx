@@ -6,6 +6,7 @@ import FormSection, { Field, TextInput, SelectInput } from '../../components/For
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
 import { listUsers } from '../../data/queries/users'
+import { machineOptionLabel } from '../../utils/machineLabel'
 import { listShifts } from '../../data/queries/shifts'
 import {
   listChecklistItemsForMachine,
@@ -156,7 +157,7 @@ export default function ChecklistEntryScreen() {
 
         <FormSection icon={Wrench} title="1. Visit Details" subtitle="Maintenance visit and machine" columns={4}>
           <Field label="Machine" required>
-            <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => m.machine_id)} />
+            <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
           </Field>
           <Field label="Maintenance Engineer" required>
             <SelectInput value={userId} onChange={(e) => setUserId(e.target.value)} disabled={!!activeLog} options={users.map((o) => o.user_emp_id)} />

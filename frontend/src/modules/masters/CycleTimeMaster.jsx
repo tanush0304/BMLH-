@@ -13,6 +13,7 @@ import {
 } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
+import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 
 const EMPTY_FORM = {
@@ -248,7 +249,7 @@ export default function CycleTimeMaster() {
                 value={form.machine_id}
                 onChange={handleField('machine_id')}
                 disabled={readOnly}
-                options={machines.map((m) => m.machine_id)}
+                options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
               />
             </Field>
           )}
