@@ -1,10 +1,12 @@
 import CustomerEnquiryScreen from './CustomerEnquiryScreen'
 import CustomerOrderScreen from './CustomerOrderScreen'
+import CustomerPoSummaryScreen from './CustomerPoSummaryScreen'
 import RouteCardScreen from './RouteCardScreen'
 
 const TABS = [
   { key: 'enquiry', component: CustomerEnquiryScreen },
   { key: 'order', component: CustomerOrderScreen },
+  { key: 'po-summary', component: CustomerPoSummaryScreen },
   { key: 'route-card', component: RouteCardScreen },
 ]
 

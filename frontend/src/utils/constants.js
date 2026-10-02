@@ -43,6 +43,7 @@ export const NAV_ITEMS = [
     subItems: [
       { key: 'enquiry', label: 'Customer Enquiries' },
       { key: 'order', label: 'Customer Orders' },
+      { key: 'po-summary', label: 'Customer PO Summary' },
       { key: 'route-card', label: 'Route Cards' },
     ],
   },
