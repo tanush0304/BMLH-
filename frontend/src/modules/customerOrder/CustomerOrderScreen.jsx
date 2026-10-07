@@ -15,7 +15,9 @@ import {
 import { createPoHeader } from '../../data/queries/customerPoHeaders'
 import { listCustomerEnquiries } from '../../data/queries/customerEnquiries'
 import { listCustomers } from '../../data/queries/customers'
-import { listProducts, createProduct } from '../../data/queries/products'
+import { listProducts, resolveProductWithConfirmation } from '../../data/queries/products'
+import { customerDropdownOptions } from '../../utils/customerLabel'
+import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 
 const EMPTY_FORM = {
   prd_no: '',
@@ -23,10 +25,11 @@ const EMPTY_FORM = {
   customer_id: '',
   po_number: '',
   po_date: '',
-  product_code: '',
+  part_serial_number: '',
   order_qty: '',
   order_type: '',
   expected_delivery: '',
+  customer_po_line_no: '',
 }
 
 const EMPTY_PO_HEADER = {
@@ -44,14 +47,16 @@ function emptyLineItem() {
   lineItemSeq += 1
   return {
     key: lineItemSeq,
-    productCode: '',
+    partSerialNumber: '',
     isNewPart: false,
     newPartCode: '',
     partName: '',
     drawingNumber: '',
+    qtnNo: '',
     orderType: '',
     orderQty: '',
     expectedDelivery: '',
+    customerPoLineNo: '',
   }
 }
 
@@ -59,7 +64,7 @@ const LIST_COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
   { key: 'customer_id', label: 'Customer' },
   { key: 'po_number', label: 'PO Number' },
-  { key: 'product_code', label: 'Product' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
@@ -133,9 +138,29 @@ export default function CustomerOrderScreen() {
   }
 
   function handleRowClick(row) {
-    setForm({ ...EMPTY_FORM, ...row })
+    // Guard against a DB null overwriting EMPTY_FORM's '' default (would
+    // otherwise make a controlled input briefly uncontrolled on load) --
+    // e.g. an old order saved with a null qtn_no must still render/save
+    // cleanly, not as a literal null value flowing into a controlled select.
+    const sanitized = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, v ?? '']))
+    setForm({ ...EMPTY_FORM, ...sanitized })
     setMode('view')
     setSaveError(null)
+  }
+
+  // Same "never overwrite a field already filled" rule as the new-PO line
+  // items -- here there's no Drawing Number field on this flat form, so
+  // only Part Serial Number gets filled in when empty.
+  function handleQtnChange(e) {
+    const qtnNo = e.target.value
+    const enquiry = enquiries.find((en) => en.qtn_no === qtnNo)
+    setForm((f) => {
+      const next = { ...f, qtn_no: qtnNo }
+      if (enquiry && !f.part_serial_number) {
+        next.part_serial_number = enquiry.part_serial_number ?? ''
+      }
+      return next
+    })
   }
 
   function handleEdit() {
@@ -163,16 +188,39 @@ export default function CustomerOrderScreen() {
           if (value === NEW_PART_VALUE) {
             // Nothing to auto-fill from yet -- Part Name / Drawing Number
             // become manual entry until this part is actually created.
-            return { ...it, productCode: '', isNewPart: true, partName: '', drawingNumber: '' }
+            return { ...it, partSerialNumber: '', isNewPart: true, partName: '', drawingNumber: '' }
           }
-          const product = products.find((p) => p.product_code === value)
+          const product = products.find((p) => p.part_serial_number === value)
           return {
             ...it,
-            productCode: value,
+            partSerialNumber: value,
             isNewPart: false,
-            partName: product?.product_name ?? '',
+            partName: product?.part_name ?? '',
             drawingNumber: product?.part_drawing_reference_number ?? '',
           }
+        })
+      )
+    }
+  }
+
+  // Picking a quotation never overwrites a field already filled -- it
+  // only fills Part Serial Number (and Drawing Number) from the enquiry
+  // when the part hasn't been chosen yet (not already picked from the
+  // dropdown, and not already mid-typing as a new part).
+  function handleLineItemQtnChange(lineKey) {
+    return (e) => {
+      const qtnNo = e.target.value
+      const enquiry = enquiries.find((en) => en.qtn_no === qtnNo)
+      setLineItems((items) =>
+        items.map((it) => {
+          if (it.key !== lineKey) return it
+          const next = { ...it, qtnNo }
+          if (enquiry && !it.isNewPart && !it.partSerialNumber) {
+            next.partSerialNumber = enquiry.part_serial_number ?? ''
+            if (!it.partName) next.partName = enquiry.part_name ?? ''
+            if (!it.drawingNumber) next.drawingNumber = enquiry.drawing_number ?? ''
+          }
+          return next
         })
       )
     }
@@ -192,7 +240,7 @@ export default function CustomerOrderScreen() {
     }
     // mode === 'edit': editing one existing customer orders row, unchanged
     // from before this rework.
-    if (!form.customer_id || !form.po_number || !form.po_date || !form.product_code || !form.order_qty) {
+    if (!form.customer_id || !form.po_number || !form.po_date || !form.part_serial_number || !form.order_qty) {
       setSaveError('Customer, PO Number, PO Date, Product and Order Qty are required.')
       return
     }
@@ -204,10 +252,11 @@ export default function CustomerOrderScreen() {
         customer_id: form.customer_id,
         po_number: form.po_number,
         po_date: form.po_date,
-        product_code: form.product_code,
+        part_serial_number: form.part_serial_number,
         order_qty: Number(form.order_qty),
         order_type: form.order_type || null,
         expected_delivery: form.expected_delivery || null,
+        customer_po_line_no: form.customer_po_line_no || null,
       }
       const saved = await updateCustomerOrder(form.prd_no, payload)
       setForm({ ...EMPTY_FORM, ...saved })
@@ -225,7 +274,7 @@ export default function CustomerOrderScreen() {
       setSaveError('Customer, PO Number and PO Date are required for the PO header.')
       return
     }
-    const validLines = lineItems.filter((it) => it.productCode || it.isNewPart)
+    const validLines = lineItems.filter((it) => it.partSerialNumber || it.isNewPart)
     if (validLines.length === 0) {
       setSaveError('At least one line item is required.')
       return
@@ -262,29 +311,28 @@ export default function CustomerOrderScreen() {
       let knownProducts = products
       const createdPrds = []
       for (const it of validLines) {
-        let productCode = it.productCode
-        if (it.isNewPart) {
-          const existing = knownProducts.find((p) => p.product_code === it.newPartCode)
-          if (!existing) {
-            const created = await createProduct({
-              product_code: it.newPartCode,
-              product_name: it.partName,
-              part_drawing_reference_number: it.drawingNumber || null,
-            })
-            knownProducts = [...knownProducts, created]
-          }
-          productCode = it.newPartCode
-        }
+        const resolved = await resolveProductWithConfirmation({
+          isNewPart: it.isNewPart,
+          partSerialNumber: it.partSerialNumber,
+          newPartCode: it.newPartCode,
+          partName: it.partName,
+          drawingNumber: it.drawingNumber,
+          knownProducts,
+        })
+        const partSerialNumber = resolved.partSerialNumber
+        knownProducts = resolved.knownProducts
         const prdNo = await generateNextPrdNo()
         await createCustomerOrder({
           prd_no: prdNo,
+          qtn_no: it.qtnNo || null,
           customer_id: poHeader.customer_id,
           po_number: poHeader.po_number,
           po_date: poHeader.po_date,
-          product_code: productCode,
+          part_serial_number: partSerialNumber,
           order_qty: Number(it.orderQty),
           order_type: it.orderType || null,
           expected_delivery: it.expectedDelivery || null,
+          customer_po_line_no: it.customerPoLineNo || null,
           parent_po_id: header.id,
         })
         createdPrds.push(prdNo)
@@ -377,7 +425,7 @@ export default function CustomerOrderScreen() {
                 <SelectInput
                   value={poHeader.customer_id}
                   onChange={handlePoHeaderField('customer_id')}
-                  options={customers.map((c) => c.customer_id)}
+                  options={customerDropdownOptions(customers)}
                 />
               </Field>
               <Field label="PO Number" required>
@@ -421,10 +469,10 @@ export default function CustomerOrderScreen() {
                         />
                       ) : (
                         <SelectInput
-                          value={it.productCode}
+                          value={it.partSerialNumber}
                           onChange={handleLineItemProductChange(it.key)}
                           options={[
-                            ...products.map((p) => ({ value: p.product_code, label: p.product_code })),
+                            ...products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number })),
                             { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                           ]}
                         />
@@ -459,6 +507,23 @@ export default function CustomerOrderScreen() {
                         value={it.drawingNumber}
                         onChange={handleLineItemField('drawingNumber', it.key)}
                         disabled={!it.isNewPart}
+                      />
+                    </Field>
+                    <Field label="Quotation (QTN)" width="medium">
+                      <SelectInput
+                        value={it.qtnNo}
+                        onChange={handleLineItemQtnChange(it.key)}
+                        options={enquiryOptionsForOrder({
+                          enquiries,
+                          customerId: poHeader.customer_id,
+                          partSerialNumber: it.isNewPart ? '' : it.partSerialNumber,
+                        })}
+                      />
+                    </Field>
+                    <Field label="PO Line No." width="short">
+                      <TextInput
+                        value={it.customerPoLineNo}
+                        onChange={handleLineItemField('customerPoLineNo', it.key)}
                       />
                     </Field>
                     <Field label="Order Type" width="short">
@@ -509,12 +574,16 @@ export default function CustomerOrderScreen() {
             <Field label="PRD No">
               <AutoFillBox value={form.prd_no || '(auto-generated on save)'} />
             </Field>
-            <Field label="Linked Enquiry (QTN No)">
+            <Field label="Quotation (QTN)">
               <SelectInput
                 value={form.qtn_no}
-                onChange={handleField('qtn_no')}
+                onChange={handleQtnChange}
                 disabled={readOnly}
-                options={enquiries.map((e) => e.qtn_no)}
+                options={enquiryOptionsForOrder({
+                  enquiries,
+                  customerId: form.customer_id,
+                  partSerialNumber: form.part_serial_number,
+                })}
               />
             </Field>
             <Field label="Customer" required>
@@ -522,7 +591,7 @@ export default function CustomerOrderScreen() {
                 value={form.customer_id}
                 onChange={handleField('customer_id')}
                 disabled={readOnly}
-                options={customers.map((c) => c.customer_id)}
+                options={customerDropdownOptions(customers)}
               />
             </Field>
             <Field label="PO Number" required>
@@ -533,10 +602,10 @@ export default function CustomerOrderScreen() {
             </Field>
             <Field label="Product" required>
               <SelectInput
-                value={form.product_code}
-                onChange={handleField('product_code')}
+                value={form.part_serial_number}
+                onChange={handleField('part_serial_number')}
                 disabled={readOnly}
-                options={products.map((p) => p.product_code)}
+                options={products.map((p) => p.part_serial_number)}
               />
             </Field>
             <Field label="Order Type">
@@ -545,6 +614,13 @@ export default function CustomerOrderScreen() {
                 onChange={handleField('order_type')}
                 disabled={readOnly}
                 options={['Labour', 'Manufacturing']}
+              />
+            </Field>
+            <Field label="PO Line No.">
+              <TextInput
+                value={form.customer_po_line_no}
+                onChange={handleField('customer_po_line_no')}
+                disabled={readOnly}
               />
             </Field>
             <Field label="Order Qty" required>

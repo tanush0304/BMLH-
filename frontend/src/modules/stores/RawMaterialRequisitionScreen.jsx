@@ -6,6 +6,10 @@ import RecordsList from '../../components/RecordsList'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { listProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
+import { listProducts } from '../../data/queries/products'
+import { listEmployees } from '../../data/queries/employees'
+import { employeeLabelForId } from '../../utils/employeeLabel'
+import EmployeeSelect from '../../components/EmployeeSelect'
 import {
   listRequisitions,
   createRequisition,
@@ -19,23 +23,14 @@ const EMPTY_FORM = {
   part_name: '',
   part_serial_number: '',
   part_drawing_reference_number: '',
+  employee_id: '',
   qty_required: '',
 }
 
-const LIST_COLUMNS = [
-  { key: 'requisition_no', label: 'Requisition No' },
-  { key: 'prd_no', label: 'PRD No' },
-  { key: 'raw_material_code', label: 'Raw Material' },
-  { key: 'part_name', label: 'Part Name' },
-  { key: 'part_serial_number', label: 'Part Serial No' },
-  { key: 'part_drawing_reference_number', label: 'Drawing Ref No' },
-  { key: 'qty_required', label: 'Qty Required' },
-  { key: 'order_date', label: 'Order Date' },
-  { key: 'status', label: 'Status', type: 'status' },
-]
-
 export default function RawMaterialRequisitionScreen() {
   const [orders, setOrders] = useState([])
+  const [products, setProducts] = useState([])
+  const [employees, setEmployees] = useState([])
   const [rawMaterials, setRawMaterials] = useState([])
   const [materialRequirement, setMaterialRequirement] = useState([])
   const [requisitions, setRequisitions] = useState([])
@@ -50,13 +45,17 @@ export default function RawMaterialRequisitionScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [ords, rms, reqmt, reqs] = await Promise.all([
+      const [ords, prods, employeeRows, rms, reqmt, reqs] = await Promise.all([
         listCustomerOrders(),
+        listProducts(),
+        listEmployees(),
         listRawMaterials(),
         listOrderMaterialRequirement(),
         listRequisitions(),
       ])
       setOrders(ords)
+      setProducts(prods)
+      setEmployees(employeeRows)
       setRawMaterials(rms)
       setMaterialRequirement(reqmt)
       setRequisitions(reqs)
@@ -75,20 +74,40 @@ export default function RawMaterialRequisitionScreen() {
 
   async function handlePrdChange(e) {
     const prd = e.target.value
-    setForm((f) => ({ ...EMPTY_FORM, prd_no: prd }))
+    // Changing the order still clears the order-dependent raw material
+    // pick/qty (the previous PRD's BOM no longer applies), but Part Name /
+    // Part Serial Number / Part Drawing Number are preserved across the
+    // reset if the user had already typed into them -- they're pre-filled
+    // below only where still blank, never overwritten.
+    setForm((f) => ({
+      ...EMPTY_FORM,
+      prd_no: prd,
+      part_name: f.part_name,
+      part_serial_number: f.part_serial_number,
+      part_drawing_reference_number: f.part_drawing_reference_number,
+    }))
     if (!prd) {
       setBomForProduct([])
       return
     }
     const order = orders.find((o) => o.prd_no === prd)
-    if (!order?.product_code) {
+    if (!order?.part_serial_number) {
       setBomForProduct([])
       return
     }
     try {
-      setBomForProduct(await listProductRawMaterials(order.product_code))
+      setBomForProduct(await listProductRawMaterials(order.part_serial_number))
     } catch (e) {
       setError(e.message)
+    }
+    const product = products.find((p) => p.part_serial_number === order.part_serial_number)
+    if (product) {
+      setForm((f) => ({
+        ...f,
+        part_name: f.part_name || product.part_name || '',
+        part_serial_number: f.part_serial_number || product.part_serial_number || '',
+        part_drawing_reference_number: f.part_drawing_reference_number || product.part_drawing_reference_number || '',
+      }))
     }
   }
 
@@ -124,6 +143,7 @@ export default function RawMaterialRequisitionScreen() {
         part_name: form.part_name || null,
         part_serial_number: form.part_serial_number || null,
         part_drawing_reference_number: form.part_drawing_reference_number || null,
+        employee_id: form.employee_id || null,
         qty_required: Number(form.qty_required),
       })
       handleReset()
@@ -140,6 +160,19 @@ export default function RawMaterialRequisitionScreen() {
     const q = search.toLowerCase()
     return r.prd_no?.toLowerCase().includes(q) || r.raw_material_code?.toLowerCase().includes(q)
   })
+
+  const listColumns = [
+    { key: 'requisition_no', label: 'Requisition No' },
+    { key: 'prd_no', label: 'PRD No' },
+    { key: 'raw_material_code', label: 'Raw Material' },
+    { key: 'part_name', label: 'Part Name' },
+    { key: 'part_serial_number', label: 'Part Serial Number' },
+    { key: 'part_drawing_reference_number', label: 'Drawing Ref No' },
+    { key: 'employee_id', label: 'Requested By', render: (r) => employeeLabelForId(r.employee_id, employees) },
+    { key: 'qty_required', label: 'Qty Required' },
+    { key: 'order_date', label: 'Order Date' },
+    { key: 'status', label: 'Status', type: 'status' },
+  ]
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -174,7 +207,7 @@ export default function RawMaterialRequisitionScreen() {
           </Field>
           {form.prd_no && bomForProduct.length === 0 && (
             <p className="text-sm text-amber-600 sm:col-span-3">
-              Product "{selectedOrder?.product_code}" has no Bill of Materials defined yet in Product Master.
+              Product "{selectedOrder?.part_serial_number}" has no Bill of Materials defined yet in Product Master.
             </p>
           )}
           <Field label="Qty Required" required>
@@ -191,6 +224,9 @@ export default function RawMaterialRequisitionScreen() {
           </Field>
           <Field label="Part Drawing Reference Number">
             <TextInput value={form.part_drawing_reference_number} onChange={handleField('part_drawing_reference_number')} />
+          </Field>
+          <Field label="Requested By">
+            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
           </Field>
           <div className="flex items-end gap-2">
             <button
@@ -211,7 +247,7 @@ export default function RawMaterialRequisitionScreen() {
 
         <RecordsList
           title="Raw Material Requisitions"
-          columns={LIST_COLUMNS}
+          columns={listColumns}
           rows={filteredRequisitions}
           loading={loading}
           error={null}

@@ -2,8 +2,8 @@ import { supabase } from '../../lib/supabaseClient'
 
 const TABLE = 'product raw materials'
 
-export async function listProductRawMaterials(productCode) {
-  const { data, error } = await supabase.from(TABLE).select('*').eq('product_code', productCode)
+export async function listProductRawMaterials(partSerialNumber) {
+  const { data, error } = await supabase.from(TABLE).select('*').eq('part_serial_number', partSerialNumber)
   if (error) throw error
   return data
 }
@@ -15,12 +15,12 @@ export async function listAllProductRawMaterials() {
 }
 
 /** Replaces the full BOM for a product with `rows` ([{ raw_material_code, consumption_per_unit }]). */
-export async function setProductRawMaterials(productCode, rows) {
-  const { error: delErr } = await supabase.from(TABLE).delete().eq('product_code', productCode)
+export async function setProductRawMaterials(partSerialNumber, rows) {
+  const { error: delErr } = await supabase.from(TABLE).delete().eq('part_serial_number', partSerialNumber)
   if (delErr) throw delErr
   if (rows.length === 0) return
   const { error: insErr } = await supabase
     .from(TABLE)
-    .insert(rows.map((r) => ({ product_code: productCode, raw_material_code: r.raw_material_code, consumption_per_unit: r.consumption_per_unit })))
+    .insert(rows.map((r) => ({ part_serial_number: partSerialNumber, raw_material_code: r.raw_material_code, consumption_per_unit: r.consumption_per_unit })))
   if (insErr) throw insErr
 }

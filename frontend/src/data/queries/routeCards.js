@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { todayISO } from '../../utils/dates'
 
 const CARDS_TABLE = 'production route cards'
 const STAGES_TABLE = 'production route card stages'
@@ -25,7 +26,7 @@ export async function getStagesForPrd(prdNo) {
 export async function updateStageStatus(stageId, status, actualDate) {
   const { data, error } = await supabase
     .from(STAGES_TABLE)
-    .update({ status, actual_date: actualDate ?? new Date().toISOString().slice(0, 10) })
+    .update({ status, actual_date: actualDate ?? todayISO() })
     .eq('id', stageId)
     .select()
     .single()
@@ -39,16 +40,16 @@ export async function updateStageStatus(stageId, status, actualDate) {
  * copy at this moment, per §5. Later edits to Cycle Time Master must not
  * retroactively change an already-generated card.
  */
-export async function generateRouteCard({ prdNo, productCode, batchQty, shiftHours, availableRmQtySnapshot, unitsProducible }) {
+export async function generateRouteCard({ prdNo, partSerialNumber, batchQty, shiftHours, availableRmQtySnapshot, unitsProducible }) {
   const { data: cycleRows, error: cycleErr } = await supabase
     .from('cycle time master')
     .select('*')
-    .eq('product_code', productCode)
+    .eq('part_serial_number', partSerialNumber)
     .order('seq')
     .order('id')
   if (cycleErr) throw cycleErr
   if (cycleRows.length === 0) {
-    throw new Error(`No Cycle Time Master rows found for product "${productCode}" -- nothing to snapshot.`)
+    throw new Error(`No Cycle Time Master rows found for product "${partSerialNumber}" -- nothing to snapshot.`)
   }
 
   const { data: card, error: cardErr } = await supabase

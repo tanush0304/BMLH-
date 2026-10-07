@@ -1,60 +1,30 @@
 import { supabase } from '../../lib/supabaseClient'
+import { machinesEligibleForSeqs } from '../../utils/machineEligibility'
 
 /**
- * §4's auto-resolve, at the data layer: for a machine, finds every eligible
- * stage (Pending, Internal, operation the machine can perform) across every
- * PRD -- including MORE THAN ONE stage for the same PRD, now that sequence
- * doesn't collapse the candidates for you (WIP Receipt/Issue means a stage
- * can legitimately be fed out of order). The caller (MachineEntryScreen) is
- * responsible for asking the user which stage they mean when a PRD has
- * more than one; this used to silently pick the lowest-seq one, which is
- * the gap that was fixed.
+ * The reverse lookup used by Machine Entry's PRD-first flow: given the set
+ * of seqs a PRD's own eligible (Pending, Internal) stages need, finds
+ * every machine capable of running at least one of them.
  *
- * The safety mechanism against double-working the same stage is the lock in
- * MachineEntryScreen (getOpenLogForStage): once a (prd_no, stage_id) has an
- * open production log, later sessions resume that log rather than opening
- * a second one.
- */
-export async function listEligibleStagesForMachine(machineId) {
-  const { data: ops, error: opsErr } = await supabase
-    .from('machine ops')
-    .select('operation')
-    .eq('machine_id', machineId)
-  if (opsErr) throw opsErr
-  const operations = ops.map((o) => o.operation)
-  if (operations.length === 0) return []
-
-  const { data: candidates, error: candidatesErr } = await supabase
-    .from('production route card stages')
-    .select('*')
-    .eq('type', 'Internal')
-    .eq('status', 'Pending')
-    .in('operation', operations)
-    .order('seq')
-  if (candidatesErr) throw candidatesErr
-
-  return candidates
-}
-
-/**
- * The reverse lookup of listEligibleStagesForMachine above -- given the set
- * of operations a PRD's own eligible (Pending, Internal) stages need, finds
- * every machine capable of performing at least one of them. Used now that
- * Machine Entry picks the Production Order before the Machine, so the
- * Machine dropdown needs to be filtered by PRD instead of the PRD dropdown
- * being filtered by Machine.
+ * Eligibility comes from Cycle Time Master (part_serial_number + seq +
+ * machine_id) -- the route itself says which machines can run which stage
+ * -- not from text-matching an operation name against "machine
+ * operations" (that table is Machine Master's own informational list and
+ * never used to decide this; see utils/machineEligibility.js). Guards a
+ * missing part serial number by returning an empty list rather than sending an
+ * undefined filter to the DB.
  *
- * Returns raw {machine_id, operation} rows, not deduped by machine_id, so
- * the caller can intersect one specific machine's own capabilities against
+ * Returns raw {machine_id, seq} rows, not deduped by machine_id, so the
+ * caller can intersect one specific machine's own capabilities against
  * the PRD's stage list once Machine is actually chosen (to resolve which
  * stage, when more than one is eligible) without a second query.
  */
-export async function listMachinesForOperations(operations) {
-  if (operations.length === 0) return []
+export async function listMachinesForProductSeqs(partSerialNumber, seqs) {
+  if (!partSerialNumber || seqs.length === 0) return []
   const { data, error } = await supabase
-    .from('machine ops')
-    .select('machine_id, operation')
-    .in('operation', operations)
+    .from('cycle time master')
+    .select('machine_id, seq, part_serial_number')
+    .eq('part_serial_number', partSerialNumber)
   if (error) throw error
-  return data
+  return machinesEligibleForSeqs({ cycleTimeRows: data, partSerialNumber, seqs })
 }

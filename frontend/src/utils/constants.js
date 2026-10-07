@@ -4,10 +4,9 @@
 // mapping (passed the active one via an `activeTab` prop instead of
 // managing its own tab state, since selection now lives in the sidebar).
 export const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard' },
   {
     key: 'masters',
-    label: 'Master List',
+    label: 'Masters',
     roles: ['supervisor', 'admin'],
     subItems: [
       { key: 'product', label: 'Product Master' },
@@ -18,11 +17,14 @@ export const NAV_ITEMS = [
       { key: 'raw-material', label: 'Raw Material Master' },
       { key: 'supplier', label: 'Supplier Master' },
       { key: 'shift', label: 'Shift Master' },
-      { key: 'user', label: 'User Master' },
+      { key: 'employee', label: 'Employee Master' },
       { key: 'vendor', label: 'Vendor Master' },
       { key: 'quality', label: 'Quality Master' },
       { key: 'maintenance', label: 'Maintenance Master' },
       { key: 'production-batch', label: 'Production Batch Master' },
+      { key: 'route-card', label: 'Route Card' },
+      { key: 'finished-goods', label: 'Finished Goods Master' },
+      { key: 'wip', label: 'WIP Master' },
     ],
   },
   {
@@ -39,17 +41,16 @@ export const NAV_ITEMS = [
   { key: 'quality', label: 'Quality' },
   {
     key: 'customer-order',
-    label: 'Customer Order',
+    label: 'Customer Orders',
     subItems: [
-      { key: 'enquiry', label: 'Customer Enquiries' },
-      { key: 'order', label: 'Customer Orders' },
-      { key: 'po-summary', label: 'Customer PO Summary' },
-      { key: 'route-card', label: 'Route Cards' },
+      { key: 'enquiry', label: 'Enquiries' },
+      { key: 'order', label: 'Orders' },
+      { key: 'po-summary', label: 'PO Summary' },
     ],
   },
   {
     key: 'job-order',
-    label: 'Job Order',
+    label: 'Jobwork',
     subItems: [
       { key: 'dispatch', label: 'Dispatch' },
       { key: 'receipt', label: 'Receipt' },
@@ -74,6 +75,7 @@ export const NAV_ITEMS = [
       { key: 'rm-requisition', label: 'Raw Material Requisition' },
     ],
   },
+  { key: 'dashboard', label: 'Reports & Dashboard' },
 ]
 
 export const STATUS_COLORS = {
@@ -88,4 +90,7 @@ export const STATUS_COLORS = {
   Accepted: 'bg-green-100 text-green-800',
   'Not Accepted': 'bg-red-100 text-red-800',
   'Not Completed': 'bg-red-100 text-red-800',
+  Open: 'bg-blue-100 text-blue-800',
+  Ordered: 'bg-green-100 text-green-800',
+  Superseded: 'bg-gray-100 text-gray-600',
 }

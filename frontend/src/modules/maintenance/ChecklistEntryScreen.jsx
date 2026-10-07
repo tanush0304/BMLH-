@@ -5,8 +5,10 @@ import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
-import { listUsers } from '../../data/queries/users'
+import { listEmployees } from '../../data/queries/employees'
 import { machineOptionLabel } from '../../utils/machineLabel'
+import { employeeLabelForId } from '../../utils/employeeLabel'
+import EmployeeSelect from '../../components/EmployeeSelect'
 import { listShifts } from '../../data/queries/shifts'
 import {
   listChecklistItemsForMachine,
@@ -15,23 +17,16 @@ import {
   listRecentMaintenanceLogs,
 } from '../../data/queries/maintenanceLogs'
 
-const LOG_COLUMNS = [
-  { key: 'machine_id', label: 'Machine ID' },
-  { key: 'user_emp_id', label: 'Engineer' },
-  { key: 'shift_code', label: 'Shift' },
-  { key: 'log_date', label: 'Date' },
-]
-
 export default function ChecklistEntryScreen() {
   const [machines, setMachines] = useState([])
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [recentLogs, setRecentLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const [machineId, setMachineId] = useState('')
-  const [userId, setUserId] = useState('')
+  const [employeeId, setEmployeeId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
   const [logDate, setLogDate] = useState('')
   const [checklistItems, setChecklistItems] = useState([])
@@ -45,14 +40,14 @@ export default function ChecklistEntryScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [machs, usrs, shf, logs] = await Promise.all([
+      const [machs, employeeRows, shf, logs] = await Promise.all([
         listMachines(),
-        listUsers(),
+        listEmployees(),
         listShifts(),
         listRecentMaintenanceLogs(),
       ])
       setMachines(machs)
-      setUsers(usrs)
+      setEmployees(employeeRows)
       setShifts(shf)
       setRecentLogs(logs)
     } catch (e) {
@@ -82,7 +77,7 @@ export default function ChecklistEntryScreen() {
   }
 
   async function handleStartVisit() {
-    if (!machineId || !userId || !shiftCode || !logDate) {
+    if (!machineId || !employeeId || !shiftCode || !logDate) {
       setError('Machine, Engineer, Shift and Date are all required to start a visit.')
       return
     }
@@ -91,7 +86,7 @@ export default function ChecklistEntryScreen() {
     try {
       const log = await createMaintenanceLog({
         machine_id: machineId,
-        user_emp_id: userId,
+        employee_id: employeeId,
         shift_code: shiftCode,
         log_date: logDate,
       })
@@ -137,6 +132,13 @@ export default function ChecklistEntryScreen() {
     return l.machine_id?.toLowerCase().includes(search.toLowerCase())
   })
 
+  const logColumns = [
+    { key: 'machine_id', label: 'Machine ID' },
+    { key: 'employee_id', label: 'Engineer', render: (r) => employeeLabelForId(r.employee_id, employees) },
+    { key: 'shift_code', label: 'Shift' },
+    { key: 'log_date', label: 'Date' },
+  ]
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Maintenance Checklist Entry" subtitle="One Visit, Several Checklist Items" />
@@ -160,7 +162,7 @@ export default function ChecklistEntryScreen() {
             <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
           </Field>
           <Field label="Maintenance Engineer" required>
-            <SelectInput value={userId} onChange={(e) => setUserId(e.target.value)} disabled={!!activeLog} options={users.map((o) => o.user_emp_id)} />
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Shift" required>
             <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} disabled={!!activeLog} options={shifts.map((s) => s.shift_code)} />
@@ -232,7 +234,7 @@ export default function ChecklistEntryScreen() {
           </div>
         )}
 
-        <RecordsList title="Recent Maintenance Visits" columns={LOG_COLUMNS} rows={filteredRecentLogs} loading={loading} rowKey="id" />
+        <RecordsList title="Recent Maintenance Visits" columns={logColumns} rows={filteredRecentLogs} loading={loading} rowKey="id" />
       </div>
     </div>
   )

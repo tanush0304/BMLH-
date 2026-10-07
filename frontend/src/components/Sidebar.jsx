@@ -1,18 +1,16 @@
-import { useEffect, useState } from 'react'
 import {
-  LayoutDashboard,
+  BarChart3,
+  ClipboardList,
   Database,
   Factory,
-  ShieldCheck,
-  ClipboardList,
-  Truck,
-  Wrench,
-  Warehouse,
   LogOut,
-  ChevronDown,
-  Menu,
+  ShieldCheck,
+  Truck,
+  Warehouse,
+  Wrench,
 } from 'lucide-react'
 import { NAV_ITEMS } from '../utils/constants'
+import bmlhLogo from '../assets/bmlh-logo.png'
 
 function initialsFor(email) {
   const name = email?.split('@')[0] ?? ''
@@ -21,144 +19,114 @@ function initialsFor(email) {
   return name.slice(0, 2).toUpperCase()
 }
 
-const ICONS = {
-  dashboard: LayoutDashboard,
-  masters: Database,
-  production: Factory,
-  quality: ShieldCheck,
-  'customer-order': ClipboardList,
-  'job-order': Truck,
-  maintenance: Wrench,
-  stores: Warehouse,
+const MODULE_PRESENTATION = {
+  masters: { label: 'Masters', icon: Database, color: 'text-amber-500' },
+  production: { label: 'Production', icon: Factory, color: 'text-sky-500' },
+  quality: { label: 'Quality', icon: ShieldCheck, color: 'text-emerald-500' },
+  'customer-order': { label: 'Customer Orders', icon: ClipboardList, color: 'text-violet-500' },
+  'job-order': { label: 'Jobwork', icon: Truck, color: 'text-orange-500' },
+  maintenance: { label: 'Maintenance', icon: Wrench, color: 'text-rose-500' },
+  stores: { label: 'Stores', icon: Warehouse, color: 'text-teal-500' },
+  dashboard: { label: 'Reports & Dashboard', icon: BarChart3, color: 'text-indigo-500' },
 }
 
-// One accordion column instead of a top-level nav + a second per-module tab
-// column: a top-level item with subItems is a pure toggle (expand/collapse
-// its own list inline, pushing items below it down) -- it has no screen of
-// its own, so clicking it never navigates. Only a leaf (no subItems) or a
-// sub-item actually changes what's showing.
 export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub, userEmail, onSignOut, role }) {
-  const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role))
-  const [expandedKey, setExpandedKey] = useState(activeKey)
-  const [collapsed, setCollapsed] = useState(false)
+  const activeModule = NAV_ITEMS.find((item) => item.key === activeKey) ?? NAV_ITEMS.find((item) => item.key === 'dashboard')
+  const isRestricted = (module) => Boolean(module.roles && !module.roles.includes(role))
+  const screenItems = activeModule.subItems ?? []
+  const showContextMenu = Boolean(activeSubKey) && screenItems.length > 0
 
-  // If the active module changes from outside (e.g. a Dashboard shortcut),
-  // keep that module's group expanded so the user doesn't lose their place.
-  useEffect(() => {
-    setExpandedKey(activeKey)
-  }, [activeKey])
-
-  function handleTopClick(item) {
-    if (item.subItems) {
-      setExpandedKey((k) => (k === item.key ? null : item.key))
-    } else {
-      setExpandedKey(null)
-      onSelect(item.key)
-    }
+  function handleScreenSelect(screen) {
+    if (activeModule.subItems) onSelectSub(activeModule.key, screen.key)
+    else onSelect(screen.key)
   }
 
   return (
-    <aside
-      className={`${collapsed ? 'w-14' : 'w-52'} shrink-0 bg-white text-bmlhnavy flex flex-col h-full overflow-y-auto border-r border-gray-200 transition-[width]`}
-    >
-      <div className="px-4 py-3.5 border-b border-gray-200 flex items-center gap-2.5">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="text-gray-500 hover:text-bmlhblue shrink-0"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <Menu size={17} />
-        </button>
-        {!collapsed && (
-          <div className="min-w-0">
-            <div className="text-base font-bold tracking-wide text-bmlhnavy truncate">BMLH</div>
-            <div className="text-[11px] text-gray-500 mt-0.5 truncate">Operations Console</div>
-          </div>
-        )}
+    <aside className="flex h-full w-[264px] shrink-0 flex-col overflow-hidden border-r border-[#0D2D4B] bg-[#173A63] text-white">
+      <div className="flex min-h-[76px] shrink-0 items-center gap-3 border-b border-white/15 bg-[#102F50] px-4 py-3">
+        <img src={bmlhLogo} alt="BMLH Engineering" className="h-9 w-[94px] shrink-0 rounded bg-white object-contain" />
+        <div className="min-w-0 border-l border-white/20 pl-3">
+          <div className="text-[13px] font-bold leading-tight text-white">Pragati &amp; Unnati</div>
+          <div className="mt-1 text-[10px] font-medium leading-tight text-white/65">Data Management System</div>
+        </div>
       </div>
-      <nav className="flex-1 py-2">
-        {items.map((item) => {
-          const Icon = ICONS[item.key] ?? LayoutDashboard
-          const isExpanded = expandedKey === item.key
-          const isActiveLeaf = !item.subItems && item.key === activeKey
-          return (
-            <div key={item.key}>
+
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="Application modules">
+        <div className="space-y-1.5">
+          {NAV_ITEMS.map((module) => {
+            const presentation = MODULE_PRESENTATION[module.key] ?? { label: module.label, icon: Database }
+            const Icon = presentation.icon
+            const selected = activeKey === module.key
+            const locked = isRestricted(module)
+            return (
               <button
-                onClick={() => handleTopClick(item)}
-                title={collapsed ? item.label : undefined}
-                className={`w-full flex items-center gap-2.5 py-2 text-xs transition-colors border-l-4 ${
-                  collapsed ? 'justify-center px-0' : 'px-4'
-                } ${
-                  isActiveLeaf || (item.subItems && item.key === activeKey)
-                    ? 'bg-bmlhsky border-bmlhblue text-bmlhblue font-semibold'
-                    : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-bmlhnavy'
-                }`}
+                key={module.key}
+                type="button"
+                disabled={locked}
+                onClick={() => onSelect(module.key)}
+                aria-current={selected ? 'page' : undefined}
+                aria-label={locked ? `${presentation.label}. Supervisor or admin access required.` : `Open ${presentation.label}`}
+                title={locked ? 'Supervisor or admin access required' : undefined}
+                className={'group flex min-h-[48px] w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#176FA8]/40 ' +
+                  (selected
+                    ? 'border-white bg-white text-[#173A63] shadow-[0_2px_8px_rgba(0,0,0,0.18)]'
+                    : locked
+                      ? 'cursor-not-allowed border-transparent bg-transparent text-white/35'
+                      : 'border-transparent bg-transparent text-white/90 hover:border-white/20 hover:bg-white/10')}
               >
-                <Icon size={15} className="shrink-0" />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.subItems && (
-                      <ChevronDown
-                        size={13}
-                        className={`shrink-0 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
-                      />
-                    )}
-                  </>
-                )}
+                <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] ' + (locked ? 'opacity-40' : '')}>
+                  <Icon className={presentation.color} size={19} strokeWidth={2.2} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1 text-[13px] font-semibold leading-tight">{presentation.label}</span>
+                {selected && <span className="h-2 w-2 shrink-0 rounded-full bg-[#76C043]" aria-hidden="true" />}
               </button>
-              {!collapsed && item.subItems && isExpanded && (
-                <div className="bg-gray-50/60">
-                  {item.subItems.map((sub) => {
-                    const isActiveSub = item.key === activeKey && sub.key === activeSubKey
-                    return (
-                      <button
-                        key={sub.key}
-                        onClick={() => onSelectSub(item.key, sub.key)}
-                        className={`w-full flex items-center gap-2 text-left pl-11 pr-4 py-1.5 text-xs border-l-4 ${
-                          isActiveSub
-                            ? 'border-bmlhblue bg-bmlhsky text-bmlhblue font-medium'
-                            : 'border-transparent text-gray-500 hover:bg-gray-100 hover:text-bmlhnavy'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            isActiveSub ? 'bg-bmlhblue' : 'bg-gray-300'
-                          }`}
-                        />
-                        {sub.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+            )
+          })}
+        </div>
+
+        {showContextMenu && (
+          <section className="mt-5 border-t border-white/20 pt-4" aria-label={`${MODULE_PRESENTATION[activeModule.key]?.label ?? activeModule.label} screens`}>
+            <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.13em] text-white/60">{(MODULE_PRESENTATION[activeModule.key]?.label ?? activeModule.label).toUpperCase()}</div>
+            <div className="space-y-0.5 border-l border-white/25 pl-2">
+              {screenItems.map((screen) => {
+                const selected = activeKey === activeModule.key && activeSubKey === screen.key
+                return (
+                  <button
+                    key={screen.key}
+                    type="button"
+                    onClick={() => handleScreenSelect(screen)}
+                    aria-current={selected ? 'page' : undefined}
+                    className={'flex min-h-[34px] w-full items-center rounded-r px-2.5 text-left text-[12px] leading-tight transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#176FA8]/35 ' +
+                      (selected ? 'border-l-2 border-[#9BD86B] bg-white/15 font-semibold text-white' : 'border-l-2 border-transparent text-white/75 hover:bg-white/10 hover:text-white')}
+                  >
+                    <span className="min-w-0 flex-1">{screen.label}</span>
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
+          </section>
+        )}
       </nav>
-      <div className={`py-3 border-t border-gray-200 flex items-center gap-2 ${collapsed ? 'px-0 justify-center' : 'px-4 justify-between'}`}>
-        <div className={`flex items-center gap-2 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-full bg-bmlhblue text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+
+      <div className="shrink-0 border-t border-white/20 bg-[#102F50] px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#76C043] text-[10px] font-bold text-[#173A63]">
             {initialsFor(userEmail)}
           </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <div className="text-[11px] text-gray-600 truncate" title={userEmail}>
-                {userEmail}
-              </div>
-              <div className="text-[10px] text-gray-400 capitalize">{role}</div>
-            </div>
-          )}
-        </div>
-        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[11px] font-medium text-white" title={userEmail}>{userEmail}</div>
+            <div className="text-[10px] capitalize text-white/60">{role}</div>
+          </div>
           <button
+            type="button"
             onClick={onSignOut}
-            className="text-gray-400 hover:text-bmlhblue shrink-0"
+            className="shrink-0 rounded p-1.5 text-white/65 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
+            aria-label="Sign out"
             title="Sign out"
           >
-            <LogOut size={15} />
+            <LogOut size={16} />
           </button>
-        )}
+        </div>
       </div>
     </aside>
   )

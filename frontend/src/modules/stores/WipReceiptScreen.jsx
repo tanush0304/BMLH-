@@ -1,20 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, TextInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import { listPrdsWithRouteCard } from '../../data/queries/qualityLogs'
 import { getStagesForPrd } from '../../data/queries/routeCards'
-import { listUsers } from '../../data/queries/users'
+import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipReceipt, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
+import { parsePositiveWipQuantity, validateWipReceiptStage } from '../../utils/wipValidation'
+import EmployeeSelect from '../../components/EmployeeSelect'
 
-const EMPTY_FORM = { prd_no: '', stage_id: '', qty: '', user_emp_id: '', shift_code: '', remarks: '' }
+const EMPTY_FORM = { prd_no: '', stage_id: '', qty: '', employee_id: '', shift_code: '', remarks: '' }
 
 export default function WipReceiptScreen() {
   const [orders, setOrders] = useState([])
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [completedStages, setCompletedStages] = useState([])
   const [balances, setBalances] = useState([])
@@ -22,12 +24,14 @@ export default function WipReceiptScreen() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const selectedPrdRef = useRef('')
+  const prdRequestRef = useRef(0)
 
   useEffect(() => {
-    Promise.all([listPrdsWithRouteCard(), listUsers(), listShifts()])
-      .then(([o, usrs, shf]) => {
+    Promise.all([listPrdsWithRouteCard(), listEmployees(), listShifts()])
+      .then(([o, employeeRows, shf]) => {
         setOrders(o)
-        setUsers(usrs)
+        setEmployees(employeeRows)
         setShifts(shf)
       })
       .catch((e) => setError(e.message))
@@ -35,10 +39,13 @@ export default function WipReceiptScreen() {
 
   async function handlePrdChange(e) {
     const prd = e.target.value
-    setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, user_emp_id: f.user_emp_id, shift_code: f.shift_code }))
+    const requestId = ++prdRequestRef.current
+    selectedPrdRef.current = prd
+    setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, employee_id: f.employee_id, shift_code: f.shift_code }))
     setCompletedStages([])
     setBalances([])
     setTransactions([])
+    setError(null)
     if (!prd) return
     try {
       const [stages, bal, txns] = await Promise.all([
@@ -46,21 +53,39 @@ export default function WipReceiptScreen() {
         listWipBalanceForPrd(prd),
         listWipTransactionsForPrd(prd),
       ])
+      if (requestId !== prdRequestRef.current) return
       setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
-      setBalances(bal.map((b) => ({ ...b, operation: stages.find((s) => s.id === b.nature_of_operation_stage_id)?.operation ?? '' })))
+      setBalances(
+        bal
+          .filter((b) => String(b.prd_no) === String(prd))
+          .map((b) => ({
+            ...b,
+            operation: stages.find((s) => String(s.id) === String(b.nature_of_operation_stage_id))?.operation ?? '',
+          }))
+      )
       setTransactions(txns)
     } catch (e) {
-      setError(e.message)
+      if (requestId === prdRequestRef.current) setError(e.message)
     }
   }
 
   async function refreshBalancesAndHistory(prd) {
+    const requestId = ++prdRequestRef.current
     const [stages, bal, txns] = await Promise.all([
       getStagesForPrd(prd),
       listWipBalanceForPrd(prd),
       listWipTransactionsForPrd(prd),
     ])
-    setBalances(bal.map((b) => ({ ...b, operation: stages.find((s) => s.id === b.nature_of_operation_stage_id)?.operation ?? '' })))
+    if (requestId !== prdRequestRef.current) return
+    setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
+    setBalances(
+      bal
+        .filter((b) => String(b.prd_no) === String(prd))
+        .map((b) => ({
+          ...b,
+          operation: stages.find((s) => String(s.id) === String(b.nature_of_operation_stage_id))?.operation ?? '',
+        }))
+    )
     setTransactions(txns)
   }
 
@@ -70,24 +95,45 @@ export default function WipReceiptScreen() {
 
   async function handleSave() {
     setError(null)
-    if (!form.prd_no || !form.stage_id || !form.qty || Number(form.qty) <= 0 || !form.user_emp_id || !form.shift_code) {
-      setError('Production Order, Completed Stage, Qty, User and Shift are all required.')
+    if (!form.prd_no) {
+      setError('Select a Production Order first.')
       return
     }
+    if (!orders.some((order) => String(order.prd_no) === String(form.prd_no))) {
+      setError('Select a Production Order that has a Route Card.')
+      return
+    }
+    const stageError = validateWipReceiptStage(form.prd_no, form.stage_id, completedStages)
+    if (stageError) {
+      setError(stageError)
+      return
+    }
+    const quantity = parsePositiveWipQuantity(form.qty)
+    if (quantity === null) {
+      setError('Qty must be a finite number greater than zero.')
+      return
+    }
+    if (!form.employee_id || !form.shift_code) {
+      setError('Select an Employee and Shift.')
+      return
+    }
+    const receiptPrd = form.prd_no
     setSaving(true)
     try {
       const userId = await getCurrentUserId()
       await createWipReceipt({
         prd_no: form.prd_no,
         nature_of_operation_stage_id: Number(form.stage_id),
-        qty: Number(form.qty),
-        user_emp_id: form.user_emp_id,
+        qty: quantity,
+        employee_id: form.employee_id,
         shift_code: form.shift_code,
         remarks: form.remarks || null,
         user_id: userId,
       })
-      setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, user_emp_id: f.user_emp_id, shift_code: f.shift_code }))
-      await refreshBalancesAndHistory(form.prd_no)
+      if (selectedPrdRef.current === receiptPrd) {
+        setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, employee_id: f.employee_id, shift_code: f.shift_code }))
+        await refreshBalancesAndHistory(receiptPrd)
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -116,14 +162,10 @@ export default function WipReceiptScreen() {
             />
           </Field>
           <Field label="Qty" required>
-            <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
+            <TextInput type="number" min="0" step="any" value={form.qty} onChange={handleField('qty')} />
           </Field>
-          <Field label="User" required>
-            <SelectInput
-              value={form.user_emp_id}
-              onChange={handleField('user_emp_id')}
-              options={users.map((o) => ({ value: o.user_emp_id, label: o.user_name }))}
-            />
+          <Field label="Employee" required>
+            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
           </Field>
           <Field label="Shift" required>
             <SelectInput

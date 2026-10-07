@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
 import LoginScreen from './components/LoginScreen'
 import Dashboard from './modules/Dashboard'
+import MainMenu from './modules/MainMenu'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
 import ProductionModule from './modules/production/ProductionModule'
@@ -18,6 +19,8 @@ import { NAV_ITEMS } from './utils/constants'
 const TITLES = {}
 
 function firstSubKey(topKey) {
+  // Masters opens its module selector first; other modules keep their default.
+  if (topKey === 'masters') return null
   return NAV_ITEMS.find((n) => n.key === topKey)?.subItems?.[0]?.key ?? null
 }
 
@@ -26,10 +29,14 @@ function App() {
   const [role, setRole] = useState(undefined) // undefined = still resolving, null = no row found
   const [activeKey, setActiveKey] = useState('dashboard')
   const [activeSubKey, setActiveSubKey] = useState(null)
+  const [showMainMenu, setShowMainMenu] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setSession(session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) setShowMainMenu(true)
+      setSession(session)
+    })
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -62,13 +69,19 @@ function App() {
   // default to that module's first sub-item so there's always something to
   // show.
   function handleSelect(key) {
+    setShowMainMenu(false)
     setActiveKey(key)
     setActiveSubKey(firstSubKey(key))
   }
 
   function handleSelectSub(topKey, subKey) {
+    setShowMainMenu(false)
     setActiveKey(topKey)
     setActiveSubKey(subKey)
+  }
+
+  function handleHome() {
+    setShowMainMenu(true)
   }
 
   if (session === undefined) {
@@ -83,12 +96,16 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
   }
 
+  if (showMainMenu) {
+    return <MainMenu userEmail={session.user.email} role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+  }
+
   const canSeeMasters = role === 'supervisor' || role === 'admin'
 
   let content
   let themeKey = activeKey
   if (activeKey === 'dashboard') content = <Dashboard onNavigate={handleSelect} />
-  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} />
+  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
   else if (activeKey === 'masters') {
     content = <Dashboard />
     themeKey = 'dashboard'
@@ -107,6 +124,7 @@ function App() {
         activeSubKey={activeSubKey}
         onSelect={handleSelect}
         onSelectSub={handleSelectSub}
+        onHome={handleHome}
         userEmail={session.user.email}
         onSignOut={() => supabase.auth.signOut()}
         role={role}

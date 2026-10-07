@@ -5,7 +5,7 @@ import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../c
 import RecordsList from '../../components/RecordsList'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProducts } from '../../data/queries/products'
-import { listUsers } from '../../data/queries/users'
+import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listSuppliers } from '../../data/queries/suppliers'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -15,22 +15,20 @@ import {
   createRawMaterialTransaction,
   deleteRawMaterialTransaction,
 } from '../../data/queries/rawMaterialStock'
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayISO } from '../../utils/dates'
+import EmployeeSelect from '../../components/EmployeeSelect'
 
 const EMPTY_ISSUE_FORM = {
-  user_emp_id: '',
+  employee_id: '',
   shift_code: '',
   raw_material_code: '',
-  product_code: '',
+  part_serial_number: '',
   qty: '',
   transaction_date: todayISO(),
 }
 
 const EMPTY_RECEIPT_FORM = {
-  user_emp_id: '',
+  employee_id: '',
   shift_code: '',
   raw_material_code: '',
   supplier_id: '',
@@ -40,11 +38,11 @@ const EMPTY_RECEIPT_FORM = {
 
 const ISSUE_COLUMNS = [
   { key: 'transaction_date', label: 'Issue Date' },
-  { key: 'user_emp_id', label: 'User ID' },
-  { key: 'user_name', label: 'User Name' },
+  { key: 'employee_id', label: 'Employee ID' },
+  { key: 'employee_name', label: 'Employee Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
-  { key: 'product_code', label: 'Product Code' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'current_stock', label: 'Current Stock (Nos)' },
   { key: 'qty', label: 'Qty Issued (Nos)' },
   { key: 'units_producible', label: 'No. of Units Can be Produced' },
@@ -52,8 +50,8 @@ const ISSUE_COLUMNS = [
 
 const RECEIPT_COLUMNS = [
   { key: 'transaction_date', label: 'Receipt Date' },
-  { key: 'user_emp_id', label: 'User ID' },
-  { key: 'user_name', label: 'User Name' },
+  { key: 'employee_id', label: 'Employee ID' },
+  { key: 'employee_name', label: 'Employee Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
   { key: 'supplier_id', label: 'Supplier' },
@@ -65,7 +63,7 @@ export default function RawMaterialStoreScreen() {
   const [mode, setMode] = useState('issue') // 'issue' | 'receipt'
   const [rawMaterials, setRawMaterials] = useState([])
   const [products, setProducts] = useState([])
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [balances, setBalances] = useState([])
@@ -83,10 +81,10 @@ export default function RawMaterialStoreScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [rms, prods, usrs, shf, sups, bal, txns, userId] = await Promise.all([
+      const [rms, prods, employeeRows, shf, sups, bal, txns, userId] = await Promise.all([
         listRawMaterials(),
         listProducts(),
-        listUsers(),
+        listEmployees(),
         listShifts(),
         listSuppliers(),
         listRawMaterialStockBalance(),
@@ -95,7 +93,7 @@ export default function RawMaterialStoreScreen() {
       ])
       setRawMaterials(rms)
       setProducts(prods)
-      setUsers(usrs)
+      setEmployees(employeeRows)
       setShifts(shf)
       setSuppliers(sups)
       setBalances(bal)
@@ -112,8 +110,8 @@ export default function RawMaterialStoreScreen() {
     refresh()
   }, [])
 
-  function userName(id) {
-    return users.find((o) => o.user_emp_id === id)?.user_name ?? ''
+  function employeeName(id) {
+    return employees.find((o) => o.employee_id === id)?.employee_name ?? ''
   }
 
   function materialName(code) {
@@ -140,8 +138,8 @@ export default function RawMaterialStoreScreen() {
 
   async function handleSaveIssue() {
     const f = issueForm
-    if (!f.user_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
-      setError('User Name, Shift, Raw Material / Consumable, Quantity Issued and Issue Date are all required.')
+    if (!f.employee_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
+      setError('Employee Name, Shift, Raw Material / Consumable, Quantity Issued and Issue Date are all required.')
       return
     }
     setSaving(true)
@@ -152,8 +150,8 @@ export default function RawMaterialStoreScreen() {
         transaction_type: 'Issue',
         qty: Number(f.qty),
         transaction_date: f.transaction_date,
-        product_code: f.product_code || null,
-        user_emp_id: f.user_emp_id,
+        part_serial_number: f.part_serial_number || null,
+        employee_id: f.employee_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -168,8 +166,8 @@ export default function RawMaterialStoreScreen() {
 
   async function handleSaveReceipt() {
     const f = receiptForm
-    if (!f.user_emp_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
-      setError('User Name, Shift, Raw Material / Consumable, Quantity Received and Receipt Date are all required.')
+    if (!f.employee_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
+      setError('Employee Name, Shift, Raw Material / Consumable, Quantity Received and Receipt Date are all required.')
       return
     }
     setSaving(true)
@@ -181,7 +179,7 @@ export default function RawMaterialStoreScreen() {
         qty: Number(f.qty),
         transaction_date: f.transaction_date,
         supplier_id: f.supplier_id || null,
-        user_emp_id: f.user_emp_id,
+        employee_id: f.employee_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -212,7 +210,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Issue')
     .map((t) => ({
       ...t,
-      user_name: userName(t.user_emp_id),
+      employee_name: employeeName(t.employee_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
       units_producible: '—',
@@ -222,7 +220,7 @@ export default function RawMaterialStoreScreen() {
     .filter((t) => t.transaction_type === 'Receipt')
     .map((t) => ({
       ...t,
-      user_name: userName(t.user_emp_id),
+      employee_name: employeeName(t.employee_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
     }))
@@ -233,7 +231,7 @@ export default function RawMaterialStoreScreen() {
     const q = search.toLowerCase()
     return (
       r.transaction_date?.toLowerCase().includes(q) ||
-      r.user_emp_id?.toLowerCase().includes(q) ||
+      r.employee_id?.toLowerCase().includes(q) ||
       r.material_name?.toLowerCase().includes(q)
     )
   })
@@ -319,19 +317,15 @@ export default function RawMaterialStoreScreen() {
 
         {mode === 'issue' ? (
           <FormSection icon={Boxes} title="Stores Module - Raw Material & Consumables Issue Details" subtitle="Issue to production" columns={2}>
-            <Field label="User ID" required>
-              <SelectInput
-                value={issueForm.user_emp_id}
-                onChange={handleIssueField('user_emp_id')}
-                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
-              />
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={issueForm.employee_id} onChange={handleIssueField('employee_id')} />
             </Field>
             <Field label="Current Stock">
               <AutoFillBox value={currentStockFor(issueForm.raw_material_code)} unit="Nos" />
             </Field>
 
-            <Field label="User Name">
-              <AutoFillBox value={userName(issueForm.user_emp_id)} />
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(issueForm.employee_id)} />
             </Field>
             <Field label="Number of units can be produced">
               <AutoFillBox value="" unit="Nos" />
@@ -371,16 +365,16 @@ export default function RawMaterialStoreScreen() {
               <TextInput type="date" value={issueForm.transaction_date} onChange={handleIssueField('transaction_date')} />
             </Field>
 
-            <Field label="Product Code">
+            <Field label="Part Serial Number">
               <SelectInput
-                value={issueForm.product_code}
-                onChange={handleIssueField('product_code')}
-                options={products.map((p) => ({ value: p.product_code, label: p.product_code }))}
+                value={issueForm.part_serial_number}
+                onChange={handleIssueField('part_serial_number')}
+                options={products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number }))}
               />
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "User ID" picks who's physically issuing the material (User Master); the account you're
+              "Employee ID" picks who's physically issuing the material (Employee Master); the account you're
               logged in as is recorded automatically. Current Stock auto-fills from the selected material.
               Number of units can be produced needs a Bill of Materials, which isn't set up yet, so it stays
               blank for now.
@@ -388,19 +382,15 @@ export default function RawMaterialStoreScreen() {
           </FormSection>
         ) : (
           <FormSection icon={PackagePlus} title="Stores Module - Raw Material & Consumables Receipt Details" subtitle="Receive from supplier" columns={2}>
-            <Field label="User ID" required>
-              <SelectInput
-                value={receiptForm.user_emp_id}
-                onChange={handleReceiptField('user_emp_id')}
-                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
-              />
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>
             <Field label="Current Stock">
               <AutoFillBox value={currentStockFor(receiptForm.raw_material_code)} unit="Nos" />
             </Field>
 
-            <Field label="User Name">
-              <AutoFillBox value={userName(receiptForm.user_emp_id)} />
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(receiptForm.employee_id)} />
             </Field>
             <Field label="Supplier">
               <SelectInput

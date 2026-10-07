@@ -1,5 +1,5 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FileText, GitBranch } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
@@ -14,7 +14,13 @@ import {
   createEnquiryRevision,
 } from '../../data/queries/customerEnquiries'
 import { listCustomers } from '../../data/queries/customers'
-import { listProducts } from '../../data/queries/products'
+import { listProducts, resolveProductWithConfirmation } from '../../data/queries/products'
+import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { customerDropdownOptions } from '../../utils/customerLabel'
+import { todayISO } from '../../utils/dates'
+import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
+
+const NEW_PART_VALUE = '__new__'
 
 const EMPTY_FORM = {
   qtn_no: '',
@@ -22,28 +28,38 @@ const EMPTY_FORM = {
   revision_no: '',
   customer_id: '',
   drawing_number: '',
-  product_code: '',
+  part_serial_number: '',
+  part_name: '',
   quoted_price: '',
   quoted_date: '',
   supply_lead_time_days: '',
   revision_status: '',
 }
 
+// Status and Linked PRD(s) are injected per-row at render time (see
+// statusColumns below) -- they're derived (utils/enquiryStatus.js), never
+// stored, so they need the full enquiries+orders list to compute, not
+// just the one row RecordsList's `render` normally gets.
 const LIST_COLUMNS = [
   { key: 'qtn_no', label: 'QTN No' },
   { key: 'parent_qtn_no', label: 'Revision Of', render: (r) => r.parent_qtn_no ?? '—' },
   { key: 'revision_no', label: 'Rev No', render: (r) => r.revision_no ?? '—' },
   { key: 'customer_id', label: 'Customer' },
-  { key: 'product_code', label: 'Product' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' },
+  { key: 'drawing_number', label: 'Drawing Number' },
   { key: 'quoted_price', label: 'Quoted Price' },
   { key: 'quoted_date', label: 'Quoted Date' },
   { key: 'revision_status', label: 'Revision Status' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'linked_prds', label: 'Linked PRD(s)', render: (r) => (r.linked_prds?.length ? r.linked_prds.join(', ') : '—') },
 ]
 
 export default function CustomerEnquiryScreen() {
   const [records, setRecords] = useState([])
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
+  const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -56,19 +72,26 @@ export default function CustomerEnquiryScreen() {
   // QTN this new row will link back to via parent_qtn_no. Not the same as
   // form.parent_qtn_no, which (once saved) reflects what's actually stored.
   const [revisingRoot, setRevisingRoot] = useState(null)
+  // "Add New Part" state for Part Serial Number -- same pattern as New
+  // Customer Order's line items: typing a new value doesn't persist
+  // anything until save (see resolveOrCreateProduct).
+  const [isNewPart, setIsNewPart] = useState(false)
+  const [newPartCode, setNewPartCode] = useState('')
 
   async function refresh() {
     setLoading(true)
     setError(null)
     try {
-      const [enquiries, custs, prods] = await Promise.all([
+      const [enquiries, custs, prods, ords] = await Promise.all([
         listCustomerEnquiries(),
         listCustomers(),
         listProducts(),
+        listCustomerOrders(),
       ])
       setRecords(enquiries)
       setCustomers(custs)
       setProducts(prods)
+      setOrders(ords)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -84,11 +107,17 @@ export default function CustomerEnquiryScreen() {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
+  function resetPartPicker() {
+    setIsNewPart(false)
+    setNewPartCode('')
+  }
+
   function handleNew() {
     setForm(EMPTY_FORM)
     setMode('new')
     setRevisingRoot(null)
     setSaveError(null)
+    resetPartPicker()
   }
 
   function handleClear() {
@@ -96,6 +125,7 @@ export default function CustomerEnquiryScreen() {
     setMode('new')
     setRevisingRoot(null)
     setSaveError(null)
+    resetPartPicker()
   }
 
   function handleRowClick(row) {
@@ -103,6 +133,7 @@ export default function CustomerEnquiryScreen() {
     setMode('view')
     setRevisingRoot(null)
     setSaveError(null)
+    resetPartPicker()
   }
 
   function handleEdit() {
@@ -115,12 +146,41 @@ export default function CustomerEnquiryScreen() {
   // own root (its parent_qtn_no if it's already a revision, else its own
   // qtn_no), so every revision of an enquiry points to one common original
   // instead of chaining off whichever revision happened to be open.
+  //
+  // Per spec, a revision is "for same product and same customer" -- it
+  // always continues from the original's already-resolved part_serial_number
+  // (never "add new part" mode), and Customer/Part Serial Number/Part Name
+  // stay locked (see isRevision below) so a revision can't drift onto a
+  // different customer's quote or a different part.
   function handleCreateRevision() {
     const root = form.parent_qtn_no || form.qtn_no
     setRevisingRoot(root)
+    resetPartPicker()
     setForm({ ...form, qtn_no: '', parent_qtn_no: '', revision_no: '' })
     setMode('new')
     setSaveError(null)
+  }
+
+  function handlePartChange(e) {
+    const value = e.target.value
+    if (value === NEW_PART_VALUE) {
+      setIsNewPart(true)
+      setNewPartCode('')
+      setForm((f) => ({ ...f, part_serial_number: '', part_name: '' }))
+      return
+    }
+    setIsNewPart(false)
+    setNewPartCode('')
+    const product = products.find((p) => p.part_serial_number === value)
+    setForm((f) => ({
+      ...f,
+      part_serial_number: value,
+      part_name: product?.part_name ?? '',
+      // Pre-fill from Product Master, but stays editable -- never written
+      // back to the product row, since resolveOrCreateProduct only ever
+      // creates a NEW row, it never updates an existing one.
+      drawing_number: product?.part_drawing_reference_number ?? '',
+    }))
   }
 
   async function handleSave() {
@@ -128,15 +188,39 @@ export default function CustomerEnquiryScreen() {
       setSaveError('Customer is required.')
       return
     }
+    if (isNewPart) {
+      if (!newPartCode.trim()) {
+        setSaveError('Enter a part number for the newly-typed part, or pick an existing one.')
+        return
+      }
+      if (!form.part_name.trim()) {
+        setSaveError('Part Name is required for a newly-typed part (nothing to auto-fill from yet).')
+        return
+      }
+    }
     setSaving(true)
     setSaveError(null)
     try {
+      const resolved = await resolveProductWithConfirmation({
+        isNewPart,
+        partSerialNumber: form.part_serial_number,
+        newPartCode,
+        partName: form.part_name,
+        drawingNumber: form.drawing_number,
+        knownProducts: products,
+      })
+      if (resolved.knownProducts !== products) setProducts(resolved.knownProducts)
+
       const payload = {
         customer_id: form.customer_id,
         drawing_number: form.drawing_number || null,
-        product_code: form.product_code || null,
+        part_serial_number: resolved.partSerialNumber || null,
+        part_name: form.part_name || null,
         quoted_price: form.quoted_price === '' ? null : Number(form.quoted_price),
-        quoted_date: form.quoted_date || undefined,
+        // System date, set once at creation/revision and never re-typed --
+        // form.quoted_date is read-only, so on an edit this just resends
+        // whatever was already stored.
+        quoted_date: form.quoted_date || todayISO(),
         supply_lead_time_days: form.supply_lead_time_days === '' ? null : Number(form.supply_lead_time_days),
         revision_status: form.revision_status || null,
       }
@@ -151,6 +235,7 @@ export default function CustomerEnquiryScreen() {
         saved = await createCustomerEnquiry({ qtn_no: qtnNo, ...payload })
       }
       setRevisingRoot(null)
+      resetPartPicker()
       setForm({ ...EMPTY_FORM, ...saved })
       await refresh()
       setMode('view')
@@ -189,13 +274,25 @@ export default function CustomerEnquiryScreen() {
     setListSearch(toolbarSearch)
   }
 
-  const filteredRecords = records.filter((r) => {
-    if (!listSearch) return true
-    const q = listSearch.toLowerCase()
-    return r.qtn_no?.toLowerCase().includes(q) || r.customer_id?.toLowerCase().includes(q)
-  })
+  const statusByQtn = useMemo(() => deriveEnquiryStatuses(records, orders), [records, orders])
+
+  const filteredRecords = records
+    .filter((r) => {
+      if (!listSearch) return true
+      const q = listSearch.toLowerCase()
+      return r.qtn_no?.toLowerCase().includes(q) || r.customer_id?.toLowerCase().includes(q)
+    })
+    .map((r) => {
+      const derived = statusByQtn.get(r.qtn_no)
+      return { ...r, status: derived?.status ?? 'Open', linked_prds: derived?.linkedPrds ?? [] }
+    })
 
   const readOnly = mode === 'view'
+  // A revision -- either currently being drafted (revisingRoot set, not
+  // yet saved) or an already-saved row that IS one (form.parent_qtn_no
+  // set) -- can never change which customer or part it's for.
+  const isRevision = !!revisingRoot || !!form.parent_qtn_no
+  const partLocked = readOnly || isRevision
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -250,17 +347,42 @@ export default function CustomerEnquiryScreen() {
             <SelectInput
               value={form.customer_id}
               onChange={handleField('customer_id')}
-              disabled={readOnly}
-              options={customers.map((c) => c.customer_id)}
+              disabled={readOnly || isRevision}
+              options={customerDropdownOptions(customers)}
             />
           </Field>
-          <Field label="Product">
-            <SelectInput
-              value={form.product_code}
-              onChange={handleField('product_code')}
-              disabled={readOnly}
-              options={products.map((p) => p.product_code)}
-            />
+          <Field label="Customer ID">
+            <AutoFillBox value={form.customer_id} />
+          </Field>
+          <Field label="Part Serial Number" required>
+            {isNewPart ? (
+              <TextInput
+                value={newPartCode}
+                onChange={(e) => setNewPartCode(e.target.value)}
+                disabled={partLocked}
+                placeholder="Type new part number"
+              />
+            ) : (
+              <SelectInput
+                value={form.part_serial_number}
+                onChange={handlePartChange}
+                disabled={partLocked}
+                options={[
+                  ...products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number })),
+                  { value: NEW_PART_VALUE, label: '+ Add New Part...' },
+                ]}
+              />
+            )}
+          </Field>
+          {isNewPart && !partLocked && (
+            <div className="flex items-end">
+              <button type="button" onClick={resetPartPicker} className="text-xs text-bmlhblue hover:underline">
+                Pick existing instead
+              </button>
+            </div>
+          )}
+          <Field label="Part Name">
+            <TextInput value={form.part_name} onChange={handleField('part_name')} disabled={partLocked} />
           </Field>
           <Field label="Drawing Number">
             <TextInput value={form.drawing_number} onChange={handleField('drawing_number')} disabled={readOnly} />
@@ -274,9 +396,9 @@ export default function CustomerEnquiryScreen() {
             />
           </Field>
           <Field label="Quoted Date">
-            <TextInput type="date" value={form.quoted_date} onChange={handleField('quoted_date')} disabled={readOnly} />
+            <AutoFillBox value={form.quoted_date || todayISO()} />
           </Field>
-          <Field label="Supply Lead Time (Days)">
+          <Field label="Supply Lead Time (days)">
             <TextInput
               type="number"
               value={form.supply_lead_time_days}

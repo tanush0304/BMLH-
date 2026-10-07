@@ -6,7 +6,7 @@ export async function listCycleTimes() {
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
-    .order('product_code')
+    .order('part_serial_number')
     .order('seq')
   if (error) throw error
   return data

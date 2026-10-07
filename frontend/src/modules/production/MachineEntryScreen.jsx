@@ -2,19 +2,21 @@ import { useEffect, useState } from 'react'
 import { Factory, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
-import RecordsList from '../../components/RecordsList'
-import { listUsers } from '../../data/queries/users'
+import HourlySlotsEntry from '../../components/HourlySlotsEntry'
+import EmployeeSelect from '../../components/EmployeeSelect'
+import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
-import { listMachinesForOperations } from '../../data/queries/machineEntry'
+import { listMachinesForProductSeqs } from '../../data/queries/machineEntry'
 import { buildMachineLabelMap } from '../../utils/machineLabel'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
   getStageAggregatesForPrd,
   createProductionLog,
   addProductionLogHour,
+  addProductionLogHours,
   getLogTotals,
   getOpenLogForStage,
   listLogHoursForLogIds,
@@ -25,28 +27,23 @@ import {
   computeStageUpstreamTargets,
   standardQtyPerHour,
 } from '../../utils/calculations'
-
-const HOUR_COLUMNS = [
-  { key: 'hour_slot', label: 'Hour' },
-  { key: 'qty_produced', label: 'Produced' },
-  { key: 'qty_rejected', label: 'Rejected' },
-  { key: 'qty_rework', label: 'Rework' },
-]
+import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
+import { todayISO } from '../../utils/dates'
 
 export default function MachineEntryScreen() {
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [machineLabels, setMachineLabels] = useState({}) // machine_id -> "Name (ID)", for dropdown display only
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [userId, setUserId] = useState('')
+  const [employeeId, setEmployeeId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
 
   const [prdNo, setPrdNo] = useState('')
   const [prdStages, setPrdStages] = useState([]) // this PRD's own eligible stages, any machine
-  const [machineOpsForPrd, setMachineOpsForPrd] = useState([]) // {machine_id, operation} rows capable of one of prdStages' operations
+  const [machineOpsForPrd, setMachineOpsForPrd] = useState([]) // {machine_id, seq} rows -- Cycle Time Master's record of which machines can run which of prdStages' seqs
   const [resolving, setResolving] = useState(false)
 
   const [machineId, setMachineId] = useState('')
@@ -61,7 +58,6 @@ export default function MachineEntryScreen() {
   const [activeLog, setActiveLog] = useState(null)
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
-  const [hourForm, setHourForm] = useState({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   const [savingHour, setSavingHour] = useState(false)
 
   async function loadPendingStages() {
@@ -74,8 +70,8 @@ export default function MachineEntryScreen() {
       setLoading(true)
       setError(null)
       try {
-        const [usrs, shf, machs] = await Promise.all([listUsers(), listShifts(), listMachines()])
-        setUsers(usrs)
+        const [employeeRows, shf, machs] = await Promise.all([listEmployees(), listShifts(), listMachines()])
+        setEmployees(employeeRows)
         setShifts(shf)
         setMachineLabels(buildMachineLabelMap(machs))
         await loadPendingStages()
@@ -112,8 +108,14 @@ export default function MachineEntryScreen() {
     try {
       const stages = pendingStages.filter((s) => s.prd_no === prd)
       setPrdStages(stages)
-      const operations = [...new Set(stages.map((s) => s.operation))]
-      setMachineOpsForPrd(await listMachinesForOperations(operations))
+      // Eligibility comes from Cycle Time Master (part_serial_number + seq +
+      // machine_id), not from matching operation text against "machine
+      // operations" -- that table is Machine Master's own informational
+      // operation list, never used to decide this. See
+      // utils/machineEligibility.js.
+      const order = (await listCustomerOrders()).find((o) => o.prd_no === prd)
+      const seqs = [...new Set(stages.map((s) => s.seq))]
+      setMachineOpsForPrd(await listMachinesForProductSeqs(order?.part_serial_number, seqs))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -125,7 +127,7 @@ export default function MachineEntryScreen() {
   // machine -- more than one is a real, expected case (WIP can feed any
   // stage), not an edge case to collapse silently.
   const stageChoicesForPrd = machineId
-    ? prdStages.filter((s) => machineOpsForPrd.some((r) => r.machine_id === machineId && r.operation === s.operation))
+    ? prdStages.filter((s) => machineOpsForPrd.some((r) => r.machine_id === machineId && r.seq === s.seq))
     : []
 
   function handleMachineChange(e) {
@@ -139,7 +141,7 @@ export default function MachineEntryScreen() {
     setActiveLog(null)
     if (!id) return
     const choices = prdStages.filter((s) =>
-      machineOpsForPrd.some((r) => r.machine_id === id && r.operation === s.operation)
+      machineOpsForPrd.some((r) => r.machine_id === id && r.seq === s.seq)
     )
     if (choices.length === 1) {
       resolveStage(prdNo, choices[0])
@@ -177,6 +179,11 @@ export default function MachineEntryScreen() {
         // Resume: keep logging against the log that already reserved this
         // stage's share of the upstream pool, don't open a second one.
         setActiveLog(openLog)
+        // Prefill the dropdown with the shift this log started under --
+        // just a convenience default, not a lock; the operator can change
+        // it (e.g. resuming on a new day/shift), and that's exactly what
+        // decides which shift today's new hours get stamped with.
+        setShiftCode(openLog.shift_code)
         const hours = await listLogHoursForLogIds([openLog.id])
         setLogHours(hours)
         setTotals(await getLogTotals(openLog.id))
@@ -189,8 +196,8 @@ export default function MachineEntryScreen() {
   }
 
   async function handleStart() {
-    if (!machineId || !prdNo || !resolvedStage || !userId || !shiftCode) {
-      setError('Machine, PRD, User and Shift are all required to start.')
+    if (!machineId || !prdNo || !resolvedStage || !employeeId || !shiftCode) {
+      setError('Machine, PRD, Employee and Shift are all required to start.')
       return
     }
     setStarting(true)
@@ -200,7 +207,7 @@ export default function MachineEntryScreen() {
         prd_no: prdNo,
         stage_id: resolvedStage.id,
         machine_id: machineId,
-        user_emp_id: userId,
+        employee_id: employeeId,
         shift_code: shiftCode,
         start_time: new Date().toISOString(),
         planned_qty: plannedQty,
@@ -216,28 +223,57 @@ export default function MachineEntryScreen() {
     }
   }
 
-  async function handleAddHour() {
+  // Shared refresh after either the bulk shift-slot save or the single
+  // extra-hour add below -- same stage-output recompute the old single
+  // handleAddHour used to do inline.
+  async function refreshAfterHourSave() {
+    setTotals(await getLogTotals(activeLog.id))
+    const aggregates = await getStageAggregatesForPrd(prdNo)
+    setStageOutputSoFar(aggregates[resolvedStage.id]?.output ?? 0)
+  }
+
+  // Migration 010: each hour row now carries its own log_date/shift_code/
+  // employee_id -- these must be sent explicitly here (today's date, the
+  // currently-selected shift and user), never left to a trigger default,
+  // since they're what makes multi-shift/multi-day logging on one log
+  // attributable per hour instead of all defaulting to the log header's
+  // original creation-time values.
+  async function handleSaveHours(rows) {
     if (!activeLog) return
     setSavingHour(true)
     setError(null)
     try {
-      const nextSlot = logHours.length + 1
-      const row = await addProductionLogHour({
+      const stamped = rows.map((r) => ({
+        ...r,
         log_id: activeLog.id,
-        hour_slot: nextSlot,
-        qty_produced: hourForm.qty_produced === '' ? 0 : Number(hourForm.qty_produced),
-        qty_rejected: hourForm.qty_rejected === '' ? 0 : Number(hourForm.qty_rejected),
-        qty_rework: hourForm.qty_rework === '' ? 0 : Number(hourForm.qty_rework),
-      })
-      setLogHours((h) => [...h, row])
-      setHourForm({ qty_produced: '', qty_rejected: '', qty_rework: '' })
-      setTotals(await getLogTotals(activeLog.id))
+        log_date: todayISO(),
+        shift_code: shiftCode,
+        employee_id: employeeId,
+      }))
+      const saved = await addProductionLogHours(stamped)
+      setLogHours((h) => [...h, ...saved])
+      await refreshAfterHourSave()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSavingHour(false)
+    }
+  }
 
-      // Refresh the stage's cumulative actual output so we can auto-suggest
-      // completion once it catches up to the upstream target -- never flips
-      // status on its own, just surfaces the "Mark Complete" option.
-      const aggregates = await getStageAggregatesForPrd(prdNo)
-      setStageOutputSoFar(aggregates[resolvedStage.id]?.output ?? 0)
+  async function handleAddExtraHour(row) {
+    if (!activeLog) return
+    setSavingHour(true)
+    setError(null)
+    try {
+      const saved = await addProductionLogHour({
+        ...row,
+        log_id: activeLog.id,
+        log_date: todayISO(),
+        shift_code: shiftCode,
+        employee_id: employeeId,
+      })
+      setLogHours((h) => [...h, saved])
+      await refreshAfterHourSave()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -275,12 +311,13 @@ export default function MachineEntryScreen() {
   }
 
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
+  const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Machine Entry"
-        subtitle="User picks the order + machine; the stage resolves itself"
+        subtitle="Employee picks the order + machine; the stage resolves itself"
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -290,9 +327,9 @@ export default function MachineEntryScreen() {
           </div>
         )}
 
-        <FormSection icon={Factory} title="1. Select User, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
-          <Field label="User" required>
-            <SelectInput value={userId} onChange={(e) => setUserId(e.target.value)} options={users.map((o) => o.user_emp_id)} />
+        <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
+          <Field label="Employee" required>
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
           </Field>
           <Field label="Production Order (PRD No)" required>
             <SelectInput
@@ -353,6 +390,12 @@ export default function MachineEntryScreen() {
                 options={shifts.map((s) => s.shift_code)}
               />
             </Field>
+            {activeLog && (
+              <p className="text-xs text-gray-500 sm:col-span-3">
+                This log started under Shift {activeLog.shift_code} -- the dropdown stays live and decides which
+                shift any NEW hours get logged under, today or on a future day.
+              </p>
+            )}
             <div className="flex items-end">
               <button
                 onClick={handleStart}
@@ -366,50 +409,29 @@ export default function MachineEntryScreen() {
         )}
 
         {activeLog && (
-          <FormSection icon={Clock3} title="3. Hourly Entry" subtitle="Log output for this hour" columns={4}>
-            <Field label="Qty Produced">
-              <TextInput
-                type="number"
-                value={hourForm.qty_produced}
-                onChange={(e) => setHourForm((f) => ({ ...f, qty_produced: e.target.value }))}
+          <FormSection icon={Clock3} title="3. Hourly Entry" subtitle="One row per hour of the selected shift">
+            <div className="w-full">
+              <HourlySlotsEntry
+                startTime={entryShift.start_time}
+                endTime={entryShift.end_time}
+                shiftCode={entryShift.shiftCode}
+                logHours={logHours}
+                employees={employees}
+                onSaveHours={handleSaveHours}
+                onAddExtraHour={handleAddExtraHour}
+                saving={savingHour}
+                resetKey={activeLog.id}
               />
-            </Field>
-            <Field label="Qty Rejected">
-              <TextInput
-                type="number"
-                value={hourForm.qty_rejected}
-                onChange={(e) => setHourForm((f) => ({ ...f, qty_rejected: e.target.value }))}
-              />
-            </Field>
-            <Field label="Qty Rework">
-              <TextInput
-                type="number"
-                value={hourForm.qty_rework}
-                onChange={(e) => setHourForm((f) => ({ ...f, qty_rework: e.target.value }))}
-              />
-            </Field>
-            <div className="flex items-end">
-              <button
-                onClick={handleAddHour}
-                disabled={savingHour || logHours.length >= 12}
-                className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-              >
-                Add Hour {logHours.length + 1}
-              </button>
+              {totals && (
+                <div className="text-sm text-gray-600 flex gap-6 pt-2 mt-2 border-t border-gray-100">
+                  <span>Total Produced: <strong>{totals.total_produced}</strong></span>
+                  <span>Efficiency: <strong>{totals.efficiency_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong>{totals.reject_pct ?? '—'}%</strong></span>
+                  <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>
+                </div>
+              )}
             </div>
-            {totals && (
-              <div className="sm:col-span-4 text-sm text-gray-600 flex gap-6 pt-2 border-t border-gray-100 mt-2">
-                <span>Total Produced: <strong>{totals.total_produced}</strong></span>
-                <span>Efficiency: <strong>{totals.efficiency_pct ?? '—'}%</strong></span>
-                <span>Reject %: <strong>{totals.reject_pct ?? '—'}%</strong></span>
-                <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>
-              </div>
-            )}
           </FormSection>
-        )}
-
-        {activeLog && (
-          <RecordsList title="Hours Logged This Session" columns={HOUR_COLUMNS} rows={logHours} rowKey="id" />
         )}
 
         {resolvedStage && stageTarget !== null && (

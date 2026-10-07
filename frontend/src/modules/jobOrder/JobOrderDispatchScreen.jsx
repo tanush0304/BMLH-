@@ -140,7 +140,7 @@ export default function JobOrderDispatchScreen() {
         stage_id: selectedStage.id,
         job_work_code: selectedStage.job_work_code,
         vendor_id: form.vendor_id,
-        product_code: orders.find((o) => o.prd_no === prdNo)?.product_code,
+        part_serial_number: orders.find((o) => o.prd_no === prdNo)?.part_serial_number,
         qty: Number(form.qty),
         dispatch_date: form.dispatch_date,
         expected_receipt_date: expectedReceiptDate() || null,

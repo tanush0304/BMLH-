@@ -1,9 +1,9 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import {
   listQualityParameters,
@@ -11,35 +11,46 @@ import {
   updateQualityParameter,
   deleteQualityParameter,
 } from '../../data/queries/qualityParameters'
+import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 
 const EMPTY_FORM = {
   id: '',
-  product_code: '',
-  quality_parameter: '',
+  part_serial_number: '',
   machine_id: '',
   type_of_operation: '',
+  quality_parameter: '',
   standard: '',
   upper_tolerance: '',
   lower_tolerance: '',
+  expected_text_value: '',
   remarks: '',
 }
 
 const LIST_COLUMNS = [
-  { key: 'product_code', label: 'Product Code' },
-  { key: 'quality_parameter', label: 'Parameter' },
-  { key: 'machine_id', label: 'Machine ID' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' },
+  { key: 'machine_label', label: 'Machine' },
+  { key: 'type_of_operation', label: 'Type of Operation' },
+  { key: 'quality_parameter', label: 'Quality Parameter' },
   { key: 'standard', label: 'Standard' },
-  { key: 'upper_tolerance', label: 'Upper Tol.' },
-  { key: 'lower_tolerance', label: 'Lower Tol.' },
+  { key: 'upper_tolerance', label: 'Upper Tolerance' },
+  { key: 'lower_tolerance', label: 'Lower Tolerance' },
+  { key: 'expected_text_value', label: 'Expected Text Value' },
+  { key: 'remarks', label: 'Remarks' },
 ]
+
+function inputValue(value) {
+  return value ?? ''
+}
 
 export default function QualityMaster() {
   const [records, setRecords] = useState([])
   const [products, setProducts] = useState([])
   const [machines, setMachines] = useState([])
+  const [cycleTimes, setCycleTimes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -53,14 +64,16 @@ export default function QualityMaster() {
     setLoading(true)
     setError(null)
     try {
-      const [params, prods, machs] = await Promise.all([
+      const [params, prods, machs, routes] = await Promise.all([
         listQualityParameters(),
         listProducts(),
         listMachines(),
+        listCycleTimes(),
       ])
       setRecords(params)
       setProducts(prods)
       setMachines(machs)
+      setCycleTimes(routes)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -72,8 +85,30 @@ export default function QualityMaster() {
     refresh()
   }, [])
 
+  const selectedProduct = products.find((product) => product.part_serial_number === form.part_serial_number)
+  const operations = [...new Set(cycleTimes
+    .filter((row) => row.part_serial_number === form.part_serial_number && row.machine_id === form.machine_id)
+    .map((row) => row.operation)
+    .filter(Boolean))]
+  const parameterSuggestions = [...new Set(records.map((row) => row.quality_parameter).filter(Boolean))]
+  const displayRecords = useMemo(() => records.map((row) => ({
+    ...row,
+    part_name: products.find((product) => product.part_serial_number === row.part_serial_number)?.part_name ?? '',
+    machine_label: machines.find((machine) => machine.machine_id === row.machine_id)
+      ? machineOptionLabel(machines.find((machine) => machine.machine_id === row.machine_id))
+      : row.machine_id ?? '',
+  })), [records, products, machines])
+
   function handleField(key) {
-    return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+    return (e) => setForm((current) => ({ ...current, [key]: e.target.value }))
+  }
+
+  function handlePartChange(e) {
+    setForm((current) => ({ ...current, part_serial_number: e.target.value, type_of_operation: '' }))
+  }
+
+  function handleMachineChange(e) {
+    setForm((current) => ({ ...current, machine_id: e.target.value, type_of_operation: '' }))
   }
 
   function handleNew() {
@@ -83,13 +118,11 @@ export default function QualityMaster() {
   }
 
   function handleClear() {
-    setForm(EMPTY_FORM)
-    setMode('new')
-    setSaveError(null)
+    handleNew()
   }
 
   function handleRowClick(row) {
-    setForm({ ...EMPTY_FORM, ...row })
+    setForm({ ...EMPTY_FORM, ...Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value ?? ''])) })
     setMode('view')
     setSaveError(null)
   }
@@ -100,28 +133,32 @@ export default function QualityMaster() {
   }
 
   async function handleSave() {
-    if (!form.quality_parameter) {
-      setSaveError('Quality Parameter is required.')
+    if (!form.part_serial_number || !form.machine_id || !form.type_of_operation || !form.quality_parameter.trim()) {
+      setSaveError('Part Serial Number, Machine, Type of Operation and Quality Parameter are required.')
+      return
+    }
+    const hasNumbers = [form.standard, form.upper_tolerance, form.lower_tolerance].some((value) => value !== '')
+    const hasTextValue = Boolean(form.expected_text_value.trim())
+    if (hasNumbers === hasTextValue) {
+      setSaveError('Enter numeric standard/tolerance values or an Expected Text Value, but not both.')
       return
     }
     setSaving(true)
     setSaveError(null)
     try {
       const payload = {
-        product_code: form.product_code || null,
-        quality_parameter: form.quality_parameter,
-        machine_id: form.machine_id || null,
-        type_of_operation: form.type_of_operation || null,
+        part_serial_number: form.part_serial_number,
+        machine_id: form.machine_id,
+        type_of_operation: form.type_of_operation,
+        quality_parameter: form.quality_parameter.trim(),
         standard: form.standard === '' ? null : Number(form.standard),
         upper_tolerance: form.upper_tolerance === '' ? null : Number(form.upper_tolerance),
         lower_tolerance: form.lower_tolerance === '' ? null : Number(form.lower_tolerance),
-        remarks: form.remarks || null,
+        expected_text_value: form.expected_text_value.trim() || null,
+        remarks: form.remarks.trim() || null,
       }
-      if (mode === 'edit') {
-        await updateQualityParameter(form.id, payload)
-      } else {
-        await createQualityParameter(payload)
-      }
+      if (mode === 'edit') await updateQualityParameter(form.id, payload)
+      else await createQualityParameter(payload)
       await refresh()
       setMode('view')
     } catch (e) {
@@ -159,22 +196,16 @@ export default function QualityMaster() {
     setListSearch(toolbarSearch)
   }
 
-  const filteredRecords = records.filter((r) => {
+  const filteredRecords = displayRecords.filter((row) => {
     if (!listSearch) return true
-    const q = listSearch.toLowerCase()
-    return (
-      r.product_code?.toLowerCase().includes(q) || r.quality_parameter?.toLowerCase().includes(q)
-    )
+    const query = listSearch.toLowerCase()
+    return LIST_COLUMNS.some((column) => String(row[column.key] ?? '').toLowerCase().includes(query))
   })
-
   const readOnly = mode === 'view'
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader
-        title="Quality Master"
-        subtitle="Manage Quality Parameters  |  Standards & Tolerances"
-      />
+      <PageHeader title="Quality Master" subtitle="Define numeric and text-based inspection standards" />
       <ActionToolbar
         onNew={handleNew}
         onSave={handleSave}
@@ -187,71 +218,37 @@ export default function QualityMaster() {
         searchValue={toolbarSearch}
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Product Code / Parameter..."
+        searchPlaceholder="Search quality parameters..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
+        {(saveError || error) && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError || error}</div>
         )}
-
-        <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Standard and tolerance" columns={3}>
-          <Field label="Product Code">
-            <SelectInput
-              value={form.product_code}
-              onChange={handleField('product_code')}
-              disabled={readOnly}
-              options={products.map((p) => p.product_code)}
-            />
+        <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Route-specific inspection criteria" columns={3}>
+          <Field label="Part Serial Number" required>
+            <SelectInput value={form.part_serial_number} onChange={handlePartChange} disabled={readOnly} options={products.map((product) => product.part_serial_number)} />
+          </Field>
+          <Field label="Part Name"><AutoFillBox value={selectedProduct?.part_name} /></Field>
+          <Field label="Machine" required>
+            <SelectInput value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
+          </Field>
+          <Field label="Type of Operation" required>
+            <SelectInput value={form.type_of_operation} onChange={handleField('type_of_operation')} disabled={readOnly || operations.length === 0} options={operations} />
           </Field>
           <Field label="Quality Parameter" required>
-            <TextInput
-              value={form.quality_parameter}
-              onChange={handleField('quality_parameter')}
-              disabled={readOnly}
-            />
+            <TextInput list="quality-parameter-suggestions" value={form.quality_parameter} onChange={handleField('quality_parameter')} disabled={readOnly} />
+            <datalist id="quality-parameter-suggestions">
+              {parameterSuggestions.map((name) => <option key={name} value={name} />)}
+            </datalist>
           </Field>
-          <Field label="Machine">
-            <SelectInput
-              value={form.machine_id}
-              onChange={handleField('machine_id')}
-              disabled={readOnly}
-              options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
-            />
-          </Field>
-          <Field label="Type of Operation">
-            <TextInput
-              value={form.type_of_operation}
-              onChange={handleField('type_of_operation')}
-              disabled={readOnly}
-            />
-          </Field>
-          <Field label="Standard">
-            <TextInput type="number" value={form.standard} onChange={handleField('standard')} disabled={readOnly} />
-          </Field>
-          <Field label="Upper Tolerance">
-            <TextInput
-              type="number"
-              value={form.upper_tolerance}
-              onChange={handleField('upper_tolerance')}
-              disabled={readOnly}
-            />
-          </Field>
-          <Field label="Lower Tolerance">
-            <TextInput
-              type="number"
-              value={form.lower_tolerance}
-              onChange={handleField('lower_tolerance')}
-              disabled={readOnly}
-            />
-          </Field>
-          <Field label="Remarks" width="long">
-            <TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} />
-          </Field>
+          <Field label="Standard"><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>
+          <Field label="Upper Tolerance"><TextInput type="number" value={inputValue(form.upper_tolerance)} onChange={handleField('upper_tolerance')} disabled={readOnly} /></Field>
+          <Field label="Lower Tolerance"><TextInput type="number" value={inputValue(form.lower_tolerance)} onChange={handleField('lower_tolerance')} disabled={readOnly} /></Field>
+          <Field label="Expected Text Value"><TextInput value={form.expected_text_value} onChange={handleField('expected_text_value')} disabled={readOnly} placeholder="e.g. 10 x 36 Deg or In Position" /></Field>
+          <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
 
         <RecordsList

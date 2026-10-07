@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import {
   listCycleTimes,
@@ -18,7 +18,7 @@ import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 
 const EMPTY_FORM = {
   id: '',
-  product_code: '',
+  part_serial_number: '',
   operation: '',
   seq: '',
   type: '',
@@ -28,7 +28,7 @@ const EMPTY_FORM = {
 }
 
 const LIST_COLUMNS = [
-  { key: 'product_code', label: 'Product Code' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'seq', label: 'Seq' },
   { key: 'operation', label: 'Operation' },
   { key: 'type', label: 'Type' },
@@ -47,6 +47,7 @@ export default function CycleTimeMaster() {
   const [listSearch, setListSearch] = useState('')
   const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
+  const selectedProduct = products.find((p) => p.part_serial_number === form.part_serial_number)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -114,7 +115,7 @@ export default function CycleTimeMaster() {
   }
 
   async function handleSave() {
-    if (!form.product_code || !form.operation || !form.seq || !form.type) {
+    if (!form.part_serial_number || !form.operation || !form.seq || !form.type) {
       setSaveError('Product, Operation, Seq and Type are required.')
       return
     }
@@ -130,7 +131,7 @@ export default function CycleTimeMaster() {
     setSaveError(null)
     try {
       const payload = {
-        product_code: form.product_code,
+        part_serial_number: form.part_serial_number,
         operation: form.operation,
         seq: Number(form.seq),
         type: form.type,
@@ -184,7 +185,7 @@ export default function CycleTimeMaster() {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
     return (
-      r.product_code?.toLowerCase().includes(q) || r.operation?.toLowerCase().includes(q)
+      r.part_serial_number?.toLowerCase().includes(q) || r.operation?.toLowerCase().includes(q)
     )
   })
 
@@ -208,7 +209,7 @@ export default function CycleTimeMaster() {
         searchValue={toolbarSearch}
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Product Code / Operation..."
+        searchPlaceholder="Search by Part Serial Number / Operation..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -221,13 +222,19 @@ export default function CycleTimeMaster() {
         )}
 
         <FormSection icon={Route} title="1. Route Step Details" subtitle="One operation in a route" columns={3}>
-          <Field label="Product Code" required>
+          <Field label="Part Serial Number" required>
             <SelectInput
-              value={form.product_code}
-              onChange={handleField('product_code')}
+              value={form.part_serial_number}
+              onChange={handleField('part_serial_number')}
               disabled={readOnly}
-              options={products.map((p) => p.product_code)}
+              options={products.map((p) => p.part_serial_number)}
             />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={selectedProduct?.part_name} />
+          </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={selectedProduct?.part_drawing_reference_number} />
           </Field>
           <Field label="Sequence" required>
             <TextInput type="number" value={form.seq} onChange={handleField('seq')} disabled={readOnly} />

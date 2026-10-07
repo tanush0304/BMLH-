@@ -125,6 +125,15 @@ export async function addProductionLogHour(payload) {
   return data
 }
 
+/** Bulk-inserts several hour-slot rows at once (the auto-generated shift
+ * grid saves only the slots the user actually filled in, in one request). */
+export async function addProductionLogHours(rows) {
+  if (rows.length === 0) return []
+  const { data, error } = await supabase.from('production log hours').insert(rows).select()
+  if (error) throw error
+  return data
+}
+
 export async function getLogTotals(logId) {
   const { data, error } = await supabase
     .from('production log totals')

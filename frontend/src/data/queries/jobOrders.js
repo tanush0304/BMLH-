@@ -1,12 +1,12 @@
 import { supabase } from '../../lib/supabaseClient'
+import { todayISO } from '../../utils/dates'
 
 /**
- * Sequence is no longer enforced (see machineEntry.js's listEligibleStagesForMachine
- * for the same change) -- a stage can be fed via WIP Issue rather than strictly
- * from the stage before it. The lock here is a still-open dispatch: a stage
- * that's already been dispatched but not yet received can't be dispatched a
- * second time (to a different vendor, say) until that receipt lands or the
- * dispatch is otherwise resolved.
+ * Sequence is no longer enforced -- a stage can be fed via WIP Issue rather
+ * than strictly from the stage before it. The lock here is a still-open
+ * dispatch: a stage that's already been dispatched but not yet received
+ * can't be dispatched a second time (to a different vendor, say) until
+ * that receipt lands or the dispatch is otherwise resolved.
  */
 export async function listPendingOutsourcedStagesForPrd(prdNo) {
   const { data, error } = await supabase
@@ -111,7 +111,7 @@ export async function createReceipt(payload) {
 
   const { error: stageErr } = await supabase
     .from('production route card stages')
-    .update({ status: 'Received', actual_date: payload.receipt_date ?? new Date().toISOString().slice(0, 10) })
+    .update({ status: 'Received', actual_date: payload.receipt_date ?? todayISO() })
     .eq('id', dispatch.stage_id)
   if (stageErr) throw stageErr
 

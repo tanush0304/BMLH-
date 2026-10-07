@@ -7,26 +7,22 @@ import FormSection, { Field, TextInput, SelectInput } from '../../components/For
 import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
 import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
-import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOps'
-import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/machineOperations'
+import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
+import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
 
 const EMPTY_FORM = {
   machine_id: '',
   machine_name: '',
-  machine_oem: '',
+  manufacturer_name: '',
   category: '',
-  machine_type: '',
-  make: '',
   model: '',
-  serial_no: '',
 }
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
   { key: 'machine_name', label: 'Machine Name' },
   { key: 'category', label: 'Category' },
-  { key: 'machine_oem', label: 'OEM' },
-  { key: 'make', label: 'Make' },
+  { key: 'manufacturer_name', label: 'Manufacturer Name' },
   { key: 'model', label: 'Model' },
 ]
 
@@ -57,12 +53,10 @@ export default function MachineMaster() {
     }
   }
 
-  useEffect(() => {
-    refresh()
-  }, [])
+  useEffect(() => { refresh() }, [])
 
   function handleField(key) {
-    return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+    return (e) => setForm((current) => ({ ...current, [key]: e.target.value }))
   }
 
   function handleNew() {
@@ -72,12 +66,7 @@ export default function MachineMaster() {
     setSaveError(null)
   }
 
-  function handleClear() {
-    setForm(EMPTY_FORM)
-    setOperations([])
-    setMode('new')
-    setSaveError(null)
-  }
+  function handleClear() { handleNew() }
 
   async function handleRowClick(row) {
     setForm({ ...EMPTY_FORM, ...row })
@@ -85,15 +74,14 @@ export default function MachineMaster() {
     setSaveError(null)
     try {
       const ops = await listOperationsForMachine(row.machine_id)
-      setOperations(ops.map((o) => o.operation))
+      setOperations(ops.map((operation) => operation.operation))
     } catch (e) {
       setSaveError(e.message)
     }
   }
 
   function handleEdit() {
-    if (!form.machine_id) return
-    setMode('edit')
+    if (form.machine_id) setMode('edit')
   }
 
   async function handleSave() {
@@ -104,26 +92,13 @@ export default function MachineMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      if (mode === 'edit') {
-        await updateMachine(form.machine_id, form)
-      } else {
-        await createMachine(form)
-      }
+      if (mode === 'edit') await updateMachine(form.machine_id, form)
+      else await createMachine(form)
 
-      // Any selected operation not already in the master table is a new
-      // one (typed via "Add new..." this session) -- persist it so it's a
-      // real, reusable option for every machine from here on, not a
-      // one-off note on this record. Mirrors Vendor Master's Job Work
-      // Types resolution.
       const validOperations = operations.filter(Boolean)
-      const newOperations = validOperations.filter((op) => !operationOptions.includes(op))
-      for (const op of newOperations) {
-        await createMachineOperationOption(op)
-      }
-      if (newOperations.length > 0) {
-        setOperationOptions((opts) => [...opts, ...newOperations].sort())
-      }
-
+      const newOperations = validOperations.filter((operation) => !operationOptions.includes(operation))
+      for (const operation of newOperations) await createMachineOperationOption(operation)
+      if (newOperations.length > 0) setOperationOptions((options) => [...options, ...newOperations].sort())
       await setMachineOperations(form.machine_id, validOperations)
       await refresh()
       setMode('view')
@@ -135,8 +110,7 @@ export default function MachineMaster() {
   }
 
   async function handleDelete() {
-    if (!form.machine_id) return
-    if (!confirm(`Delete machine ${form.machine_id}? This cannot be undone.`)) return
+    if (!form.machine_id || !confirm(`Delete machine ${form.machine_id}? This cannot be undone.`)) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -150,24 +124,11 @@ export default function MachineMaster() {
     }
   }
 
-  function handleExportExcel() {
-    exportToCsv(LIST_COLUMNS, filteredRecords, 'machine_master.csv')
-  }
-
-  function handleExportPdf() {
-    exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')
-  }
-
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
-  const filteredRecords = records.filter((r) => {
+  const filteredRecords = records.filter((row) => {
     if (!listSearch) return true
-    const q = listSearch.toLowerCase()
-    return r.machine_id?.toLowerCase().includes(q) || r.machine_name?.toLowerCase().includes(q)
+    const query = listSearch.toLowerCase()
+    return row.machine_id?.toLowerCase().includes(query) || row.machine_name?.toLowerCase().includes(query)
   })
-
   const readOnly = mode === 'view'
   const idLocked = mode !== 'new'
 
@@ -185,19 +146,13 @@ export default function MachineMaster() {
         canDelete={mode !== 'new' && !saving}
         searchValue={toolbarSearch}
         onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
+        onSearch={() => setListSearch(toolbarSearch)}
         searchPlaceholder="Search by Machine ID / Name..."
-        onExportExcel={handleExportExcel}
-        onExportPdf={handleExportPdf}
+        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRecords, 'machine_master.csv')}
+        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')}
       />
-
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
-        )}
-
+        {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError}</div>}
         <div className="flex flex-col gap-3">
           <FormSection icon={Factory} title="1. Machine Details" subtitle="Identity and classification">
             <Field label="Machine ID" required>
@@ -206,48 +161,22 @@ export default function MachineMaster() {
             <Field label="Machine Name" required>
               <TextInput value={form.machine_name} onChange={handleField('machine_name')} disabled={readOnly} />
             </Field>
-            <Field label="Machine OEM">
-              <TextInput value={form.machine_oem} onChange={handleField('machine_oem')} disabled={readOnly} />
+            <Field label="Manufacturer Name">
+              <TextInput value={form.manufacturer_name} onChange={handleField('manufacturer_name')} disabled={readOnly} />
             </Field>
             <Field label="Category">
-              <SelectInput
-                value={form.category}
-                onChange={handleField('category')}
-                disabled={readOnly}
-                options={['Cutting', 'CNC Turning', 'VMC', 'Grinding']}
-              />
+              <SelectInput value={form.category} onChange={handleField('category')} disabled={readOnly} options={['Cutting', 'CNC Turning', 'VMC', 'Grinding']} />
             </Field>
           </FormSection>
-
-          <FormSection icon={Cog} title="2. Asset Details" subtitle="Make, model and serial number">
-            <Field label="Machine Type">
-              <TextInput value={form.machine_type} onChange={handleField('machine_type')} disabled={readOnly} />
-            </Field>
-            <Field label="Make">
-              <TextInput value={form.make} onChange={handleField('make')} disabled={readOnly} />
-            </Field>
-            <Field label="Model">
-              <TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} />
-            </Field>
-            <Field label="Serial No">
-              <TextInput value={form.serial_no} onChange={handleField('serial_no')} disabled={readOnly} />
-            </Field>
+          <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model">
+            <Field label="Model"><TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} /></Field>
           </FormSection>
-
           <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
             <Field label="Operations Performed" width="long">
-              <MultiSelectDropdown
-                options={operationOptions}
-                selected={operations}
-                onChange={setOperations}
-                disabled={readOnly}
-                placeholder="Select operations..."
-                key={mode === 'new' ? 'new' : form.machine_id}
-              />
+              <MultiSelectDropdown options={operationOptions} selected={operations} onChange={setOperations} disabled={readOnly} placeholder="Select operations..." key={mode === 'new' ? 'new' : form.machine_id} />
             </Field>
           </FormSection>
         </div>
-
         <RecordsList
           title="Machine Master List"
           columns={LIST_COLUMNS}

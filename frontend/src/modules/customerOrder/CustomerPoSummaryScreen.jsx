@@ -13,7 +13,7 @@ const PO_COLUMNS = [
 
 const LINE_COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
-  { key: 'product_code', label: 'Product' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_type', label: 'Order Type' },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 const TABLE = 'quality master'
 
 export async function listQualityParameters() {
-  const { data, error } = await supabase.from(TABLE).select('*').order('product_code')
+  const { data, error } = await supabase.from(TABLE).select('*').order('part_serial_number')
   if (error) throw error
   return data
 }

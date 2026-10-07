@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Layers } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import {
   listProductionBatches,
@@ -14,12 +14,12 @@ import {
 import { listProducts } from '../../data/queries/products'
 
 const EMPTY_FORM = {
-  product_code: '',
+  part_serial_number: '',
   production_batch_quantity: '',
 }
 
 const LIST_COLUMNS = [
-  { key: 'product_code', label: 'Product Code' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'production_batch_quantity', label: 'Batch Quantity' },
 ]
 
@@ -31,6 +31,7 @@ export default function ProductionBatchMaster() {
   const [listSearch, setListSearch] = useState('')
   const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
+  const selectedProduct = products.find((p) => p.part_serial_number === form.part_serial_number)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -76,13 +77,13 @@ export default function ProductionBatchMaster() {
   }
 
   function handleEdit() {
-    if (!form.product_code) return
+    if (!form.part_serial_number) return
     setMode('edit')
   }
 
   async function handleSave() {
-    if (!form.product_code) {
-      setSaveError('Product Code is required.')
+    if (!form.part_serial_number) {
+      setSaveError('Part Serial Number is required.')
       return
     }
     setSaving(true)
@@ -93,9 +94,9 @@ export default function ProductionBatchMaster() {
           form.production_batch_quantity === '' ? null : Number(form.production_batch_quantity),
       }
       if (mode === 'edit') {
-        await updateProductionBatch(form.product_code, payload)
+        await updateProductionBatch(form.part_serial_number, payload)
       } else {
-        await createProductionBatch({ product_code: form.product_code, ...payload })
+        await createProductionBatch({ part_serial_number: form.part_serial_number, ...payload })
       }
       await refresh()
       setMode('view')
@@ -107,12 +108,12 @@ export default function ProductionBatchMaster() {
   }
 
   async function handleDelete() {
-    if (!form.product_code) return
-    if (!confirm(`Delete the batch quantity for ${form.product_code}? This cannot be undone.`)) return
+    if (!form.part_serial_number) return
+    if (!confirm(`Delete the batch quantity for ${form.part_serial_number}? This cannot be undone.`)) return
     setSaving(true)
     setSaveError(null)
     try {
-      await deleteProductionBatch(form.product_code)
+      await deleteProductionBatch(form.part_serial_number)
       await refresh()
       handleClear()
     } catch (e) {
@@ -136,7 +137,7 @@ export default function ProductionBatchMaster() {
 
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
-    return r.product_code?.toLowerCase().includes(listSearch.toLowerCase())
+    return r.part_serial_number?.toLowerCase().includes(listSearch.toLowerCase())
   })
 
   const readOnly = mode === 'view'
@@ -160,7 +161,7 @@ export default function ProductionBatchMaster() {
         searchValue={toolbarSearch}
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Product Code..."
+        searchPlaceholder="Search by Part Serial Number..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -173,13 +174,19 @@ export default function ProductionBatchMaster() {
         )}
 
         <FormSection icon={Layers} title="1. Batch Details" subtitle="Standard qty per product" columns={2}>
-          <Field label="Product Code" required>
+          <Field label="Part Serial Number" required>
             <SelectInput
-              value={form.product_code}
-              onChange={handleField('product_code')}
+              value={form.part_serial_number}
+              onChange={handleField('part_serial_number')}
               disabled={readOnly || pkLocked}
-              options={products.map((p) => p.product_code)}
+              options={products.map((p) => p.part_serial_number)}
             />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={selectedProduct?.part_name} />
+          </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={selectedProduct?.part_drawing_reference_number} />
           </Field>
           <Field label="Production Batch Quantity">
             <TextInput
@@ -197,8 +204,8 @@ export default function ProductionBatchMaster() {
           rows={filteredRecords}
           loading={loading}
           error={error}
-          rowKey="product_code"
-          selectedKey={form.product_code}
+          rowKey="part_serial_number"
+          selectedKey={form.part_serial_number}
           onRowClick={handleRowClick}
           searchValue={listSearch}
           onSearchChange={setListSearch}

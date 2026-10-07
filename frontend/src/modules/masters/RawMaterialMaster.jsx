@@ -17,6 +17,7 @@ import {
   createRmSupplierLink,
   deleteRmSupplierLink,
 } from '../../data/queries/rmSuppliers'
+import { saveRawMaterialWithSuppliers, validateSupplierDraftRows } from '../../utils/rawMaterialSave'
 
 const EMPTY_FORM = {
   raw_material_code: '',
@@ -27,17 +28,22 @@ const EMPTY_FORM = {
   length_mtrs: '',
   width: '',
   thickness: '',
-  unit_of_measurement: '',
 }
 
 const EMPTY_LINK_ROW = {
   supplier_id: '',
-  material_service_code: '',
-  material_description: '',
-  unit_of_measurement: '',
   standard_purchase_price: '',
-  minimum_order_qty: '',
   lead_time_days: '',
+}
+
+// Draft rows (added before Save, or re-added after a retry) have no real
+// `id` yet -- a local `_draftKey` is enough for React's list key and for
+// telling "already persisted" apart from "still needs inserting" at save
+// time, without needing a temp negative id or similar.
+let draftKeySeq = 0
+function newDraftKey() {
+  draftKeySeq += 1
+  return `draft-${draftKeySeq}`
 }
 
 const LIST_COLUMNS = [
@@ -126,21 +132,110 @@ export default function RawMaterialMaster() {
     setMode('edit')
   }
 
+  // Add is always local-only -- never hits the DB. Whatever's typed here
+  // becomes a draft row (no real id yet) in the table below; it's only
+  // actually saved when Save is pressed, together with the material
+  // itself, in one click -- even for a brand-new, not-yet-saved material.
+  function handleAddSupplierLink() {
+    const draftRow = { ...linkRow, _draftKey: newDraftKey() }
+    const err = validateSupplierDraftRows(
+      [...supplierLinks.filter((r) => !r.id), draftRow],
+      supplierLinks.filter((r) => r.id).map((r) => r.supplier_id)
+    )
+    if (err) {
+      setSaveError(err)
+      return
+    }
+    setSupplierLinks((rows) => [...rows, draftRow])
+    setLinkRow(EMPTY_LINK_ROW)
+    setSaveError(null)
+  }
+
+  // A persisted link (has a real id) is removed immediately, same as
+  // before. A draft row (added this session, not yet saved) is just
+  // dropped from the local list -- there's nothing in the DB to delete.
+  async function handleRemoveSupplierLink(row) {
+    if (!row.id) {
+      setSupplierLinks((rows) => rows.filter((r) => r !== row))
+      return
+    }
+    if (!confirm('Remove this supplier link?')) return
+    setLinkSaving(true)
+    setSaveError(null)
+    try {
+      await deleteRmSupplierLink(row.id)
+      await refreshSupplierLinks(form.raw_material_code)
+    } catch (e) {
+      setSaveError(e.message)
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
+  function supplierRowPayload(row) {
+    return {
+      supplier_id: row.supplier_id,
+      standard_purchase_price: row.standard_purchase_price === '' ? null : Number(row.standard_purchase_price),
+      lead_time_days: row.lead_time_days === '' ? null : Number(row.lead_time_days),
+    }
+  }
+
   async function handleSave() {
     if (!form.raw_material_code || !form.raw_material_name) {
       setSaveError('Raw Material Code and Name are required.')
       return
     }
+    const draftRows = supplierLinks.filter((r) => !r.id)
+    const persistedSupplierIds = supplierLinks.filter((r) => r.id).map((r) => r.supplier_id)
+    const rowsError = validateSupplierDraftRows(draftRows, persistedSupplierIds)
+    if (rowsError) {
+      setSaveError(rowsError)
+      return
+    }
+
     setSaving(true)
     setSaveError(null)
     try {
-      if (mode === 'edit') {
-        await updateRawMaterial(form.raw_material_code, form)
-      } else {
-        await createRawMaterial(form)
+      const result = await saveRawMaterialWithSuppliers({
+        materialPayload: form,
+        supplierRows: draftRows,
+        saveMaterial: (payload) =>
+          mode === 'edit' ? updateRawMaterial(form.raw_material_code, payload) : createRawMaterial(payload),
+        insertSupplierRow: (row) =>
+          createRmSupplierLink({ raw_material_code: form.raw_material_code, ...supplierRowPayload(row) }),
+      })
+
+      if (result.status === 'material-failed') {
+        // Form and supplier rows untouched, nothing was inserted.
+        setSaveError(result.error)
+        return
       }
-      await refresh()
+
+      if (result.status === 'suppliers-failed') {
+        // Material IS saved -- switch the form onto it (mode 'edit') so
+        // a plain "Save" retries only the supplier rows, matching how an
+        // existing material is edited. Draft rows that succeeded before
+        // the failure are marked persisted (via their real id) so a
+        // retry's validation/insert never touches them again; only the
+        // still-failed ones remain drafts.
+        setSupplierLinks((rows) =>
+          rows.map((r) => {
+            if (r.id) return r
+            const inserted = result.insertedRows.find((ir) => ir.supplier_id === r.supplier_id && ir.id)
+            return inserted ? { ...inserted } : r
+          })
+        )
+        setMode('edit')
+        setForm({ ...EMPTY_FORM, ...result.material })
+        setSaveError(`Material saved, suppliers not saved: ${result.error}. Press Save to retry.`)
+        return
+      }
+
+      // success
       setMode('view')
+      setForm({ ...EMPTY_FORM, ...result.material })
+      await refresh()
+      await refreshSupplierLinks(result.material.raw_material_code)
     } catch (e) {
       setSaveError(e.message)
     } finally {
@@ -161,48 +256,6 @@ export default function RawMaterialMaster() {
       setSaveError(e.message)
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function handleAddSupplierLink() {
-    if (!linkRow.supplier_id) {
-      setSaveError('Choose a supplier before adding.')
-      return
-    }
-    setLinkSaving(true)
-    setSaveError(null)
-    try {
-      await createRmSupplierLink({
-        raw_material_code: form.raw_material_code,
-        supplier_id: linkRow.supplier_id,
-        material_service_code: linkRow.material_service_code || null,
-        material_description: linkRow.material_description || null,
-        unit_of_measurement: linkRow.unit_of_measurement || null,
-        standard_purchase_price:
-          linkRow.standard_purchase_price === '' ? null : Number(linkRow.standard_purchase_price),
-        minimum_order_qty: linkRow.minimum_order_qty === '' ? null : Number(linkRow.minimum_order_qty),
-        lead_time_days: linkRow.lead_time_days === '' ? null : Number(linkRow.lead_time_days),
-      })
-      setLinkRow(EMPTY_LINK_ROW)
-      await refreshSupplierLinks(form.raw_material_code)
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setLinkSaving(false)
-    }
-  }
-
-  async function handleRemoveSupplierLink(id) {
-    if (!confirm('Remove this supplier link?')) return
-    setLinkSaving(true)
-    setSaveError(null)
-    try {
-      await deleteRmSupplierLink(id)
-      await refreshSupplierLinks(form.raw_material_code)
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setLinkSaving(false)
     }
   }
 
@@ -228,10 +281,10 @@ export default function RawMaterialMaster() {
 
   const readOnly = mode === 'view'
   const codeLocked = mode !== 'new'
-  const canManageSuppliers = mode !== 'new'
 
   function supplierName(id) {
-    return suppliers.find((s) => s.supplier_id === id)?.supplier_name ?? id
+    const supplier = suppliers.find((s) => s.supplier_id === id)
+    return supplier ? `${supplier.supplier_name} (${supplier.supplier_id})` : id
   }
 
   return (
@@ -340,39 +393,33 @@ export default function RawMaterialMaster() {
             <h2 className="text-sm font-semibold text-bmlhnavy">3. Suppliers for this Material</h2>
           </div>
 
-          {!canManageSuppliers ? (
-            <p className="text-sm text-gray-400 px-4 py-4">
-              Save the raw material first, then add suppliers here.
+          {!readOnly && mode === 'new' && (
+            <p className="text-xs text-gray-500 px-4 pt-3">
+              Suppliers added here save together with the material in one Save -- no need to save it first.
             </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
+          )}
+          <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 text-gray-600 text-left">
                       <th className="px-4 py-2 font-medium">Supplier</th>
-                      <th className="px-4 py-2 font-medium">Service Code</th>
-                      <th className="px-4 py-2 font-medium">Description</th>
-                      <th className="px-4 py-2 font-medium">UoM</th>
                       <th className="px-4 py-2 font-medium">Price</th>
-                      <th className="px-4 py-2 font-medium">MOQ</th>
-                      <th className="px-4 py-2 font-medium">Lead Time (d)</th>
+                      <th className="px-4 py-2 font-medium">Lead Time (days)</th>
                       <th className="px-4 py-2 font-medium w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {supplierLinks.map((link) => (
-                      <tr key={link.id} className="border-t border-gray-100">
-                        <td className="px-4 py-2">{supplierName(link.supplier_id)}</td>
-                        <td className="px-4 py-2">{link.material_service_code ?? '—'}</td>
-                        <td className="px-4 py-2">{link.material_description ?? '—'}</td>
-                        <td className="px-4 py-2">{link.unit_of_measurement ?? '—'}</td>
-                        <td className="px-4 py-2">{link.standard_purchase_price ?? '—'}</td>
-                        <td className="px-4 py-2">{link.minimum_order_qty ?? '—'}</td>
-                        <td className="px-4 py-2">{link.lead_time_days ?? '—'}</td>
+                      <tr key={link.id ?? link._draftKey} className="border-t border-gray-100">
+                        <td className="px-4 py-2">
+                          {supplierName(link.supplier_id)}
+                          {!link.id && <span className="ml-1.5 text-[10px] text-amber-600">(unsaved)</span>}
+                        </td>
+                        <td className="px-4 py-2">{link.standard_purchase_price ?? '?'}</td>
+                        <td className="px-4 py-2">{link.lead_time_days ?? '?'}</td>
                         <td className="px-4 py-2">
                           {!readOnly && (
-                            <button onClick={() => handleRemoveSupplierLink(link.id)} disabled={linkSaving}>
+                            <button onClick={() => handleRemoveSupplierLink(link)} disabled={linkSaving}>
                               <Trash2 size={15} className="text-red-500" />
                             </button>
                           )}
@@ -381,7 +428,7 @@ export default function RawMaterialMaster() {
                     ))}
                     {supplierLinks.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-4 text-center text-gray-400">
+                        <td colSpan={4} className="px-4 py-4 text-center text-gray-400">
                           No suppliers linked yet.
                         </td>
                       </tr>
@@ -391,22 +438,13 @@ export default function RawMaterialMaster() {
               </div>
 
               {!readOnly && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 p-4 border-t border-gray-200 bg-gray-50 items-end">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-4 border-t border-gray-200 bg-gray-50 items-end">
                   <Field label="Supplier" className="lg:col-span-1">
                     <SelectInput
                       value={linkRow.supplier_id}
                       onChange={handleLinkField('supplier_id')}
-                      options={suppliers.map((s) => s.supplier_id)}
+                      options={suppliers.map((s) => ({ value: s.supplier_id, label: `${s.supplier_name} (${s.supplier_id})` }))}
                     />
-                  </Field>
-                  <Field label="Service Code">
-                    <TextInput value={linkRow.material_service_code} onChange={handleLinkField('material_service_code')} />
-                  </Field>
-                  <Field label="Description">
-                    <TextInput value={linkRow.material_description} onChange={handleLinkField('material_description')} />
-                  </Field>
-                  <Field label="UoM">
-                    <TextInput value={linkRow.unit_of_measurement} onChange={handleLinkField('unit_of_measurement')} />
                   </Field>
                   <Field label="Price">
                     <TextInput
@@ -414,9 +452,6 @@ export default function RawMaterialMaster() {
                       value={linkRow.standard_purchase_price}
                       onChange={handleLinkField('standard_purchase_price')}
                     />
-                  </Field>
-                  <Field label="MOQ">
-                    <TextInput type="number" value={linkRow.minimum_order_qty} onChange={handleLinkField('minimum_order_qty')} />
                   </Field>
                   <Field label="Lead Time (d)">
                     <TextInput type="number" value={linkRow.lead_time_days} onChange={handleLinkField('lead_time_days')} />
@@ -429,8 +464,6 @@ export default function RawMaterialMaster() {
                     <Plus size={15} /> Add
                   </button>
                 </div>
-              )}
-            </>
           )}
         </div>
 

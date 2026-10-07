@@ -8,20 +8,21 @@ import {
   scheduleMaintenanceWeek,
   unscheduleMaintenanceWeek,
 } from '../../data/queries/maintenancePlan'
+import { formatLocalISODate, mondayOf } from '../../utils/dates'
 
 const WEEK_COUNT = 12
 
-function mondayOf(date) {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
+// Every week-start date this grid computes/displays/saves is a MONDAY --
+// the "maintenance plan status" view spans planned_week_start_date through
+// planned_week_start_date + 6 days (Monday through Sunday) when deciding
+// whether a logged visit satisfies that week's plan.
+//
+// formatLocalISODate, not toISOString(): mondayOf() pins its result to
+// LOCAL midnight, and local midnight in IST (UTC+5:30) is always 18:30 UTC
+// the PREVIOUS day -- toISOString().slice(0, 10) would report Sunday's
+// date for every single Monday, not a rare near-midnight edge case.
 function toISODate(d) {
-  return d.toISOString().slice(0, 10)
+  return formatLocalISODate(d)
 }
 
 export default function WeeklyPlanGridScreen() {

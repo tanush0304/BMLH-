@@ -1,6 +1,6 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
-import { Package, Tags, Boxes, Plus, X } from 'lucide-react'
+import { Package, Boxes, Plus, X } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
@@ -10,10 +10,9 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
 
 const EMPTY_FORM = {
-  product_code: '',
-  product_name: '',
-  product_category: '',
-  product_type: '',
+  part_serial_number: '',
+  part_name: '',
+  part_drawing_reference_number: '',
   unit_of_measurement: '',
   product_status: '',
 }
@@ -21,10 +20,9 @@ const EMPTY_FORM = {
 const EMPTY_BOM_ROW = { raw_material_code: '', consumption_per_unit: '' }
 
 const LIST_COLUMNS = [
-  { key: 'product_code', label: 'Product Code' },
-  { key: 'product_name', label: 'Product Name' },
-  { key: 'product_category', label: 'Category' },
-  { key: 'product_type', label: 'Type' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'unit_of_measurement', label: 'UoM' },
   { key: 'product_status', label: 'Status', type: 'status' },
 ]
@@ -103,7 +101,7 @@ export default function ProductMaster() {
     setMode('view')
     setSaveError(null)
     try {
-      const bom = await listProductRawMaterials(row.product_code)
+      const bom = await listProductRawMaterials(row.part_serial_number)
       setBomRows(
         bom.length > 0
           ? bom.map((r) => ({ raw_material_code: r.raw_material_code, consumption_per_unit: r.consumption_per_unit }))
@@ -115,25 +113,29 @@ export default function ProductMaster() {
   }
 
   function handleEdit() {
-    if (!form.product_code) return
+    if (!form.part_serial_number) return
     setMode('edit')
   }
 
   async function handleSave() {
-    if (!form.product_code || !form.product_name) {
-      setSaveError('Product Code and Product Name are required.')
+    if (!form.part_serial_number || !form.part_name) {
+      setSaveError('Part Serial Number and Part Name are required.')
       return
     }
     setSaving(true)
     setSaveError(null)
     try {
+      const payload = {
+        ...form,
+        part_drawing_reference_number: form.part_drawing_reference_number.trim() || null,
+      }
       if (mode === 'edit') {
-        await updateProduct(form.product_code, form)
+        await updateProduct(form.part_serial_number, payload)
       } else {
-        await createProduct(form)
+        await createProduct(payload)
       }
       const validBomRows = bomRows.filter((r) => r.raw_material_code && r.consumption_per_unit !== '')
-      await setProductRawMaterials(form.product_code, validBomRows)
+      await setProductRawMaterials(form.part_serial_number, validBomRows)
       await refresh()
       setMode('view')
     } catch (e) {
@@ -144,12 +146,12 @@ export default function ProductMaster() {
   }
 
   async function handleDelete() {
-    if (!form.product_code) return
-    if (!confirm(`Delete product ${form.product_code}? This cannot be undone.`)) return
+    if (!form.part_serial_number) return
+    if (!confirm(`Delete product ${form.part_serial_number}? This cannot be undone.`)) return
     setSaving(true)
     setSaveError(null)
     try {
-      await deleteProduct(form.product_code)
+      await deleteProduct(form.part_serial_number)
       await refresh()
       handleClear()
     } catch (e) {
@@ -174,7 +176,7 @@ export default function ProductMaster() {
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
-    return r.product_code?.toLowerCase().includes(q) || r.product_name?.toLowerCase().includes(q)
+    return r.part_serial_number?.toLowerCase().includes(q) || r.part_name?.toLowerCase().includes(q)
   })
 
   const readOnly = mode === 'view'
@@ -182,7 +184,7 @@ export default function ProductMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Product Master" subtitle="Manage Product Information  |  Track Category, Type & Status" />
+      <PageHeader title="Product Master" subtitle="Manage Product Information  |  Part Details, Unit & Status" />
       <ActionToolbar
         onNew={handleNew}
         onSave={handleSave}
@@ -195,7 +197,7 @@ export default function ProductMaster() {
         searchValue={toolbarSearch}
         onSearchChange={setToolbarSearch}
         onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Product Code / Name..."
+        searchPlaceholder="Search by Part Serial Number / Name..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -210,33 +212,24 @@ export default function ProductMaster() {
         <div className="flex flex-wrap items-start gap-3">
           <div className="w-full lg:w-[31%]">
             <FormSection icon={Package} title="1. Product Details" subtitle="Core product identity">
-              <Field label="Product Code" required>
-                <TextInput value={form.product_code} onChange={handleField('product_code')} disabled={idLocked} />
+              <Field label="Part Serial Number" required>
+                <TextInput value={form.part_serial_number} onChange={handleField('part_serial_number')} disabled={idLocked} />
               </Field>
-              <Field label="Product Name" required>
-                <TextInput value={form.product_name} onChange={handleField('product_name')} disabled={readOnly} />
+              <Field label="Part Name" required>
+                <TextInput value={form.part_name} onChange={handleField('part_name')} disabled={readOnly} />
+              </Field>
+              <Field label="Part Drawing Number">
+                <TextInput
+                  value={form.part_drawing_reference_number}
+                  onChange={handleField('part_drawing_reference_number')}
+                  disabled={readOnly}
+                />
               </Field>
             </FormSection>
           </div>
 
           <div className="w-full lg:w-[66.5%]">
-            <FormSection icon={Tags} title="2. Classification" subtitle="Category, type and status">
-              <Field label="Product Category">
-                <SelectInput
-                  value={form.product_category}
-                  onChange={handleField('product_category')}
-                  disabled={readOnly}
-                  options={['Component', 'Assembly', 'Finished Product']}
-                />
-              </Field>
-              <Field label="Product Type">
-                <SelectInput
-                  value={form.product_type}
-                  onChange={handleField('product_type')}
-                  disabled={readOnly}
-                  options={['Standard', 'Customer-specific']}
-                />
-              </Field>
+            <FormSection icon={Package} title="2. Product Status" subtitle="Unit and current status">
               <Field label="Unit of Measurement">
                 <TextInput value={form.unit_of_measurement} onChange={handleField('unit_of_measurement')} disabled={readOnly} />
               </Field>
@@ -307,8 +300,8 @@ export default function ProductMaster() {
           rows={filteredRecords}
           loading={loading}
           error={error}
-          rowKey="product_code"
-          selectedKey={form.product_code}
+          rowKey="part_serial_number"
+          selectedKey={form.part_serial_number}
           onRowClick={handleRowClick}
           searchValue={listSearch}
           onSearchChange={setListSearch}

@@ -31,13 +31,13 @@ export async function listProductionPlans() {
   return cards.map((card) => {
     const order = orders.find((o) => o.prd_no === card.prd_no)
     const customer = customers.find((c) => c.customer_id === order?.customer_id)
-    const product = products.find((p) => p.product_code === order?.product_code)
+    const product = products.find((p) => p.part_serial_number === order?.part_serial_number)
     return {
       ...card,
       customer_order_no: card.prd_no,
       customer_name: customer?.customer_name ?? '',
-      product_code: order?.product_code ?? '',
-      product_name: product?.product_name ?? '',
+      part_serial_number: order?.part_serial_number ?? '',
+      part_name: product?.part_name ?? '',
       order_qty: order?.order_qty ?? '',
       expected_delivery: order?.expected_delivery ?? '',
       status: derivePlanStatus(stagesByPrd.get(card.prd_no) ?? []),

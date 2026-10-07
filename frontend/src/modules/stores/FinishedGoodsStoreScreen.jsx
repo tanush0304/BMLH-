@@ -5,7 +5,7 @@ import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../c
 import RecordsList from '../../components/RecordsList'
 import StatusPill from '../../components/StatusPill'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
-import { listUsers } from '../../data/queries/users'
+import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
@@ -15,21 +15,22 @@ import {
   createFinishedGoodsTransaction,
   deleteFinishedGoodsTransaction,
 } from '../../data/queries/finishedGoodsStock'
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayISO } from '../../utils/dates'
+import { parsePositiveQuantity, validateDispatchQuantity } from '../../utils/finishedGoodsValidation'
+import { listFinishedGoodsMaster } from '../../data/queries/storeMasters'
+import EmployeeSelect from '../../components/EmployeeSelect'
 
 const EMPTY_DISPATCH_FORM = {
-  user_emp_id: '',
+  employee_id: '',
   shift_code: '',
   transaction_date: todayISO(),
   prd_no: '',
   qty: '',
+  eway_bill_no: '',
 }
 
 const EMPTY_RECEIPT_FORM = {
-  user_emp_id: '',
+  employee_id: '',
   shift_code: '',
   transaction_date: todayISO(),
   prd_no: '',
@@ -38,36 +39,38 @@ const EMPTY_RECEIPT_FORM = {
 
 const DISPATCH_COLUMNS = [
   { key: 'transaction_date', label: 'Date' },
-  { key: 'user_emp_id', label: 'User ID' },
-  { key: 'user_name', label: 'User Name' },
+  { key: 'employee_id', label: 'Employee ID' },
+  { key: 'employee_name', label: 'Employee Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'prd_no', label: 'Production Order No.' },
-  { key: 'product_code', label: 'Product Code' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
   { key: 'qty', label: 'Despatch Qty (Nos)' },
   { key: 'balance_to_dispatch', label: 'Balance Qty (Nos)' },
   { key: 'order_status', label: 'Order Status', type: 'status' },
+  { key: 'eway_bill_no', label: 'E-way Bill / ESUGAM No.' },
 ]
 
 const RECEIPT_COLUMNS = [
   { key: 'transaction_date', label: 'Date' },
-  { key: 'user_emp_id', label: 'User ID' },
-  { key: 'user_name', label: 'User Name' },
+  { key: 'employee_id', label: 'Employee ID' },
+  { key: 'employee_name', label: 'Employee Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'prd_no', label: 'Production Order No.' },
-  { key: 'product_code', label: 'Product Code' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'qty', label: 'Qty Received (Nos)' },
 ]
 
 export default function FinishedGoodsStoreScreen() {
   const [mode, setMode] = useState('dispatch') // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [balances, setBalances] = useState([])
   const [transactions, setTransactions] = useState([])
+  const [finishedGoodsMaster, setFinishedGoodsMaster] = useState([])
   const [orderStatus, setOrderStatus] = useState([])
   const [currentUserId, setCurrentUserId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,21 +85,23 @@ export default function FinishedGoodsStoreScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [ords, usrs, shf, bal, txns, status, userId] = await Promise.all([
+      const [ords, employeeRows, shf, bal, txns, status, masterRows, userId] = await Promise.all([
         listCustomerOrders(),
-        listUsers(),
+        listEmployees(),
         listShifts(),
         listFinishedGoodsStockBalance(),
         listFinishedGoodsTransactions(),
         listFinishedGoodsOrderStatus(),
+        listFinishedGoodsMaster(),
         getCurrentUserId(),
       ])
       setOrders(ords)
-      setUsers(usrs)
+      setEmployees(employeeRows)
       setShifts(shf)
       setBalances(bal)
       setTransactions(txns)
       setOrderStatus(status)
+      setFinishedGoodsMaster(masterRows)
       setCurrentUserId(userId)
     } catch (e) {
       setError(e.message)
@@ -117,20 +122,18 @@ export default function FinishedGoodsStoreScreen() {
     return (e) => setReceiptForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
-  function userName(id) {
-    return users.find((o) => o.user_emp_id === id)?.user_name ?? ''
+  function employeeName(id) {
+    return employees.find((o) => o.employee_id === id)?.employee_name ?? ''
   }
 
   const selectedDispatchOrder = orders.find((o) => o.prd_no === dispatchForm.prd_no)
   const selectedDispatchStatus = orderStatus.find((s) => s.prd_no === dispatchForm.prd_no)
   const selectedReceiptOrder = orders.find((o) => o.prd_no === receiptForm.prd_no)
 
-  const qtyInStockForProduct = (productCode) =>
-    balances.find((b) => b.product_code === productCode)?.current_stock ?? ''
+  const qtyInStockForPrd = (prdNo) =>
+    balances.find((b) => b.prd_no === prdNo)?.current_stock ?? 0
   const qtyReceivedForPrd = (prdNo) =>
-    transactions
-      .filter((t) => t.prd_no === prdNo && t.transaction_type === 'Production Receipt')
-      .reduce((sum, t) => sum + Number(t.qty || 0), 0)
+    finishedGoodsMaster.find((row) => row.prd_no === prdNo)?.receipts ?? 0
 
   function handleReset() {
     setDispatchForm(EMPTY_DISPATCH_FORM)
@@ -140,23 +143,37 @@ export default function FinishedGoodsStoreScreen() {
 
   async function handleSaveDispatch() {
     const f = dispatchForm
-    if (!f.user_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
-      setError('User Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
+    if (!f.employee_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+      setError('Employee Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
+      return
+    }
+    if (!selectedDispatchOrder?.part_serial_number) {
+      setError('The selected Production Order could not be matched to a Part Serial Number.')
+      return
+    }
+    const dispatchValidation = validateDispatchQuantity(
+      f.qty,
+      qtyInStockForPrd(f.prd_no),
+      selectedDispatchStatus?.balance_to_dispatch
+    )
+    if (dispatchValidation.error) {
+      setError(dispatchValidation.error)
       return
     }
     setSaving(true)
     setError(null)
     try {
       await createFinishedGoodsTransaction({
-        product_code: selectedDispatchOrder?.product_code,
+        part_serial_number: selectedDispatchOrder?.part_serial_number,
         transaction_type: 'Dispatch',
-        qty: Number(f.qty),
+        qty: dispatchValidation.quantity,
         transaction_date: f.transaction_date,
         prd_no: f.prd_no,
         customer_id: selectedDispatchOrder?.customer_id ?? null,
-        user_emp_id: f.user_emp_id,
+        employee_id: f.employee_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
+        eway_bill_no: f.eway_bill_no || null,
       })
       handleReset()
       await refresh()
@@ -169,20 +186,29 @@ export default function FinishedGoodsStoreScreen() {
 
   async function handleSaveReceipt() {
     const f = receiptForm
-    if (!f.user_emp_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
-      setError('User Name, Shift, Production Order Number, Quantity Received and Date are all required.')
+    if (!f.employee_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
+      setError('Employee Name, Shift, Production Order Number, Quantity Received and Date are all required.')
+      return
+    }
+    const quantity = parsePositiveQuantity(f.qty)
+    if (quantity === null) {
+      setError('Quantity received must be a finite number greater than zero.')
+      return
+    }
+    if (!selectedReceiptOrder?.part_serial_number) {
+      setError('The selected Production Order could not be matched to a Part Serial Number.')
       return
     }
     setSaving(true)
     setError(null)
     try {
       await createFinishedGoodsTransaction({
-        product_code: selectedReceiptOrder?.product_code,
+        part_serial_number: selectedReceiptOrder?.part_serial_number,
         transaction_type: 'Production Receipt',
-        qty: Number(f.qty),
+        qty: quantity,
         transaction_date: f.transaction_date,
         prd_no: f.prd_no,
-        user_emp_id: f.user_emp_id,
+        employee_id: f.employee_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
       })
@@ -216,9 +242,9 @@ export default function FinishedGoodsStoreScreen() {
       const status = orderStatus.find((s) => s.prd_no === t.prd_no)
       return {
         ...t,
-        user_name: userName(t.user_emp_id),
+        employee_name: employeeName(t.employee_id),
         order_qty: order?.order_qty ?? '',
-        qty_in_stock: qtyInStockForProduct(t.product_code),
+        qty_in_stock: qtyInStockForPrd(t.prd_no),
         qty_received: qtyReceivedForPrd(t.prd_no),
         balance_to_dispatch: status?.balance_to_dispatch ?? '',
         order_status: status?.order_status ?? '',
@@ -227,7 +253,7 @@ export default function FinishedGoodsStoreScreen() {
 
   const receiptRows = transactions
     .filter((t) => t.transaction_type === 'Production Receipt')
-    .map((t) => ({ ...t, user_name: userName(t.user_emp_id) }))
+    .map((t) => ({ ...t, employee_name: employeeName(t.employee_id) }))
 
   const activeRows = mode === 'dispatch' ? dispatchRows : receiptRows
   const filteredRows = activeRows.filter((r) => {
@@ -236,7 +262,7 @@ export default function FinishedGoodsStoreScreen() {
     return (
       r.transaction_date?.toLowerCase().includes(q) ||
       r.prd_no?.toLowerCase().includes(q) ||
-      r.product_code?.toLowerCase().includes(q)
+      r.part_serial_number?.toLowerCase().includes(q)
     )
   })
 
@@ -321,22 +347,18 @@ export default function FinishedGoodsStoreScreen() {
 
         {mode === 'dispatch' ? (
           <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" subtitle="Dispatch to customer" columns={2}>
-            <Field label="User ID" required>
-              <SelectInput
-                value={dispatchForm.user_emp_id}
-                onChange={handleDispatchField('user_emp_id')}
-                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
-              />
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={dispatchForm.employee_id} onChange={handleDispatchField('employee_id')} />
             </Field>
             <Field label="Order Quantity">
               <AutoFillBox value={selectedDispatchOrder?.order_qty} unit="Nos" />
             </Field>
 
-            <Field label="User Name">
-              <AutoFillBox value={userName(dispatchForm.user_emp_id)} />
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(dispatchForm.employee_id)} />
             </Field>
             <Field label="Quantity in Stock">
-              <AutoFillBox value={qtyInStockForProduct(selectedDispatchOrder?.product_code)} unit="Nos" />
+              <AutoFillBox value={qtyInStockForPrd(dispatchForm.prd_no)} unit="Nos" />
             </Field>
 
             <Field label="Shift" required>
@@ -357,6 +379,8 @@ export default function FinishedGoodsStoreScreen() {
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={dispatchForm.qty}
                   onChange={handleDispatchField('qty')}
                   placeholder="Enter Quantity"
@@ -377,8 +401,8 @@ export default function FinishedGoodsStoreScreen() {
               <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
             </Field>
 
-            <Field label="Product Code">
-              <AutoFillBox value={selectedDispatchOrder?.product_code} />
+            <Field label="Part Serial Number">
+              <AutoFillBox value={selectedDispatchOrder?.part_serial_number} />
             </Field>
             <Field label="Order Status">
               <div className="flex items-center h-[38px]">
@@ -390,31 +414,33 @@ export default function FinishedGoodsStoreScreen() {
               </div>
             </Field>
 
+            <Field label="E-way Bill / ESUGAM No.">
+              <TextInput value={dispatchForm.eway_bill_no} onChange={handleDispatchField('eway_bill_no')} />
+            </Field>
+
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "User ID" picks who's physically despatching the goods (User Master); the account you're
+              "Employee ID" picks who's physically despatching the goods (Employee Master); the account you're
               logged in as is recorded automatically.
             </p>
           </FormSection>
         ) : (
           <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" subtitle="Receive from production" columns={2}>
-            <Field label="User ID" required>
-              <SelectInput
-                value={receiptForm.user_emp_id}
-                onChange={handleReceiptField('user_emp_id')}
-                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_emp_id }))}
-              />
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>
-            <Field label="Product Code">
-              <AutoFillBox value={selectedReceiptOrder?.product_code} />
+            <Field label="Part Serial Number">
+              <AutoFillBox value={selectedReceiptOrder?.part_serial_number} />
             </Field>
 
-            <Field label="User Name">
-              <AutoFillBox value={userName(receiptForm.user_emp_id)} />
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(receiptForm.employee_id)} />
             </Field>
             <Field label="Quantity Received" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={receiptForm.qty}
                   onChange={handleReceiptField('qty')}
                   placeholder="Enter Quantity"

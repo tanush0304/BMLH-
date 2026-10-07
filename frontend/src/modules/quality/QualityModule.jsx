@@ -5,15 +5,17 @@ import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/F
 import RecordsList from '../../components/RecordsList'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import StatusPill from '../../components/StatusPill'
-import { listUsers } from '../../data/queries/users'
+import EmployeeSelect from '../../components/EmployeeSelect'
+import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listPrdsWithRouteCard, createQualityLog, createQualityLogReadings, listQualityInspectionHistory } from '../../data/queries/qualityLogs'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
+import { stagesEligibleForMachine } from '../../utils/machineEligibility'
 import { supabase } from '../../lib/supabaseClient'
 
-const EMPTY_HEADER = { user_emp_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
+const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
 
 const HISTORY_COLUMNS = [
   { key: 'log_date', label: 'Date' },
@@ -45,7 +47,7 @@ function computeResult(standard, upperTolerance, lowerTolerance, observedValue) 
 export default function QualityModule() {
   const [step, setStep] = useState('header')
 
-  const [users, setUsers] = useState([])
+  const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [machines, setMachines] = useState([])
   const [orders, setOrders] = useState([])
@@ -56,7 +58,7 @@ export default function QualityModule() {
 
   const [header, setHeader] = useState(EMPTY_HEADER)
   const [prdStages, setPrdStages] = useState([]) // Internal stages for the chosen PRD
-  const [machineOps, setMachineOps] = useState([]) // operations the chosen machine can perform
+  const [eligibleStages, setEligibleStages] = useState([]) // this PRD's stages the chosen machine can actually run, per Cycle Time Master
   const [resolvedStage, setResolvedStage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -68,14 +70,14 @@ export default function QualityModule() {
     setLoading(true)
     setError(null)
     try {
-      const [usrs, shf, machs, ords, hist] = await Promise.all([
-        listUsers(),
+      const [employeeRows, shf, machs, ords, hist] = await Promise.all([
+        listEmployees(),
         listShifts(),
         listMachines(),
         listPrdsWithRouteCard(),
         listQualityInspectionHistory(),
       ])
-      setUsers(usrs)
+      setEmployees(employeeRows)
       setShifts(shf)
       setMachines(machs)
       setOrders(ords)
@@ -109,18 +111,36 @@ export default function QualityModule() {
     }
   }
 
+  // Eligibility comes from Cycle Time Master (part_serial_number + seq +
+  // machine_id) -- the route itself says which machines can run which
+  // stage. "machine operations" is Machine Master's own informational
+  // operation list and is never used to decide this (see
+  // utils/machineEligibility.js); text-matching it against HPV2-style
+  // operation names like "Rough Turning ONE" would never match BMLH's
+  // generic "machine operations" names like "Rough Turning" at all.
   async function handleMachineChange(e) {
     const machineId = e.target.value
     setHeader((f) => ({ ...f, machine_id: machineId, operation: '' }))
     setResolvedStage(null)
     if (!machineId) {
-      setMachineOps([])
+      setEligibleStages([])
+      return
+    }
+    const partSerialNumber = selectedOrder?.part_serial_number
+    if (!partSerialNumber) {
+      // Guard: never send an undefined filter -- no resolvable product
+      // code means no eligible stages, not "show everything".
+      setEligibleStages([])
+      setError("Could not resolve this PRD's part serial number.")
       return
     }
     try {
-      const { data, error } = await supabase.from('machine ops').select('operation').eq('machine_id', machineId)
+      const { data, error } = await supabase
+        .from('cycle time master')
+        .select('machine_id, seq, part_serial_number')
+        .eq('part_serial_number', partSerialNumber)
       if (error) throw error
-      setMachineOps(data.map((o) => o.operation))
+      setEligibleStages(stagesEligibleForMachine({ stages: prdStages, cycleTimeRows: data, partSerialNumber, machineId }))
     } catch (e) {
       setError(e.message)
     }
@@ -133,24 +153,28 @@ export default function QualityModule() {
     setResolvedStage(stage ?? null)
   }
 
-  // Only offer operations that are both on this PRD's route card AND (when
-  // machine ops are known) performable by the chosen machine.
-  const operationOptions = machineOps.length
-    ? prdStages.filter((s) => machineOps.includes(s.operation)).map((s) => s.operation)
-    : prdStages.map((s) => s.operation)
+  // Before a machine is chosen, every stage on the route is a valid choice
+  // (nothing to narrow by yet). Once a machine IS chosen, only stages this
+  // machine actually has a Cycle Time Master row for are offered -- no
+  // "show everything" fallback: if the machine has no rows for this
+  // product, the list is deliberately empty (see noEligibleForMachine
+  // below) rather than silently offering stages it can't run.
+  const machineChosen = !!header.machine_id
+  const operationOptions = machineChosen ? eligibleStages.map((s) => s.operation) : prdStages.map((s) => s.operation)
+  const noEligibleForMachine = machineChosen && prdStages.length > 0 && eligibleStages.length === 0
 
   function resetHeader() {
     setHeader(EMPTY_HEADER)
     setPrdStages([])
-    setMachineOps([])
+    setEligibleStages([])
     setResolvedStage(null)
     setError(null)
   }
 
   async function handleSubmitHeader() {
     setError(null)
-    if (!header.user_emp_id || !header.shift_code || !header.prd_no || !header.machine_id || !header.operation || !resolvedStage) {
-      setError('User, Shift, Production Order, Machine and Type of Operation are all required.')
+    if (!header.employee_id || !header.shift_code || !header.prd_no || !header.machine_id || !header.operation || !resolvedStage) {
+      setError('Employee, Shift, Production Order, Machine and Type of Operation are all required.')
       return
     }
     setSubmitting(true)
@@ -158,7 +182,7 @@ export default function QualityModule() {
       const params = await listQualityParameters()
       const matching = params.filter(
         (p) =>
-          p.product_code === selectedOrder?.product_code &&
+          p.part_serial_number === selectedOrder?.part_serial_number &&
           p.machine_id === header.machine_id &&
           (!p.type_of_operation || p.type_of_operation === header.operation)
       )
@@ -203,7 +227,7 @@ export default function QualityModule() {
         prd_no: header.prd_no,
         stage_id: resolvedStage.id,
         machine_id: header.machine_id,
-        user_emp_id: header.user_emp_id,
+        employee_id: header.employee_id,
         shift_code: header.shift_code,
       })
       await createQualityLogReadings(
@@ -246,11 +270,11 @@ export default function QualityModule() {
 
         {step === 'header' && (
           <FormSection icon={ClipboardCheck} title="1. Inspection Header" subtitle="Who, what and where inspected" columns={3}>
-            <Field label="User" required>
-              <SelectInput
-                value={header.user_emp_id}
-                onChange={(e) => setHeader((f) => ({ ...f, user_emp_id: e.target.value }))}
-                options={users.map((o) => ({ value: o.user_emp_id, label: o.user_name }))}
+            <Field label="Employee" required>
+              <EmployeeSelect
+                employees={employees}
+                value={header.employee_id}
+                onChange={(e) => setHeader((f) => ({ ...f, employee_id: e.target.value }))}
               />
             </Field>
             <Field label="Shift" required>
@@ -266,8 +290,8 @@ export default function QualityModule() {
             <Field label="Production Order (PRD No)" required>
               <SelectInput value={header.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
             </Field>
-            <Field label="Product Code">
-              <AutoFillBox value={selectedOrder?.product_code ?? ''} />
+            <Field label="Part Serial Number">
+              <AutoFillBox value={selectedOrder?.part_serial_number ?? ''} />
             </Field>
             <Field label="Machine" required>
               <SelectInput
@@ -287,6 +311,11 @@ export default function QualityModule() {
             <Field label="Cycle Time (min)">
               <AutoFillBox value={resolvedStage?.cycle_time_min ?? ''} />
             </Field>
+            {noEligibleForMachine && (
+              <p className="text-sm text-amber-600 sm:col-span-3">
+                No stage of this product is set up for this machine in Cycle Time Master.
+              </p>
+            )}
             <div className="flex items-end">
               <button
                 onClick={handleSubmitHeader}
@@ -316,7 +345,7 @@ export default function QualityModule() {
 
             {readingRows.length === 0 ? (
               <div className="p-4 text-xs text-gray-500">
-                No quality parameters are defined for product "{selectedOrder?.product_code}" on machine "
+                No quality parameters are defined for product "{selectedOrder?.part_serial_number}" on machine "
                 {header.machine_id}". Add them in Quality Master before an inspection can be logged here.
               </div>
             ) : (

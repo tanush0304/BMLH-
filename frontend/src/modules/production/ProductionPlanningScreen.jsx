@@ -15,8 +15,8 @@ import { listOrderMaterialRequirement, listOrderMaterialShortfall } from '../../
 const LIST_COLUMNS = [
   { key: 'customer_order_no', label: 'Customer Order No' },
   { key: 'customer_name', label: 'Customer Name' },
-  { key: 'product_code', label: 'Product Code' },
-  { key: 'product_name', label: 'Product Name' },
+  { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
   { key: 'available_rm_qty_snapshot', label: 'Available RM Qty', render: (r) => r.available_rm_qty_snapshot ?? 'Pending BOM' },
@@ -66,7 +66,7 @@ export default function ProductionPlanningScreen() {
 
   const selectedOrder = orders.find((o) => o.prd_no === form.prd_no)
   const selectedCustomer = customers.find((c) => c.customer_id === selectedOrder?.customer_id)
-  const selectedProduct = products.find((p) => p.product_code === selectedOrder?.product_code)
+  const selectedProduct = products.find((p) => p.part_serial_number === selectedOrder?.part_serial_number)
 
   // "order material requirement" only has a row for a PRD whose product has
   // at least one Bill of Materials entry -- no row means no BOM yet, so we
@@ -96,7 +96,7 @@ export default function ProductionPlanningScreen() {
   function handleSelectPrd(e) {
     const prd = e.target.value
     const order = orders.find((o) => o.prd_no === prd)
-    const batch = batches.find((b) => b.product_code === order?.product_code)
+    const batch = batches.find((b) => b.part_serial_number === order?.part_serial_number)
     setForm((f) => ({ prd_no: prd, batch_qty: batch?.production_batch_quantity ?? '', shift_hours: f.shift_hours }))
   }
 
@@ -146,7 +146,7 @@ export default function ProductionPlanningScreen() {
       // changing the key until the client confirms -- see spec discussion.
       await generateRouteCard({
         prdNo: form.prd_no,
-        productCode: selectedOrder?.product_code,
+        partSerialNumber: selectedOrder?.part_serial_number,
         batchQty: form.batch_qty,
         shiftHours: form.shift_hours,
         availableRmQtySnapshot: hasBom ? materialAvailability[0].current_stock : null,
@@ -167,7 +167,7 @@ export default function ProductionPlanningScreen() {
     return (
       p.customer_order_no?.toLowerCase().includes(q) ||
       p.customer_name?.toLowerCase().includes(q) ||
-      p.product_name?.toLowerCase().includes(q)
+      p.part_name?.toLowerCase().includes(q)
     )
   })
 
@@ -208,11 +208,11 @@ export default function ProductionPlanningScreen() {
           <Field label="Customer Name">
             <AutoFillBox value={selectedCustomer?.customer_name ?? ''} />
           </Field>
-          <Field label="Product Code">
-            <AutoFillBox value={selectedOrder?.product_code ?? ''} />
+          <Field label="Part Serial Number">
+            <AutoFillBox value={selectedOrder?.part_serial_number ?? ''} />
           </Field>
-          <Field label="Product Name">
-            <AutoFillBox value={selectedProduct?.product_name ?? ''} />
+          <Field label="Part Name">
+            <AutoFillBox value={selectedProduct?.part_name ?? ''} />
           </Field>
           <Field label="Order Qty">
             <AutoFillBox value={selectedOrder?.order_qty ?? ''} unit="Nos" />
@@ -227,7 +227,7 @@ export default function ProductionPlanningScreen() {
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
           <Field label="Planned Production Batch Quantity" required>
-            {/* Prefilled from Production Batch Master by product_code; left
+            {/* Prefilled from Production Batch Master by part_serial_number; left
                 editable pending client confirmation on whether this should be
                 overridable. Empty when the product has no batch master row --
                 manual entry is required in that case. */}

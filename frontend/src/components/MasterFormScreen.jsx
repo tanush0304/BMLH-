@@ -3,6 +3,7 @@ import PageHeader from './PageHeader'
 import ActionToolbar from './ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from './FormSection'
 import RecordsList from './RecordsList'
+import TimeInput12 from './TimeInput12'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 
 // A section's width reflects how much content it holds, not a fixed column
@@ -207,6 +208,12 @@ export default function MasterFormScreen({
                       onChange={handleField(f.key)}
                       disabled={readOnly || (f.lockOnEdit && pkLocked)}
                       options={f.options}
+                    />
+                  ) : f.type === 'time12' ? (
+                    <TimeInput12
+                      value={form[f.key] ?? ''}
+                      onChange={handleField(f.key)}
+                      disabled={readOnly || (f.lockOnEdit && pkLocked)}
                     />
                   ) : (
                     <TextInput
