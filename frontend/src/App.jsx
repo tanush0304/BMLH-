@@ -110,7 +110,7 @@ function App() {
     content = <Dashboard />
     themeKey = 'dashboard'
   } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} />
-  else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} />
+  else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} />
   else if (activeKey === 'quality') content = <QualityModule />
   else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} />
   else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} />

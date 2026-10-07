@@ -15,8 +15,8 @@ const TABS = [
 // Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
 // 'production' subItems) -- this just maps the active key to a screen.
 // WIP Receipt/Issue moved to the Stores module (see StoresModule.jsx).
-export default function ProductionModule({ activeTab }) {
+export default function ProductionModule({ activeTab, role }) {
   const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
-  return <Screen />
+  return <Screen role={role} />
 }

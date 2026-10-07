@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
+import { Factory, PlayCircle, Clock3, CheckCircle2, ShieldCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import HourlySlotsEntry from '../../components/HourlySlotsEntry'
@@ -21,16 +21,23 @@ import {
   getOpenLogForStage,
   listLogHoursForLogIds,
   closeProductionLog,
+  verifyProductionLog,
 } from '../../data/queries/productionLogs'
+import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
+import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
   computeStageAvailability,
   computeStageUpstreamTargets,
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
+import { pickCycleTime } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 
-export default function MachineEntryScreen() {
+export default function MachineEntryScreen({ role }) {
+  // Shift-incharge verification is supervisor/admin only -- hidden here,
+  // and enforced by migration 017's trigger regardless of the UI.
+  const canVerify = role === 'supervisor' || role === 'admin'
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [machineLabels, setMachineLabels] = useState({}) // machine_id -> "Name (ID)", for dropdown display only
@@ -59,6 +66,12 @@ export default function MachineEntryScreen() {
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
   const [savingHour, setSavingHour] = useState(false)
+
+  // Hourly Production Report header (migration 017)
+  const [setterId, setSetterId] = useState('')
+  const [settingTimeMin, setSettingTimeMin] = useState('')
+  const [masterCycleTime, setMasterCycleTime] = useState(null) // Cycle Time Master, part + seq (+ machine)
+  const [verifying, setVerifying] = useState(false)
 
   async function loadPendingStages() {
     const allStages = await listAllStages()
@@ -98,6 +111,7 @@ export default function MachineEntryScreen() {
     setStageTarget(null)
     setStageOutputSoFar(0)
     setActiveLog(null)
+    resetReportHeader()
     setMachineOpsForPrd([])
     if (!prd) {
       setPrdStages([])
@@ -139,12 +153,13 @@ export default function MachineEntryScreen() {
     setStageTarget(null)
     setStageOutputSoFar(0)
     setActiveLog(null)
+    resetReportHeader()
     if (!id) return
     const choices = prdStages.filter((s) =>
       machineOpsForPrd.some((r) => r.machine_id === id && r.seq === s.seq)
     )
     if (choices.length === 1) {
-      resolveStage(prdNo, choices[0])
+      resolveStage(prdNo, choices[0], id)
     }
     // If there's more than one, wait for the user to pick via
     // handleStageChoice below -- don't guess which one they mean.
@@ -154,10 +169,16 @@ export default function MachineEntryScreen() {
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
-    if (stage) resolveStage(prdNo, stage)
+    if (stage) resolveStage(prdNo, stage, machineId)
   }
 
-  async function resolveStage(prd, stage) {
+  function resetReportHeader() {
+    setSetterId('')
+    setSettingTimeMin('')
+    setMasterCycleTime(null)
+  }
+
+  async function resolveStage(prd, stage, machine) {
     setResolvedStage(stage)
     setResolving(true)
     setError(null)
@@ -174,6 +195,10 @@ export default function MachineEntryScreen() {
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
+      const cycleRows = await listCycleTimesForPart(order?.part_serial_number)
+      setMasterCycleTime(
+        pickCycleTime(cycleRows, { partSerialNumber: order?.part_serial_number, seq: stage.seq, machineId: machine })
+      )
 
       if (openLog) {
         // Resume: keep logging against the log that already reserved this
@@ -184,6 +209,8 @@ export default function MachineEntryScreen() {
         // it (e.g. resuming on a new day/shift), and that's exactly what
         // decides which shift today's new hours get stamped with.
         setShiftCode(openLog.shift_code)
+        setSetterId(openLog.setter_employee_id ?? '')
+        setSettingTimeMin(openLog.setting_time_min ?? '')
         const hours = await listLogHoursForLogIds([openLog.id])
         setLogHours(hours)
         setTotals(await getLogTotals(openLog.id))
@@ -200,6 +227,11 @@ export default function MachineEntryScreen() {
       setError('Machine, PRD, Employee and Shift are all required to start.')
       return
     }
+    const settingTime = settingTimeMin === '' ? null : Number(settingTimeMin)
+    if (settingTime !== null && (!Number.isInteger(settingTime) || settingTime < 0)) {
+      setError('Setting Time must be a whole number of minutes, 0 or more.')
+      return
+    }
     setStarting(true)
     setError(null)
     try {
@@ -212,6 +244,9 @@ export default function MachineEntryScreen() {
         start_time: new Date().toISOString(),
         planned_qty: plannedQty,
         standard_qty_per_hour: standardQtyPerHour(resolvedStage.cycle_time_min),
+        setter_employee_id: setterId || null,
+        setting_time_min: settingTime,
+        cycle_time_min: masterCycleTime,
       })
       setActiveLog(log)
       setLogHours([])
@@ -281,6 +316,19 @@ export default function MachineEntryScreen() {
     }
   }
 
+  async function handleVerify() {
+    if (!activeLog) return
+    setVerifying(true)
+    setError(null)
+    try {
+      setActiveLog(await verifyProductionLog(activeLog.id, await getCurrentUserId()))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   async function handleMarkComplete() {
     if (!resolvedStage) return
     setCompleting(true)
@@ -298,6 +346,7 @@ export default function MachineEntryScreen() {
       setStageTarget(null)
       setStageOutputSoFar(0)
       setActiveLog(null)
+      resetReportHeader()
       setLogHours([])
       setTotals(null)
       setPrdStages([])
@@ -375,7 +424,7 @@ export default function MachineEntryScreen() {
               <TextInput value={resolvedStage.operation} disabled />
             </Field>
             <Field label="Cycle Time (min)">
-              <TextInput value={resolvedStage.cycle_time_min ?? ''} disabled />
+              <TextInput value={activeLog?.cycle_time_min ?? masterCycleTime ?? ''} disabled />
             </Field>
             <Field label="Standard Qty / Hour">
               <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
@@ -383,6 +432,29 @@ export default function MachineEntryScreen() {
             <Field label="Planned Qty (available from upstream)">
               <TextInput value={plannedQty ?? ''} disabled />
             </Field>
+            <Field label="Setter">
+              <EmployeeSelect
+                employees={employees}
+                value={setterId}
+                onChange={(e) => setSetterId(e.target.value)}
+                disabled={!!activeLog}
+              />
+            </Field>
+            <Field label="Setting Time (min)">
+              <TextInput
+                type="number"
+                min="0"
+                step="1"
+                value={settingTimeMin}
+                onChange={(e) => setSettingTimeMin(e.target.value)}
+                disabled={!!activeLog}
+              />
+            </Field>
+            {masterCycleTime == null && !activeLog?.cycle_time_min && (
+              <p className="text-xs text-amber-700 sm:col-span-3">
+                No Cycle Time Master entry for this part + process -- cycle time will be left blank on the report.
+              </p>
+            )}
             <Field label="Shift" required>
               <SelectInput
                 value={shiftCode}
@@ -421,6 +493,8 @@ export default function MachineEntryScreen() {
                 onAddExtraHour={handleAddExtraHour}
                 saving={savingHour}
                 resetKey={activeLog.id}
+                showIdle
+                settingTimeMin={activeLog.setting_time_min}
               />
               {totals && (
                 <div className="text-sm text-gray-600 flex gap-6 pt-2 mt-2 border-t border-gray-100">
@@ -430,6 +504,24 @@ export default function MachineEntryScreen() {
                   <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
+              <div className="flex items-center gap-3 pt-2 mt-2 border-t border-gray-100 text-sm">
+                <ShieldCheck size={16} className={activeLog.verified_at ? 'text-green-600' : 'text-gray-400'} />
+                {activeLog.verified_at ? (
+                  <span className="text-green-700">
+                    Verified by shift incharge on {new Date(activeLog.verified_at).toLocaleString()}
+                  </span>
+                ) : canVerify ? (
+                  <button
+                    onClick={handleVerify}
+                    disabled={verifying}
+                    className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+                  >
+                    {verifying ? 'Verifying...' : 'Mark Verified (Shift Incharge)'}
+                  </button>
+                ) : (
+                  <span className="text-gray-500">Awaiting shift-incharge verification</span>
+                )}
+              </div>
             </div>
           </FormSection>
         )}

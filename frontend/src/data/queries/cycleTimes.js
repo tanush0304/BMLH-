@@ -28,3 +28,15 @@ export async function deleteCycleTime(id) {
   const { error } = await supabase.from(TABLE).delete().eq('id', id)
   if (error) throw error
 }
+
+/** Cycle Time Master rows for one part (all seqs/machines) -- Machine Entry
+ * picks the part + process (seq) row from these via pickCycleTime. */
+export async function listCycleTimesForPart(partSerialNumber) {
+  if (!partSerialNumber) return []
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('part_serial_number, seq, machine_id, cycle_time_min')
+    .eq('part_serial_number', partSerialNumber)
+  if (error) throw error
+  return data
+}

@@ -3,6 +3,13 @@ import { Field, TextInput } from './FormSection'
 import { generateHourlySlots, splitHourHistory } from '../utils/hourlySlots'
 import { todayISO } from '../utils/dates'
 import { employeeLabelForId } from '../utils/employeeLabel'
+import {
+  IDLE_CATEGORIES,
+  totalIdle,
+  validateIdle,
+  slotDurations,
+  computeReportTotals,
+} from '../utils/productionReport'
 
 /**
  * Shared hourly-entry grid for Machine Entry and Manual Operations: one row
@@ -35,6 +42,12 @@ import { employeeLabelForId } from '../utils/employeeLabel'
  * for confirmation before regenerating the grid, since that would
  * otherwise silently discard typed but unsaved values; with no drafts
  * entered it regenerates silently.
+ *
+ * `showIdle` (Machine Entry only, migration 017) adds the paper Hourly
+ * Production Report's 8 idle-minute categories + remarks per row, blocks
+ * saving any row whose idle exceeds 60 min (or a short slot's own length),
+ * and shows live footer totals -- accepted qty, idle, production time,
+ * setting time (`settingTimeMin`) -- over today's saved + entered rows.
  */
 export default function HourlySlotsEntry({
   startTime,
@@ -46,6 +59,8 @@ export default function HourlySlotsEntry({
   onAddExtraHour,
   saving,
   resetKey,
+  showIdle = false,
+  settingTimeMin,
 }) {
   const [drafts, setDrafts] = useState({}) // slot -> { qty_produced, qty_rejected, qty_rework }
   const [committedTimes, setCommittedTimes] = useState({ startTime, endTime })
@@ -101,19 +116,48 @@ export default function HourlySlotsEntry({
   const savedSlotNumbersToday = new Set(savedToday.map((h) => h.hour_slot))
   const highestKnownSlotToday = Math.max(slots.length, ...savedToday.map((h) => h.hour_slot), 0)
 
+  const draftKeys = [
+    'qty_produced',
+    'qty_rejected',
+    'qty_rework',
+    ...(showIdle ? [...IDLE_CATEGORIES.map((c) => c.key), 'remarks'] : []),
+  ]
+  const durations = slotDurations({ start_time: committedTimes.startTime, end_time: committedTimes.endTime })
+
   function updateDraft(slot, field, value) {
     setDrafts((d) => ({ ...d, [slot]: { ...d[slot], [field]: value } }))
   }
 
   function isEntered(slot) {
     const d = drafts[slot]
-    return !!d && ['qty_produced', 'qty_rejected', 'qty_rework'].some((k) => d[k] !== undefined && d[k] !== '')
+    return !!d && draftKeys.some((k) => d[k] !== undefined && d[k] !== '')
   }
 
   const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot))
   const anyEntered = pendingSlots.some((s) => isEntered(s.slot))
+  const rowErrors = {}
+  if (showIdle) {
+    for (const s of pendingSlots) {
+      if (!isEntered(s.slot)) continue
+      const err = validateIdle(drafts[s.slot], durations[s.slot])
+      if (err) rowErrors[s.slot] = err
+    }
+  }
+  const hasRowErrors = Object.keys(rowErrors).length > 0
+
+  const footer = showIdle
+    ? computeReportTotals({
+        rows: [
+          ...savedToday,
+          ...pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ ...drafts[s.slot], hour_slot: s.slot })),
+        ],
+        durations,
+        settingTimeMin,
+      })
+    : null
 
   async function handleSaveHours() {
+    if (hasRowErrors) return
     const rows = pendingSlots
       .filter((s) => isEntered(s.slot))
       .map((s) => {
@@ -123,6 +167,7 @@ export default function HourlySlotsEntry({
           qty_produced: d.qty_produced === '' || d.qty_produced === undefined ? 0 : Number(d.qty_produced),
           qty_rejected: d.qty_rejected === '' || d.qty_rejected === undefined ? 0 : Number(d.qty_rejected),
           qty_rework: d.qty_rework === '' || d.qty_rework === undefined ? 0 : Number(d.qty_rework),
+          ...(showIdle ? idlePayload(d) : {}),
         }
       })
     if (rows.length === 0) return
@@ -132,6 +177,13 @@ export default function HourlySlotsEntry({
       for (const row of rows) delete next[row.hour_slot]
       return next
     })
+  }
+
+  function idlePayload(d) {
+    const out = {}
+    for (const c of IDLE_CATEGORIES) out[c.key] = d[c.key] === '' || d[c.key] === undefined ? 0 : Number(d[c.key])
+    out.remarks = d.remarks?.trim() ? d.remarks.trim() : null
+    return out
   }
 
   const [extraForm, setExtraForm] = useState({ qty_produced: '', qty_rejected: '', qty_rework: '' })
@@ -148,6 +200,8 @@ export default function HourlySlotsEntry({
     setExtraForm({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   }
 
+  const idleInputClass =
+    'w-11 border border-gray-300 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30'
   const inputClass =
     'w-16 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30'
 
@@ -195,7 +249,7 @@ export default function HourlySlotsEntry({
           No shift start/end time available to auto-generate hourly slots -- use Add Hour below for manual entry.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-md overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50 text-gray-600 text-left">
@@ -203,13 +257,34 @@ export default function HourlySlotsEntry({
                 <th className="px-2 py-1.5 font-medium">Produced</th>
                 <th className="px-2 py-1.5 font-medium">Rejected</th>
                 <th className="px-2 py-1.5 font-medium">Rework</th>
+                {showIdle && (
+                  <>
+                    {IDLE_CATEGORIES.map((c) => (
+                      <th key={c.key} className="px-1 py-1.5 font-medium leading-tight" title="Idle minutes">
+                        {c.label}
+                      </th>
+                    ))}
+                    <th className="px-2 py-1.5 font-medium leading-tight">Total Idle</th>
+                    <th className="px-2 py-1.5 font-medium">Remarks</th>
+                  </>
+                )}
               </tr>
+              {showIdle && (
+                <tr className="bg-gray-50 text-[10px] text-gray-400 text-left">
+                  <th colSpan={4} />
+                  <th colSpan={IDLE_CATEGORIES.length + 1} className="px-1 pb-1 font-normal">
+                    Idle time (minutes, max 60 per hour)
+                  </th>
+                  <th />
+                </tr>
+              )}
             </thead>
             <tbody>
               {slots.map((s) => {
                 const saved = savedToday.find((h) => h.hour_slot === s.slot)
+                const rowError = rowErrors[s.slot]
                 return (
-                  <tr key={s.slot} className="border-t border-gray-100">
+                  <tr key={s.slot} className={`border-t border-gray-100 ${rowError ? 'bg-red-50' : ''}`} title={rowError}>
                     <td className="px-2 py-1 text-gray-700">
                       {s.slot}. {s.label}
                     </td>
@@ -218,6 +293,15 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1 text-gray-500">{saved.qty_produced}</td>
                         <td className="px-2 py-1 text-gray-500">{saved.qty_rejected}</td>
                         <td className="px-2 py-1 text-gray-500">{saved.qty_rework}</td>
+                        {showIdle && (
+                          <>
+                            {IDLE_CATEGORIES.map((c) => (
+                              <td key={c.key} className="px-1 py-1 text-gray-500">{saved[c.key] ?? 0}</td>
+                            ))}
+                            <td className="px-2 py-1 text-gray-500 font-medium">{totalIdle(saved)}</td>
+                            <td className="px-2 py-1 text-gray-500">{saved.remarks ?? ''}</td>
+                          </>
+                        )}
                       </>
                     ) : (
                       <>
@@ -245,6 +329,36 @@ export default function HourlySlotsEntry({
                             onChange={(e) => updateDraft(s.slot, 'qty_rework', e.target.value)}
                           />
                         </td>
+                        {showIdle && (
+                          <>
+                            {IDLE_CATEGORIES.map((c) => (
+                              <td key={c.key} className="px-1 py-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  aria-label={`${c.label} slot ${s.slot}`}
+                                  className={idleInputClass}
+                                  value={drafts[s.slot]?.[c.key] ?? ''}
+                                  placeholder="0"
+                                  onChange={(e) => updateDraft(s.slot, c.key, e.target.value)}
+                                />
+                              </td>
+                            ))}
+                            <td className={`px-2 py-1 font-medium ${rowError ? 'text-red-600' : 'text-gray-700'}`}>
+                              {Number.isFinite(totalIdle(drafts[s.slot])) ? totalIdle(drafts[s.slot]) : '—'}
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                type="text"
+                                aria-label={`Remarks slot ${s.slot}`}
+                                className="w-32 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+                                value={drafts[s.slot]?.remarks ?? ''}
+                                onChange={(e) => updateDraft(s.slot, 'remarks', e.target.value)}
+                              />
+                            </td>
+                          </>
+                        )}
                       </>
                     )}
                   </tr>
@@ -252,10 +366,25 @@ export default function HourlySlotsEntry({
               })}
             </tbody>
           </table>
+          {footer && (
+            <div className="px-2 py-1.5 border-t border-gray-200 bg-gray-50 text-xs text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
+              <span>Total Accepted Qty: <strong>{footer.accepted}</strong></span>
+              <span>Total Idle Time: <strong>{footer.idleMin} min</strong></span>
+              <span>Total Production Time: <strong>{footer.productionMin} min</strong></span>
+              <span>Total Setting Time: <strong>{footer.settingMin} min</strong></span>
+            </div>
+          )}
+          {hasRowErrors && (
+            <div className="px-2 py-1.5 border-t border-red-100 bg-red-50 text-xs text-red-700 space-y-0.5">
+              {Object.entries(rowErrors).map(([slot, err]) => (
+                <div key={slot}>Hour {slot}: {err}</div>
+              ))}
+            </div>
+          )}
           <div className="px-2 py-1.5 border-t border-gray-100">
             <button
               onClick={handleSaveHours}
-              disabled={saving || !anyEntered}
+              disabled={saving || !anyEntered || hasRowErrors}
               className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
             >
               {saving ? 'Saving...' : 'Save Hours'}
