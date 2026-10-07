@@ -38,7 +38,6 @@ export default function ShiftMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
@@ -172,10 +171,6 @@ export default function ShiftMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Shift Master', 'shift_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -194,10 +189,6 @@ export default function ShiftMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />

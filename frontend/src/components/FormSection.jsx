@@ -17,25 +17,23 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
   const displayTitle = match ? match[2] : title
 
   return (
-    <div className="bg-white border border-gray-200 rounded-md">
+    <section className="rounded-2xl border border-[#CFE2F8] bg-white shadow-[0_2px_8px_rgba(16,60,120,0.06)]">
       {/* Rounding lives on the header itself (not overflow-hidden on the
           card) so a child dropdown's popup panel -- e.g. MultiSelectDropdown,
           absolutely positioned inside this card -- can render past the
           card's own edge instead of being clipped by it. */}
-      <div className="flex items-center gap-2 bg-bmlhsky border-b border-gray-200 px-3 py-1 rounded-t-md">
-        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-bmlhblue text-white text-[9px] font-bold shrink-0">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-t-2xl border-b border-[#CFE2F8] bg-[#E3F0FD] px-4 py-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1669E0] text-[12px] font-bold text-white">
           {number}
         </span>
-        {Icon && <Icon size={12} className="text-bmlhnavy shrink-0" />}
-        <h2 className="text-[11px] font-semibold text-bmlhnavy truncate">{displayTitle}</h2>
+        {Icon && <Icon size={16} strokeWidth={2.2} className="shrink-0 text-[#1669E0]" />}
+        <h2 className="min-w-0 truncate text-[15px] font-semibold text-[#0A4CB0]">{displayTitle}</h2>
         {subtitle && (
-          <span className="ml-auto pl-2 text-[10px] text-gray-500 font-normal whitespace-nowrap truncate">
-            {subtitle}
-          </span>
+          <span className="ml-auto truncate pl-2 text-[12px] font-normal text-slate-500">{subtitle}</span>
         )}
       </div>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 p-2">{children}</div>
-    </div>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-3">{children}</div>
+    </section>
   )
 }
 

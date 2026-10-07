@@ -1,6 +1,5 @@
 import {
   Boxes,
-  ChevronRight,
   Clock,
   ContactRound,
   Cog,
@@ -12,8 +11,24 @@ import {
   User,
   Wrench,
 } from 'lucide-react'
-import PageHeader from '../../components/PageHeader'
+import PageHeader, { PageHeaderBandProvider } from '../../components/PageHeader'
 import { NAV_ITEMS } from '../../utils/constants'
+import employeeTile from '../../assets/tiles/employees.webp'
+import customerTile from '../../assets/tiles/customers.webp'
+import productTile from '../../assets/tiles/products.webp'
+import supplierTile from '../../assets/tiles/suppliers.webp'
+import rawMaterialTile from '../../assets/tiles/raw_materials.webp'
+import vendorTile from '../../assets/tiles/job_work_vendors.webp'
+import qualityTile from '../../assets/tiles/quality_parameters.webp'
+import machineTile from '../../assets/tiles/machines.webp'
+import jobWorkTile from '../../assets/tiles/job_work_types.webp'
+import cycleTimeTile from '../../assets/tiles/cycle_times.webp'
+import shiftTile from '../../assets/tiles/shifts.webp'
+import productionBatchTile from '../../assets/tiles/production_batch_sizes.webp'
+import maintenanceTile from '../../assets/tiles/machine_maintenance_schedule.webp'
+import finishedGoodsTile from '../../assets/tiles/stores_fg.webp'
+import wipTile from '../../assets/tiles/stores_wip.webp'
+import routeCardTile from '../../assets/tiles/product_routes.webp'
 import CustomerMaster from './CustomerMaster'
 import ProductMaster from './ProductMaster'
 import MachineMaster from './MachineMaster'
@@ -69,34 +84,75 @@ const MASTER_PRESENTATION = {
   wip: { icon: Boxes, iconColor: 'text-orange-700', iconBg: 'bg-orange-50' },
 }
 
+// Tile artwork from the client UI deck (each image carries its own title).
+const MASTER_TILES = {
+  employee: employeeTile,
+  customer: customerTile,
+  product: productTile,
+  supplier: supplierTile,
+  'raw-material': rawMaterialTile,
+  vendor: vendorTile,
+  quality: qualityTile,
+  machine: machineTile,
+  'job-work': jobWorkTile,
+  'cycle-time': cycleTimeTile,
+  shift: shiftTile,
+  'production-batch': productionBatchTile,
+  maintenance: maintenanceTile,
+  'finished-goods': finishedGoodsTile,
+  wip: wipTile,
+  'route-card': routeCardTile,
+}
+
+// Each tile's pastel background (sampled from its artwork) fills the space
+// left around the image when it is scaled down to fit the grid.
+const MASTER_TILE_BG = {
+  employee: '#E2F0FF',
+  customer: '#FFE7EF',
+  product: '#E9F9E6',
+  supplier: '#F0EBFF',
+  'raw-material': '#FDF4E0',
+  vendor: '#DEF7F8',
+  quality: '#FFE1E9',
+  machine: '#E4F2FD',
+  'job-work': '#FFEDDF',
+  'cycle-time': '#EAF9E4',
+  shift: '#EFEAFC',
+  'production-batch': '#FDE7EF',
+  maintenance: '#E0EFFF',
+  'finished-goods': '#EAF9E6',
+  wip: '#EFEAFE',
+  'route-card': '#FEF6DD',
+}
+
 const MASTER_NAV = NAV_ITEMS.find((item) => item.key === 'masters')?.subItems ?? []
 
 export const MASTER_ENTRIES = MASTER_NAV.map((item) => ({
   ...item,
   ...MASTER_PRESENTATION[item.key],
+  tile: MASTER_TILES[item.key],
+  tileBg: MASTER_TILE_BG[item.key],
   component: MASTER_COMPONENTS[item.key],
 }))
 
+// The tile artwork is cropped to its picture; the title is rendered from the
+// same label the sidebar uses rather than the text baked into the deck images.
 export function MasterCard({ item, onSelect }) {
-  const Icon = item.icon
   return (
     <button
       type="button"
       onClick={() => onSelect(item.key)}
       aria-label={'Open ' + item.label}
-      className="group flex min-h-[104px] w-full items-center gap-4 rounded-xl border border-[#DCE4ED] bg-white px-4 py-4 text-left shadow-[0_2px_7px_rgba(18,49,78,0.045)] transition duration-150 hover:-translate-y-0.5 hover:border-[#8CB4D8] hover:shadow-[0_8px_18px_rgba(18,49,78,0.1)] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/35"
+      title={item.label}
+      style={{ backgroundColor: item.tileBg }}
+      className="group flex w-full min-h-0 flex-col items-stretch overflow-hidden rounded-2xl border border-[#DCE4ED] px-2 pb-2 pt-3 text-center shadow-sm transition duration-150 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#176FA8]/50 md:h-full md:pb-[1.2vh] md:pt-[1.6vh]"
     >
-      <span className={'flex h-12 w-12 shrink-0 items-center justify-center rounded-full ' + item.iconBg}>
-        <Icon size={23} strokeWidth={1.9} className={item.iconColor} aria-hidden="true" />
+      <span className="flex h-24 min-h-0 items-center justify-center md:h-auto md:flex-1">
+        <img src={item.tile} alt="" loading="lazy" className="block h-full max-h-full w-full object-contain" />
       </span>
-      <span className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-[#183B60]">
+      <span className="mt-1 shrink-0 text-balance break-words text-[15px] font-bold leading-tight text-[#0A2266] md:text-[clamp(13px,min(1.45vw,2.6vh),24px)]">
         {item.label}
       </span>
-      <ChevronRight
-        size={18}
-        className="shrink-0 text-[#8A9BAD] transition-transform group-hover:translate-x-0.5 group-hover:text-[#176FA8]"
-        aria-hidden="true"
-      />
     </button>
   )
 }
@@ -109,9 +165,12 @@ function MastersLanding({ onSelect }) {
         title="Masters"
         subtitle="Select a master module to view or manage its records."
       />
-      <main className="flex-1 overflow-y-auto bg-[#F5F7FA] px-4 py-5 sm:px-6 sm:py-6">
-        <div className="mx-auto w-full max-w-[1480px]">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-4">
+      {/* md+: 4x4 grid sized to the visible content area (no scrolling down to
+          ~700px viewport height, where the min-height lets it scroll). Narrow
+          screens fall back to 2 columns of 16:9 tiles with normal scrolling. */}
+      <main className="flex-1 overflow-y-auto bg-[#F5F7FA] px-4 py-4 sm:px-6">
+        <div className="mx-auto h-full w-full max-w-[1480px]">
+          <div className="grid grid-cols-2 gap-3 md:h-full md:min-h-[520px] md:grid-cols-4 md:grid-rows-4">
             {MASTER_ENTRIES.map((item) => (
               <MasterCard key={item.key} item={item} onSelect={onSelect} />
             ))}
@@ -126,8 +185,18 @@ function MastersLanding({ onSelect }) {
 // the same screen component as selecting its card.
 export default function MasterList({ activeTab, onSelect }) {
   const entity = MASTER_ENTRIES.find((item) => item.key === activeTab)
-  if (!entity) return <MastersLanding onSelect={onSelect} />
+  if (!entity) {
+    return (
+      <PageHeaderBandProvider breadcrumb={[{ label: 'Masters' }]}>
+        <MastersLanding onSelect={onSelect} />
+      </PageHeaderBandProvider>
+    )
+  }
 
   const Screen = entity.component
-  return <Screen />
+  return (
+    <PageHeaderBandProvider breadcrumb={[{ label: 'Masters', onClick: () => onSelect(null) }, { label: entity.label }]}>
+      <Screen />
+    </PageHeaderBandProvider>
+  )
 }

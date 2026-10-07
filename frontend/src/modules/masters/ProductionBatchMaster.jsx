@@ -29,7 +29,6 @@ export default function ProductionBatchMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const selectedProduct = products.find((p) => p.part_serial_number === form.part_serial_number)
   const [mode, setMode] = useState('new')
@@ -131,10 +130,6 @@ export default function ProductionBatchMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Production Batch Master', 'production_batch_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     return r.part_serial_number?.toLowerCase().includes(listSearch.toLowerCase())
@@ -158,10 +153,6 @@ export default function ProductionBatchMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Part Serial Number..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -208,7 +199,7 @@ export default function ProductionBatchMaster() {
           selectedKey={form.part_serial_number}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number..."
         />
       </div>
     </div>

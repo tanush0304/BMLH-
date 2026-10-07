@@ -15,7 +15,6 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -58,10 +57,6 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
       <ActionToolbar
         showCrudButtons={false}
         showExport={false}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        searchPlaceholder={`Search ${title.toLowerCase()}...`}
-        onSearch={() => setSearch(toolbarSearch)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         <RecordsList
@@ -71,6 +66,9 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
           loading={loading}
           error={error}
           rowKey={rowKey}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder={`Search ${title.toLowerCase()}...`}
         />
       </div>
     </div>

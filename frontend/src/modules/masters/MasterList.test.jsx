@@ -5,26 +5,26 @@ import { NAV_ITEMS } from '../../utils/constants'
 import MasterList, { MASTER_ENTRIES, MasterCard } from './MasterList'
 
 const EXPECTED_LABELS = [
+  'Employee Master',
+  'Customer Master',
   'Product Master',
+  'Supplier Master',
+  'Raw Material Master',
+  'Vendor Master',
+  'Quality Master',
   'Machine Master',
   'Job Work Master',
   'Cycle Time Master',
-  'Customer Master',
-  'Raw Material Master',
-  'Supplier Master',
   'Shift Master',
-  'Employee Master',
-  'Vendor Master',
-  'Quality Master',
-  'Maintenance Master',
   'Production Batch Master',
-  'Route Card',
+  'Maintenance Master',
   'Finished Goods Master',
   'WIP Master',
+  'Route Card',
 ]
 
 describe('Masters landing entries', () => {
-  it('keeps the established order and maps every card to a screen and icon', () => {
+  it('keeps the client tile order and maps every card to a screen and tile image', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.label)).toEqual(EXPECTED_LABELS)
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
       NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)
@@ -32,17 +32,20 @@ describe('Masters landing entries', () => {
     expect(MASTER_ENTRIES).toHaveLength(16)
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
+    expect(MASTER_ENTRIES.every((entry) => Boolean(entry.tile))).toBe(true)
+    expect(new Set(MASTER_ENTRIES.map((entry) => entry.tile)).size).toBe(16)
   })
 
   it('shows all 16 cards when Masters has no selected submenu', () => {
     const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
     expect(html).toContain('Select a master module to view or manage its records.')
     expect(html.match(/aria-label="Open /g)).toHaveLength(16)
+    EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
   })
 
   it('resolves each submenu key to its registered screen', () => {
     MASTER_ENTRIES.forEach((item) => {
-      expect(MasterList({ activeTab: item.key }).type).toBe(item.component)
+      expect(MasterList({ activeTab: item.key }).props.children.type).toBe(item.component)
     })
   })
 
@@ -53,5 +56,26 @@ describe('Masters landing entries', () => {
       card.props.onClick()
     })
     expect(onSelect.mock.calls.map(([key]) => key)).toEqual(MASTER_ENTRIES.map((item) => item.key))
+  })
+})
+
+describe('Masters header band', () => {
+  it('renders the band with logos, title and breadcrumb on the landing page', () => {
+    const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
+    expect(html).toContain('alt="BMLH Engineering"')
+    expect(html).toContain('alt="Pragati &amp; Unnati"')
+    expect(html).toContain('Developed by')
+    expect(html).toContain('aria-label="Breadcrumb"')
+    expect(html).toContain('aria-current="page">Masters</span>')
+    expect(html).not.toContain('ERP System')
+  })
+
+  it('links the breadcrumb back to the Masters landing from inside a master', () => {
+    const onSelect = vi.fn()
+    const el = MasterList({ activeTab: 'customer', onSelect })
+    const [masters, current] = el.props.breadcrumb
+    expect(current.label).toBe('Customer Master')
+    masters.onClick()
+    expect(onSelect).toHaveBeenCalledWith(null)
   })
 })

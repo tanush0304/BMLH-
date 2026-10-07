@@ -14,7 +14,6 @@ import {
   Wrench,
 } from 'lucide-react'
 import { NAV_ITEMS } from '../utils/constants'
-import bmlhLogo from '../assets/bmlh-logo.png'
 
 function initialsFor(email) {
   const name = email?.split('@')[0] ?? ''
@@ -82,13 +81,10 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
           <Menu size={18} />
         </button>
         {!collapsed && (
-          <>
-            <img src={bmlhLogo} alt="BMLH Engineering" className="h-9 w-[78px] shrink-0 rounded bg-white object-contain" />
-            <div className="min-w-0 border-l border-white/20 pl-3">
-              <div className="text-[13px] font-bold leading-tight text-white">Pragati &amp; Unnati</div>
-              <div className="mt-1 text-[10px] font-medium leading-tight text-white/65">Data Management System</div>
-            </div>
-          </>
+          <div className="min-w-0">
+            <div className="text-[13px] font-bold leading-tight text-white">Pragati &amp; Unnati</div>
+            <div className="mt-1 text-[10px] font-medium leading-tight text-white/65">Data Management System</div>
+          </div>
         )}
       </div>
 

@@ -60,7 +60,6 @@ export default function RawMaterialMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
@@ -267,10 +266,6 @@ export default function RawMaterialMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Raw Material Master', 'raw_material_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -302,10 +297,6 @@ export default function RawMaterialMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by RM Code / Name..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -317,8 +308,8 @@ export default function RawMaterialMaster() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="w-full lg:w-[48.5%]">
+        <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
+          <div className="lg:col-span-3">
           <FormSection icon={Boxes} title="1. Material Details" subtitle="Core material identity">
             <Field label="Raw Material Code" required>
               <TextInput
@@ -353,7 +344,7 @@ export default function RawMaterialMaster() {
           </FormSection>
           </div>
 
-          <div className="w-full lg:w-[48.5%]">
+          <div className="lg:col-span-3">
           <FormSection icon={Ruler} title="2. Dimensions" subtitle="Physical size specifications">
             <Field label="Diameter (mm)">
               <TextInput value={form.diameter_mm} onChange={handleField('diameter_mm')} disabled={readOnly} />
@@ -477,7 +468,7 @@ export default function RawMaterialMaster() {
           selectedKey={form.raw_material_code}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by RM Code / Name..."
         />
       </div>
     </div>

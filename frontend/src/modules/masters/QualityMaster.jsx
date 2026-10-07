@@ -54,7 +54,6 @@ export default function QualityMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
@@ -192,10 +191,6 @@ export default function QualityMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Quality Master', 'quality_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = displayRecords.filter((row) => {
     if (!listSearch) return true
     const query = listSearch.toLowerCase()
@@ -215,10 +210,6 @@ export default function QualityMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search quality parameters..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -261,7 +252,7 @@ export default function QualityMaster() {
           selectedKey={form.id}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search quality parameters..."
         />
       </div>
     </div>

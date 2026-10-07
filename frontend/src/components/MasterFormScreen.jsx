@@ -12,11 +12,13 @@ import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 // sections (an address block, say) are wide enough to want the full row to
 // themselves. flex-wrap + items-start (not CSS grid) means each card still
 // sizes to its own content height even when sharing a row.
+// Section spans on a 6-column grid (CARD_GRID): cards sharing a row get the
+// same height and their edges line up with full-width cards.
 const WIDTH_CLASS = {
-  narrow: 'w-full lg:w-[31%]',
-  half: 'w-full lg:w-[48.5%]',
-  wide: 'w-full lg:w-[66.5%]',
-  full: 'w-full',
+  narrow: 'lg:col-span-2',
+  half: 'lg:col-span-3',
+  wide: 'lg:col-span-4',
+  full: 'lg:col-span-6',
 }
 
 /**
@@ -45,7 +47,6 @@ export default function MasterFormScreen({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(emptyForm)
   const [mode, setMode] = useState('new') // 'new' | 'edit' | 'view'
   const [saving, setSaving] = useState(false)
@@ -151,10 +152,6 @@ export default function MasterFormScreen({
     exportToPdf(listColumns, filteredRecords, title, exportFilename ?? 'export')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -176,10 +173,6 @@ export default function MasterFormScreen({
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -191,7 +184,7 @@ export default function MasterFormScreen({
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           {sections.map((section) => (
             <div key={section.title} className={WIDTH_CLASS[section.width ?? 'half']}>
             <FormSection

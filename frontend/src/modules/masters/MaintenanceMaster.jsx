@@ -58,7 +58,6 @@ export default function MaintenanceMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [scheduleForm, setScheduleForm] = useState(EMPTY_SCHEDULE)
   const [mode, setMode] = useState('new')
@@ -176,8 +175,6 @@ export default function MaintenanceMaster() {
       <ActionToolbar
         onNew={handleNew} onSave={handleSave} onEdit={handleEdit} onDelete={handleDelete} onClear={handleClear}
         canSave={!readOnly && !saving} canEdit={mode === 'view'} canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch} onSearchChange={setToolbarSearch}
-        onSearch={() => setListSearch(toolbarSearch)} searchPlaceholder="Search checklist items..."
         onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRecords, 'maintenance_master.csv')}
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Maintenance Master', 'maintenance_master')}
       />
@@ -214,7 +211,7 @@ export default function MaintenanceMaster() {
           </Field>
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
-        <RecordsList title="Maintenance Checklist Items" columns={LIST_COLUMNS} rows={filteredRecords} loading={loading} error={error} rowKey="id" selectedKey={form.id} onRowClick={handleRowClick} searchValue={listSearch} onSearchChange={setListSearch} />
+        <RecordsList title="Maintenance Checklist Items" columns={LIST_COLUMNS} rows={filteredRecords} loading={loading} error={error} rowKey="id" selectedKey={form.id} onRowClick={handleRowClick} searchValue={listSearch} onSearchChange={setListSearch} searchPlaceholder="Search checklist items..." />
       </div>
     </div>
   )

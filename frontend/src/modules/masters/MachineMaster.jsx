@@ -31,7 +31,6 @@ export default function MachineMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [operations, setOperations] = useState([])
   const [operationOptions, setOperationOptions] = useState([])
@@ -144,10 +143,6 @@ export default function MachineMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={() => setListSearch(toolbarSearch)}
-        searchPlaceholder="Search by Machine ID / Name..."
         onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRecords, 'machine_master.csv')}
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')}
       />
@@ -187,7 +182,7 @@ export default function MachineMaster() {
           selectedKey={form.machine_id}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by Machine ID / Name..."
         />
       </div>
     </div>

@@ -13,10 +13,19 @@ import JobOrderModule from './modules/jobOrder/JobOrderModule'
 import MaintenanceModule from './modules/maintenance/MaintenanceModule'
 import StoresModule from './modules/stores/StoresModule'
 import { ModuleThemeProvider } from './components/ModuleTheme'
+import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS } from './utils/constants'
 
 const TITLES = {}
+
+// Header breadcrumb (module > screen) from the same labels the sidebar shows.
+function headerBreadcrumb(topKey, subKey) {
+  const top = NAV_ITEMS.find((n) => n.key === topKey)
+  if (!top) return []
+  const sub = top.subItems?.find((s) => s.key === subKey)
+  return sub ? [{ label: top.label }, { label: sub.label }] : [{ label: top.label }]
+}
 
 function firstSubKey(topKey) {
   // Masters opens its module selector first; other modules keep their default.
@@ -129,7 +138,9 @@ function App() {
         onSignOut={() => supabase.auth.signOut()}
         role={role}
       />
-      <ModuleThemeProvider module={themeKey}>{content}</ModuleThemeProvider>
+      <ModuleThemeProvider module={themeKey}>
+        <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey)}>{content}</PageHeaderBandProvider>
+      </ModuleThemeProvider>
     </div>
   )
 }

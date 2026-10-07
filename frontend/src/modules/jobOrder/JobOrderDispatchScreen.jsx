@@ -168,10 +168,6 @@ export default function JobOrderDispatchScreen() {
       <PageHeader title="Job Order Dispatch" subtitle="Send a Batch Out to a Vendor" />
       <ActionToolbar
         showCrudButtons={false}
-        searchValue={search}
-        onSearchChange={setSearch}
-        onSearch={() => {}}
-        searchPlaceholder="Search by DC No / PRD No..."
         showExport={false}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -241,8 +237,7 @@ export default function JobOrderDispatchScreen() {
           columns={LIST_COLUMNS}
           rows={filteredDispatches}
           loading={loading}
-          rowKey="dc_no"
-        />
+          rowKey="dc_no" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by DC No / PRD No..." />
       </div>
     </div>
   )

@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import ActionToolbar from './ActionToolbar'
+import FormSection from './FormSection'
+import RecordsList, { sortRows } from './RecordsList'
+import PageHeader, { PageHeaderBandProvider } from './PageHeader'
+
+const render = (el) => renderToStaticMarkup(el)
+
+describe('ActionToolbar', () => {
+  it('renders New/Save/Edit/Delete/Clear and an enabled Print menu when export is on', () => {
+    const html = render(createElement(ActionToolbar, {}))
+    ;['New', 'Save', 'Edit', 'Delete', 'Clear', 'Print'].forEach((label) => expect(html).toContain(label))
+    expect(html).not.toMatch(/aria-haspopup="menu"[^>]*disabled/)
+  })
+
+  it('has no search box -- searching lives in the records list', () => {
+    const html = render(createElement(ActionToolbar, {}))
+    expect(html).not.toContain('<input')
+    expect(html).not.toContain('Search')
+  })
+
+  it('shows Print disabled on screens that turn export off', () => {
+    const html = render(createElement(ActionToolbar, { showExport: false }))
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*title="Print is not available on this screen yet"/)
+  })
+
+  it('keeps the existing canSave/canEdit/canDelete gating', () => {
+    const html = render(createElement(ActionToolbar, { canSave: false, canEdit: false, canDelete: false }))
+    expect(html.match(/disabled=""/g)).toHaveLength(3)
+  })
+})
+
+describe('FormSection', () => {
+  it('is only as tall as its content (no fill-height classes)', () => {
+    const html = render(createElement(FormSection, { title: '1. Details' }, 'x'))
+    expect(html).not.toMatch(/(h-full|flex-1|min-h-|h-screen)/)
+  })
+
+  it('moves the leading number into the badge', () => {
+    const html = render(createElement(FormSection, { title: '2. Supplier Details' }, 'x'))
+    expect(html).toMatch(/>2<\/span>/)
+    expect(html).toContain('>Supplier Details</h2>')
+  })
+})
+
+describe('RecordsList', () => {
+  const columns = [
+    { key: 'code', label: 'Code' },
+    { key: 'qty', label: 'Qty' },
+    { key: 'status', label: 'Status', type: 'status' },
+  ]
+  const rows = [
+    { code: 'B', qty: 10, status: 'Active' },
+    { code: 'a', qty: 9, status: 'Inactive' },
+    { code: 'C', qty: 100, status: 'Active' },
+  ]
+
+  it('shows the record count, sortable headers and status pills', () => {
+    const html = render(createElement(RecordsList, { columns, rows, onSearchChange: () => {} }))
+    expect(html).toContain('3 records')
+    expect(html.match(/aria-sort="none"/g)).toHaveLength(3)
+    expect(html).toContain('rounded-full')
+    expect(html).toContain('placeholder="Search in list..."')
+  })
+
+  it('sorts numbers numerically and text case-insensitively, both directions', () => {
+    expect(sortRows(rows, columns, { key: 'qty', dir: 1 }).map((r) => r.qty)).toEqual([9, 10, 100])
+    expect(sortRows(rows, columns, { key: 'qty', dir: -1 }).map((r) => r.qty)).toEqual([100, 10, 9])
+    expect(sortRows(rows, columns, { key: 'code', dir: 1 }).map((r) => r.code)).toEqual(['a', 'B', 'C'])
+    expect(sortRows(rows, columns, null)).toBe(rows)
+  })
+})
+
+describe('PageHeader', () => {
+  it('renders the band and breadcrumb with no banner card', () => {
+    const html = render(
+      createElement(
+        PageHeaderBandProvider,
+        { breadcrumb: [{ label: 'Stores' }, { label: 'WIP Issue' }] },
+        createElement(PageHeader, { title: 'WIP Issue', subtitle: 'Issue WIP  |  Stage to Stage' })
+      )
+    )
+    expect(html).toContain('aria-current="page">WIP Issue</span>')
+    expect(html).not.toContain('bg-gradient-to-r')
+  })
+})

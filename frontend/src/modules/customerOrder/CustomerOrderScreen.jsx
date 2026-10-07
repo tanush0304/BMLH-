@@ -77,7 +77,6 @@ export default function CustomerOrderScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   // 'view' / 'edit' operate on one existing customer orders row, exactly as
   // before this rework. 'new-po' is the new two-level flow -- its own form
@@ -378,10 +377,6 @@ export default function CustomerOrderScreen() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Customer Orders', 'customer_orders')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -403,10 +398,6 @@ export default function CustomerOrderScreen() {
         canSave={(isNewPo || mode === 'edit') && !saving}
         canEdit={mode === 'view'}
         canDelete={(mode === 'edit' || mode === 'view') && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by PRD No / PO Number..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -647,7 +638,7 @@ export default function CustomerOrderScreen() {
           selectedKey={form.prd_no}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by PRD No / PO Number..."
         />
       </div>
     </div>

@@ -54,10 +54,6 @@ export default function ProductionScheduleScreen() {
       <PageHeader title="Production Schedule" subtitle="Every Route Card Stage, Across All Orders" />
       <ActionToolbar
         showCrudButtons={false}
-        searchValue={search}
-        onSearchChange={setSearch}
-        onSearch={() => {}}
-        searchPlaceholder="Search by PRD No / Operation..."
         showExport={false}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -67,8 +63,7 @@ export default function ProductionScheduleScreen() {
           rows={filtered}
           loading={loading}
           error={error}
-          rowKey="id"
-        />
+          rowKey="id" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by PRD No / Operation..." />
       </div>
     </div>
   )

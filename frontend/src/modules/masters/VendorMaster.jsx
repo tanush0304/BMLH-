@@ -58,7 +58,6 @@ export default function VendorMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [selectedTypeNames, setSelectedTypeNames] = useState([])
   const [mode, setMode] = useState('new')
@@ -188,10 +187,6 @@ export default function VendorMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Vendor Master', 'vendor_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -213,10 +208,6 @@ export default function VendorMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Vendor ID / Name..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -228,8 +219,8 @@ export default function VendorMaster() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="w-full lg:w-[31%]">
+        <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
+          <div className="lg:col-span-2">
           <FormSection icon={TruckIcon} title="1. Vendor Details" subtitle="Core vendor identity" columns={2}>
             <Field label="Vendor ID" required>
               <TextInput value={form.vendor_id} onChange={handleField('vendor_id')} disabled={idLocked} />
@@ -243,7 +234,7 @@ export default function VendorMaster() {
           </FormSection>
           </div>
 
-          <div className="w-full lg:w-[31%]">
+          <div className="lg:col-span-2">
           <FormSection icon={Phone} title="2. Contact Information" subtitle="Communication details">
             <Field label="Contact Person Name">
               <TextInput
@@ -261,7 +252,7 @@ export default function VendorMaster() {
           </FormSection>
           </div>
 
-          <div className="w-full lg:w-[31%]">
+          <div className="lg:col-span-2">
           <FormSection icon={ListChecks} title="3. Job Work Types Performed" subtitle="Outsourced operations they handle">
             <Field label="Job Work Types" width="long">
               <MultiSelectDropdown
@@ -276,7 +267,7 @@ export default function VendorMaster() {
           </FormSection>
           </div>
 
-          <div className="w-full">
+          <div className="lg:col-span-6">
           <FormSection icon={Landmark} title="4. Statutory & Commercial Details" subtitle="Tax IDs and payment terms" columns={2}>
             <Field label="GSTIN No">
               <TextInput value={form.gstin_no} onChange={handleField('gstin_no')} disabled={readOnly} />
@@ -337,7 +328,7 @@ export default function VendorMaster() {
           selectedKey={form.vendor_id}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by Vendor ID / Name..."
         />
       </div>
     </div>

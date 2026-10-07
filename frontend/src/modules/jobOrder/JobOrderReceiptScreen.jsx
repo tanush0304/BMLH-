@@ -97,10 +97,6 @@ export default function JobOrderReceiptScreen() {
       <PageHeader title="Job Order Receipt" subtitle="Batch Coming Back From a Vendor" />
       <ActionToolbar
         showCrudButtons={false}
-        searchValue={search}
-        onSearchChange={setSearch}
-        onSearch={() => {}}
-        searchPlaceholder="Search by DC No / PRD No..."
         showExport={false}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -153,7 +149,7 @@ export default function JobOrderReceiptScreen() {
           </div>
         )}
 
-        <RecordsList title="Job Order Status" columns={LIST_COLUMNS} rows={filteredStatusRows} loading={loading} rowKey="dc_no" />
+        <RecordsList title="Job Order Status" columns={LIST_COLUMNS} rows={filteredStatusRows} loading={loading} rowKey="dc_no" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by DC No / PRD No..." />
       </div>
     </div>
   )

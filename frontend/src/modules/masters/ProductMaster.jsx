@@ -33,7 +33,6 @@ export default function ProductMaster() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   // Most products use exactly one raw material -- default to a single BOM
   // row, not a repeatable table. A second (or further) material is still
@@ -169,10 +168,6 @@ export default function ProductMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Product Master', 'product_master')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const filteredRecords = records.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -194,10 +189,6 @@ export default function ProductMaster() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by Part Serial Number / Name..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -209,8 +200,8 @@ export default function ProductMaster() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="w-full lg:w-[31%]">
+        <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
+          <div className="lg:col-span-2">
             <FormSection icon={Package} title="1. Product Details" subtitle="Core product identity">
               <Field label="Part Serial Number" required>
                 <TextInput value={form.part_serial_number} onChange={handleField('part_serial_number')} disabled={idLocked} />
@@ -228,7 +219,7 @@ export default function ProductMaster() {
             </FormSection>
           </div>
 
-          <div className="w-full lg:w-[66.5%]">
+          <div className="lg:col-span-4">
             <FormSection icon={Package} title="2. Product Status" subtitle="Unit and current status">
               <Field label="Unit of Measurement">
                 <TextInput value={form.unit_of_measurement} onChange={handleField('unit_of_measurement')} disabled={readOnly} />
@@ -244,7 +235,7 @@ export default function ProductMaster() {
             </FormSection>
           </div>
 
-          <div className="w-full">
+          <div className="lg:col-span-6">
             <FormSection icon={Boxes} title="3. Bill of Materials" subtitle="Raw material consumed per unit">
               <div className="w-full flex flex-col gap-2">
                 {bomRows.map((row, i) => (
@@ -304,7 +295,7 @@ export default function ProductMaster() {
           selectedKey={form.part_serial_number}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Name..."
         />
       </div>
     </div>

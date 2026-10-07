@@ -63,7 +63,6 @@ export default function CustomerEnquiryScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
-  const [toolbarSearch, setToolbarSearch] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
@@ -270,10 +269,6 @@ export default function CustomerEnquiryScreen() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Customer Enquiries', 'customer_enquiries')
   }
 
-  function handleToolbarSearch() {
-    setListSearch(toolbarSearch)
-  }
-
   const statusByQtn = useMemo(() => deriveEnquiryStatuses(records, orders), [records, orders])
 
   const filteredRecords = records
@@ -306,10 +301,6 @@ export default function CustomerEnquiryScreen() {
         canSave={!readOnly && !saving}
         canEdit={mode === 'view'}
         canDelete={mode !== 'new' && !saving}
-        searchValue={toolbarSearch}
-        onSearchChange={setToolbarSearch}
-        onSearch={handleToolbarSearch}
-        searchPlaceholder="Search by QTN No / Customer..."
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -421,7 +412,7 @@ export default function CustomerEnquiryScreen() {
           selectedKey={form.qtn_no}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by QTN No / Customer..."
         />
       </div>
     </div>

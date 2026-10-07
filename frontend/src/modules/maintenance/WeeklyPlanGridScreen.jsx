@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarRange } from 'lucide-react'
+import { CalendarRange, Search } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import { listMachines } from '../../data/queries/machines'
@@ -104,10 +104,6 @@ export default function WeeklyPlanGridScreen() {
       <PageHeader title="Weekly Maintenance Plan" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned" />
       <ActionToolbar
         showCrudButtons={false}
-        searchValue={search}
-        onSearchChange={setSearch}
-        onSearch={() => {}}
-        searchPlaceholder="Search by Machine ID / Name..."
         showExport={false}
       />
       <div className="flex-1 overflow-auto p-6 bg-[#F5F7FA]">
@@ -116,6 +112,16 @@ export default function WeeklyPlanGridScreen() {
             {error}
           </div>
         )}
+
+        <div className="relative mb-3 w-full max-w-sm">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by Machine ID / Name..."
+            className="h-9 w-full rounded-lg border border-[#CBDAEE] bg-white pl-9 pr-3 text-[13.5px] text-slate-800 placeholder:text-slate-400 focus:border-[#1669E0] focus:outline-none focus:ring-2 focus:ring-[#1669E0]/20"
+          />
+        </div>
 
         {loading ? (
           <p className="text-sm text-gray-400">Loading...</p>

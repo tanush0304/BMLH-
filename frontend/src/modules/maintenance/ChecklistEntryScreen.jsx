@@ -144,10 +144,6 @@ export default function ChecklistEntryScreen() {
       <PageHeader title="Maintenance Checklist Entry" subtitle="One Visit, Several Checklist Items" />
       <ActionToolbar
         showCrudButtons={false}
-        searchValue={search}
-        onSearchChange={setSearch}
-        onSearch={() => {}}
-        searchPlaceholder="Search by Machine ID..."
         showExport={false}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -234,7 +230,7 @@ export default function ChecklistEntryScreen() {
           </div>
         )}
 
-        <RecordsList title="Recent Maintenance Visits" columns={logColumns} rows={filteredRecentLogs} loading={loading} rowKey="id" />
+        <RecordsList title="Recent Maintenance Visits" columns={logColumns} rows={filteredRecentLogs} loading={loading} rowKey="id" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by Machine ID..." />
       </div>
     </div>
   )
