@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import {
   BarChart3,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   Database,
   Factory,
   LogOut,
+  Menu,
   ShieldCheck,
   Truck,
   Warehouse,
@@ -30,93 +34,144 @@ const MODULE_PRESENTATION = {
   dashboard: { label: 'Reports & Dashboard', icon: BarChart3, color: 'text-indigo-500' },
 }
 
-export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub, userEmail, onSignOut, role }) {
-  const activeModule = NAV_ITEMS.find((item) => item.key === activeKey) ?? NAV_ITEMS.find((item) => item.key === 'dashboard')
-  const isRestricted = (module) => Boolean(module.roles && !module.roles.includes(role))
-  const screenItems = activeModule.subItems ?? []
-  const showContextMenu = Boolean(activeSubKey) && screenItems.length > 0
+// Contextual accordion: a module's group auto-expands while one of its
+// screens is open (current screen highlighted, siblings one click away) and
+// stays collapsed on a module landing page (e.g. the Masters card selector),
+// so the sidebar never duplicates the workspace. Other modules stay visible.
+function contextualExpandedKey(activeKey, activeSubKey) {
+  return activeSubKey ? activeKey : null
+}
 
-  function handleScreenSelect(screen) {
-    if (activeModule.subItems) onSelectSub(activeModule.key, screen.key)
-    else onSelect(screen.key)
+export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub, userEmail, onSignOut, role }) {
+  const isRestricted = (module) => Boolean(module.roles && !module.roles.includes(role))
+  const [collapsed, setCollapsed] = useState(false)
+  const [expandedKey, setExpandedKey] = useState(() => contextualExpandedKey(activeKey, activeSubKey))
+  const [lastContext, setLastContext] = useState(`${activeKey}/${activeSubKey}`)
+
+  // Re-sync with navigation that happens outside the sidebar (Dashboard
+  // shortcuts, the Masters card selector) -- adjusted during render rather
+  // than in an effect so the first paint is already correct.
+  const context = `${activeKey}/${activeSubKey}`
+  if (context !== lastContext) {
+    setLastContext(context)
+    setExpandedKey(contextualExpandedKey(activeKey, activeSubKey))
+  }
+
+  function handleModuleClick(module) {
+    // Clicking the module you're already in just opens/closes its list;
+    // clicking any other module navigates there.
+    if (module.subItems && module.key === activeKey) {
+      setExpandedKey((k) => (k === module.key ? null : module.key))
+    } else {
+      onSelect(module.key)
+    }
   }
 
   return (
-    <aside className="flex h-full w-[264px] shrink-0 flex-col overflow-hidden border-r border-[#0D2D4B] bg-[#173A63] text-white">
+    <aside
+      className={`flex h-full ${collapsed ? 'w-[68px]' : 'w-[264px]'} shrink-0 flex-col overflow-hidden border-r border-[#0D2D4B] bg-[#173A63] text-white transition-[width]`}
+    >
       <div className="flex min-h-[76px] shrink-0 items-center gap-3 border-b border-white/15 bg-[#102F50] px-4 py-3">
-        <img src={bmlhLogo} alt="BMLH Engineering" className="h-9 w-[94px] shrink-0 rounded bg-white object-contain" />
-        <div className="min-w-0 border-l border-white/20 pl-3">
-          <div className="text-[13px] font-bold leading-tight text-white">Pragati &amp; Unnati</div>
-          <div className="mt-1 text-[10px] font-medium leading-tight text-white/65">Data Management System</div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="shrink-0 rounded p-1 text-white/75 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <Menu size={18} />
+        </button>
+        {!collapsed && (
+          <>
+            <img src={bmlhLogo} alt="BMLH Engineering" className="h-9 w-[78px] shrink-0 rounded bg-white object-contain" />
+            <div className="min-w-0 border-l border-white/20 pl-3">
+              <div className="text-[13px] font-bold leading-tight text-white">Pragati &amp; Unnati</div>
+              <div className="mt-1 text-[10px] font-medium leading-tight text-white/65">Data Management System</div>
+            </div>
+          </>
+        )}
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="Application modules">
+      <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`} aria-label="Application modules">
         <div className="space-y-1.5">
           {NAV_ITEMS.map((module) => {
             const presentation = MODULE_PRESENTATION[module.key] ?? { label: module.label, icon: Database }
             const Icon = presentation.icon
             const selected = activeKey === module.key
             const locked = isRestricted(module)
+            const expanded = !collapsed && !locked && Boolean(module.subItems) && expandedKey === module.key
+            const Chevron = expanded ? ChevronDown : ChevronRight
             return (
-              <button
-                key={module.key}
-                type="button"
-                disabled={locked}
-                onClick={() => onSelect(module.key)}
-                aria-current={selected ? 'page' : undefined}
-                aria-label={locked ? `${presentation.label}. Supervisor or admin access required.` : `Open ${presentation.label}`}
-                title={locked ? 'Supervisor or admin access required' : undefined}
-                className={'group flex min-h-[48px] w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#176FA8]/40 ' +
-                  (selected
-                    ? 'border-white bg-white text-[#173A63] shadow-[0_2px_8px_rgba(0,0,0,0.18)]'
-                    : locked
-                      ? 'cursor-not-allowed border-transparent bg-transparent text-white/35'
-                      : 'border-transparent bg-transparent text-white/90 hover:border-white/20 hover:bg-white/10')}
-              >
-                <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] ' + (locked ? 'opacity-40' : '')}>
-                  <Icon className={presentation.color} size={19} strokeWidth={2.2} aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1 text-[13px] font-semibold leading-tight">{presentation.label}</span>
-                {selected && <span className="h-2 w-2 shrink-0 rounded-full bg-[#76C043]" aria-hidden="true" />}
-              </button>
+              <div key={module.key}>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => handleModuleClick(module)}
+                  aria-current={selected ? 'page' : undefined}
+                  aria-expanded={module.subItems && !locked ? expanded : undefined}
+                  aria-label={locked ? `${presentation.label}. Supervisor or admin access required.` : `Open ${presentation.label}`}
+                  title={locked ? 'Supervisor or admin access required' : collapsed ? presentation.label : undefined}
+                  className={`group flex min-h-[48px] w-full items-center gap-3 rounded-md border py-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#176FA8]/40 ${collapsed ? 'justify-center px-0' : 'px-3'} ` +
+                    (selected
+                      ? 'border-white bg-white text-[#173A63] shadow-[0_2px_8px_rgba(0,0,0,0.18)]'
+                      : locked
+                        ? 'cursor-not-allowed border-transparent bg-transparent text-white/35'
+                        : 'border-transparent bg-transparent text-white/90 hover:border-white/20 hover:bg-white/10')}
+                >
+                  <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] ' + (locked ? 'opacity-40' : '')}>
+                    <Icon className={presentation.color} size={19} strokeWidth={2.2} aria-hidden="true" />
+                  </span>
+                  {!collapsed && (
+                    <>
+                      <span className="min-w-0 flex-1 text-[13px] font-semibold leading-tight">{presentation.label}</span>
+                      {module.subItems && !locked && <Chevron size={15} className="shrink-0 opacity-70" aria-hidden="true" />}
+                    </>
+                  )}
+                </button>
+
+                {expanded && (
+                  <div className="ml-[30px] mt-1 space-y-0.5 border-l border-white/25 pl-2" role="group" aria-label={`${presentation.label} screens`}>
+                    {module.subItems.map((screen) => {
+                      const isActiveScreen = selected && activeSubKey === screen.key
+                      return (
+                        <button
+                          key={screen.key}
+                          type="button"
+                          onClick={() => onSelectSub(module.key, screen.key)}
+                          aria-current={isActiveScreen ? 'page' : undefined}
+                          className={'flex min-h-[32px] w-full items-center gap-2 rounded-r px-2.5 text-left text-[12px] leading-tight transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#176FA8]/35 ' +
+                            (isActiveScreen ? 'border-l-2 border-[#9BD86B] bg-white/15 font-semibold text-white' : 'border-l-2 border-transparent text-white/75 hover:bg-white/10 hover:text-white')}
+                        >
+                          <span
+                            className={'h-1.5 w-1.5 shrink-0 rounded-full ' + (isActiveScreen ? 'bg-[#9BD86B]' : 'border border-white/50')}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1">{screen.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
-
-        {showContextMenu && (
-          <section className="mt-5 border-t border-white/20 pt-4" aria-label={`${MODULE_PRESENTATION[activeModule.key]?.label ?? activeModule.label} screens`}>
-            <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.13em] text-white/60">{(MODULE_PRESENTATION[activeModule.key]?.label ?? activeModule.label).toUpperCase()}</div>
-            <div className="space-y-0.5 border-l border-white/25 pl-2">
-              {screenItems.map((screen) => {
-                const selected = activeKey === activeModule.key && activeSubKey === screen.key
-                return (
-                  <button
-                    key={screen.key}
-                    type="button"
-                    onClick={() => handleScreenSelect(screen)}
-                    aria-current={selected ? 'page' : undefined}
-                    className={'flex min-h-[34px] w-full items-center rounded-r px-2.5 text-left text-[12px] leading-tight transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#176FA8]/35 ' +
-                      (selected ? 'border-l-2 border-[#9BD86B] bg-white/15 font-semibold text-white' : 'border-l-2 border-transparent text-white/75 hover:bg-white/10 hover:text-white')}
-                  >
-                    <span className="min-w-0 flex-1">{screen.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )}
       </nav>
 
       <div className="shrink-0 border-t border-white/20 bg-[#102F50] px-3 py-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#76C043] text-[10px] font-bold text-[#173A63]">
+        <div className={`flex items-center gap-2.5 ${collapsed ? 'flex-col' : ''}`}>
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#76C043] text-[10px] font-bold text-[#173A63]"
+            title={collapsed ? userEmail : undefined}
+          >
             {initialsFor(userEmail)}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-medium text-white" title={userEmail}>{userEmail}</div>
-            <div className="text-[10px] capitalize text-white/60">{role}</div>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[11px] font-medium text-white" title={userEmail}>{userEmail}</div>
+              <div className="text-[10px] capitalize text-white/60">{role}</div>
+            </div>
+          )}
           <button
             type="button"
             onClick={onSignOut}

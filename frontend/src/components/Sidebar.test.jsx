@@ -61,6 +61,38 @@ describe('contextual sidebar navigation', () => {
     expect(html).not.toContain('Product Master')
   })
 
+  it('keeps the Masters group collapsed on the landing page and auto-expands it inside a Master', () => {
+    const landing = renderSidebar('masters', null)
+    expect(landing).toContain('aria-expanded="false"')
+    expect(landing).not.toContain('aria-expanded="true"')
+
+    const inside = renderSidebar('masters', 'machine')
+    expect(inside).toContain('aria-expanded="true"')
+    expect(inside).toContain('Masters screens')
+    // Other modules stay visible, but only the active module's group expands.
+    expect(inside).toContain('Open Production')
+    expect(inside).toContain('Open Stores')
+    expect(inside).not.toContain('Machine Entry')
+    expect(inside.match(/aria-expanded="true"/g)).toHaveLength(1)
+  })
+
+  it('does not expand a role-locked module', () => {
+    const html = renderToStaticMarkup(
+      createElement(Sidebar, {
+        activeKey: 'production',
+        activeSubKey: 'machine-entry',
+        onSelect: () => {},
+        onSelectSub: () => {},
+        userEmail: 'op@example.com',
+        onSignOut: () => {},
+        role: 'operator',
+      })
+    )
+    expect(html).toContain('Supervisor or admin access required')
+    expect(html).not.toContain('Product Master')
+    expect(html).toContain('Machine Entry')
+  })
+
   it('keeps the navigation scrollable when contextual content exceeds its height', () => {
     const html = renderSidebar('masters', 'customer')
     expect(html).toContain('overflow-y-auto')
