@@ -112,6 +112,13 @@ describe('Input colour coding', () => {
     expect(render(createElement(AutoFillBox, { value: '5', unit: 'Nos' }))).toContain('input-auto')
   })
 
+  it('an empty auto-filled box keeps its line height (non-breaking space or placeholder)', () => {
+    expect(render(createElement(AutoFillBox, { value: '' }))).toContain(' ')
+    expect(render(createElement(AutoFillBox, { value: null }))).toContain(' ')
+    expect(render(createElement(AutoFillBox, { value: '', placeholder: '(auto-generated on save)' }))).toContain('(auto-generated on save)')
+    expect(render(createElement(AutoFillBox, { value: 0 }))).toContain('>0<')
+  })
+
   it('selects are dropdowns', () => {
     expect(render(createElement(SelectInput, { value: '', onChange: noop, options: ['A'] }))).toContain('input-dropdown')
   })

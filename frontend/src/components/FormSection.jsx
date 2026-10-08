@@ -128,12 +128,18 @@ export function SelectInput({ options = [], ...props }) {
 /** A visually-disabled "field box" for auto-filled values that aren't a real
  * <input>, with an optional trailing unit label (e.g. "Nos") matching the
  * Stores mockups. */
-export function AutoFillBox({ value, unit }) {
+export function AutoFillBox({ value, unit, placeholder }) {
+  const empty = value === null || value === undefined || value === ''
+  // Same box as a TextInput (border + py-1.5 + one 16px text line) whether
+  // empty or not: an empty value renders a non-breaking space (or the
+  // placeholder) so the line never collapses to zero height.
   return (
-    <div className="input-auto flex overflow-hidden rounded border">
-      <div className="flex-1 truncate px-2.5 py-1.5 text-xs">{value ?? ''}</div>
+    <div className="input-auto flex w-full min-w-0 overflow-hidden rounded border">
+      <div className={`min-w-0 flex-1 truncate px-2.5 py-1.5 text-xs leading-4 ${empty && placeholder ? 'opacity-60' : ''}`}>
+        {empty ? placeholder || ' ' : value}
+      </div>
       {unit && (
-        <div className="shrink-0 border-l border-[#EFC6A8] bg-[#F9E2D2] px-2.5 py-1.5 text-xs text-[#8A5A36]">
+        <div className="shrink-0 border-l border-[#EFC6A8] bg-[#F9E2D2] px-2.5 py-1.5 text-xs leading-4 text-[#8A5A36]">
           {unit}
         </div>
       )}

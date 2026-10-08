@@ -67,3 +67,17 @@ export function validateSupplierDraftRows(rows, existingSupplierIds = []) {
   }
   return null
 }
+
+// The three migration-023 fields need DB-friendly values: opening_stock is
+// NOT NULL DEFAULT 0 (blank -> 0), cost_per_unit is numeric (blank -> null),
+// rm_source has a check constraint (blank -> null). Everything else in the
+// form is sent exactly as before.
+export function rawMaterialPayload(form) {
+  const blank = (v) => v === '' || v === null || v === undefined
+  return {
+    ...form,
+    rm_source: blank(form.rm_source) ? null : form.rm_source,
+    opening_stock: blank(form.opening_stock) ? 0 : Number(form.opening_stock),
+    cost_per_unit: blank(form.cost_per_unit) ? null : Number(form.cost_per_unit),
+  }
+}

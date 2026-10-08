@@ -19,6 +19,8 @@ import {
   createRawMaterialTransaction,
 } from '../../data/queries/rawMaterialStock'
 import { todayISO } from '../../utils/dates'
+import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
+import { unitsProducible, validateRmIssueQuantity } from '../../utils/rmStock'
 import EmployeeSelect from '../../components/EmployeeSelect'
 
 const EMPTY_ISSUE_FORM = {
@@ -72,6 +74,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
   const [shifts, setShifts] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [balances, setBalances] = useState([])
+  const [bomRows, setBomRows] = useState([])
   const [transactions, setTransactions] = useState([])
   const [currentUserId, setCurrentUserId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -88,7 +91,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     setLoading(true)
     setError(null)
     try {
-      const [rms, prods, employeeRows, shf, sups, bal, txns, userId] = await Promise.all([
+      const [rms, prods, employeeRows, shf, sups, bal, txns, userId, bom] = await Promise.all([
         listRawMaterials(),
         listProducts(),
         listEmployees(),
@@ -97,6 +100,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
         listRawMaterialStockBalance(),
         listRawMaterialTransactions(),
         getCurrentUserId(),
+        listAllProductRawMaterials(),
       ])
       setRawMaterials(rms)
       setProducts(prods)
@@ -104,6 +108,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
       setShifts(shf)
       setSuppliers(sups)
       setBalances(bal)
+      setBomRows(bom)
       setTransactions(txns)
       setCurrentUserId(userId)
     } catch (e) {
@@ -129,6 +134,14 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     return balances.find((b) => b.raw_material_code === code)?.current_stock ?? ''
   }
 
+  // Closing stock (opening + receipts - issues) / consumption for the part +
+  // raw material; text when the pair has no BOM row.
+  function unitsProducibleFor(partSerialNumber, rawMaterialCode) {
+    if (!partSerialNumber || !rawMaterialCode) return ''
+    const units = unitsProducible(currentStockFor(rawMaterialCode), bomRows, partSerialNumber, rawMaterialCode)
+    return units === null ? 'No BOM for this part' : units
+  }
+
   function handleReset() {
     setIssueForm(EMPTY_ISSUE_FORM)
     setReceiptForm(EMPTY_RECEIPT_FORM)
@@ -148,6 +161,11 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     const f = issueForm
     if (!f.employee_id || !f.shift_code || !f.raw_material_code || !f.qty || !f.transaction_date) {
       setError('Employee Name, Shift, Raw Material / Consumable, Quantity Issued and Issue Date are all required.')
+      return
+    }
+    const qtyError = validateRmIssueQuantity(f.qty, currentStockFor(f.raw_material_code))
+    if (qtyError) {
+      setError(qtyError)
       return
     }
     setSaving(true)
@@ -209,7 +227,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
       employee_name: employeeName(t.employee_id),
       material_name: materialName(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
-      units_producible: '—',
+      units_producible: unitsProducibleFor(t.part_serial_number, t.raw_material_code),
     }))
 
   const receiptRows = transactions
@@ -303,7 +321,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
               <AutoFillBox value={employeeName(issueForm.employee_id)} />
             </Field>
             <Field label="Number of units can be produced">
-              <AutoFillBox value="" unit="Nos" />
+              <AutoFillBox value={unitsProducibleFor(issueForm.part_serial_number, issueForm.raw_material_code)} unit="Nos" />
             </Field>
 
             <Field label="Shift" required>
@@ -351,8 +369,6 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
               "Employee ID" picks who's physically issuing the material (Employee Master); the account you're
               logged in as is recorded automatically. Current Stock auto-fills from the selected material.
-              Number of units can be produced needs a Bill of Materials, which isn't set up yet, so it stays
-              blank for now.
             </p>
           </FormSection>
         ) : (

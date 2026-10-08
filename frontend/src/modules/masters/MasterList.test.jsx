@@ -20,6 +20,7 @@ const EXPECTED_LABELS = [
   'Maintenance Master',
   'Finished Goods Master',
   'WIP Master',
+  'Stores Master – Raw Material',
   'Route Card',
 ]
 
@@ -29,17 +30,17 @@ describe('Masters landing entries', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
       NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)
     )
-    expect(MASTER_ENTRIES).toHaveLength(16)
+    expect(MASTER_ENTRIES).toHaveLength(17)
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => entry.description?.startsWith('Manage '))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => /^#[0-9A-F]{6}$/.test(entry.color) && /^#[0-9A-F]{6}$/.test(entry.bg))).toBe(true)
   })
 
-  it('shows all 16 cards when Masters has no selected submenu', () => {
+  it('shows all 17 cards when Masters has no selected submenu', () => {
     const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
     expect(html).toContain('Select a master module to view or manage its records.')
-    expect(html.match(/aria-label="Open /g)).toHaveLength(16)
+    expect(html.match(/aria-label="Open /g)).toHaveLength(17)
     EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
   })
 

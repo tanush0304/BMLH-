@@ -54,7 +54,12 @@ describe('module landing tiles', () => {
 
   it('the production-data-entry screen is labelled "Production Data Entry"', () => {
     expect(subItemLabel('production', 'production-data-entry')).toBe('Production Data Entry')
-    expect(landingTiles('production')[0].label).toBe('Production Data Entry')
+    expect(landingTiles('production').map((t) => t.label)).toEqual([
+      'Production Planning',
+      'Production Data Entry',
+      'Manual Operations',
+      'Production Route Card',
+    ])
   })
 })
 

@@ -18,3 +18,13 @@ export async function listWipMaster() {
   if (error) throw error
   return data
 }
+
+export async function listRawMaterialStockMaster() {
+  const { data, error } = await supabase
+    .from('raw material stock master')
+    .select('*')
+    .order('raw_material_code')
+    .order('part_serial_number', { nullsFirst: true })
+  if (error) throw error
+  return data
+}

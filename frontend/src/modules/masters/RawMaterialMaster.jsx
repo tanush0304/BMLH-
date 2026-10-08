@@ -3,9 +3,12 @@ import { useEffect, useState } from 'react'
 import { Boxes, Ruler, Trash2, Plus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
+import { rawMaterialPayload } from '../../utils/rawMaterialSave'
 import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
+import { uomOptions } from '../../utils/uomOptions'
+import { listProducts } from '../../data/queries/products'
 import RecordsList from '../../components/RecordsList'
 import {
   listRawMaterials,
@@ -30,6 +33,9 @@ const EMPTY_FORM = {
   length_mtrs: '',
   width: '',
   thickness: '',
+  rm_source: '',
+  opening_stock: '',
+  cost_per_unit: '',
 }
 
 const EMPTY_LINK_ROW = {
@@ -59,6 +65,8 @@ const LIST_COLUMNS = [
 export default function RawMaterialMaster() {
   const [records, setRecords] = useState([])
   const [suppliers, setSuppliers] = useState([])
+  // Only for the shared UoM dropdown options.
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -75,9 +83,10 @@ export default function RawMaterialMaster() {
     setLoading(true)
     setError(null)
     try {
-      const [materials, sups] = await Promise.all([listRawMaterials(), listSuppliers()])
+      const [materials, sups, prods] = await Promise.all([listRawMaterials(), listSuppliers(), listProducts()])
       setRecords(materials)
       setSuppliers(sups)
+      setProducts(prods)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -198,7 +207,7 @@ export default function RawMaterialMaster() {
     setSaveError(null)
     try {
       const result = await saveRawMaterialWithSuppliers({
-        materialPayload: form,
+        materialPayload: rawMaterialPayload(form),
         supplierRows: draftRows,
         saveMaterial: (payload) =>
           mode === 'edit' ? updateRawMaterial(form.raw_material_code, payload) : createRawMaterial(payload),
@@ -340,7 +349,7 @@ export default function RawMaterialMaster() {
                 value={form.rm_type ?? ''}
                 onChange={handleField('rm_type')}
                 disabled={readOnly}
-                options={mergeOptions(['Bar', 'Sheet', 'Plate', 'Casting', 'Forging', 'Consumable'], records.map((r) => r.rm_type))}
+                options={mergeOptions(['Bar', 'Rods', 'Sheet', 'Plate', 'Casting', 'Forging', 'Consumable'], records.map((r) => r.rm_type))}
               />
             </Field>
           </FormSection>
@@ -371,11 +380,26 @@ export default function RawMaterialMaster() {
               />
             </Field>
             <Field label="Unit of Measurement">
-              <TextInput
-                value={form.unit_of_measurement}
+              <SelectWithAddNew
+                value={form.unit_of_measurement ?? ''}
                 onChange={handleField('unit_of_measurement')}
                 disabled={readOnly}
+                options={uomOptions(products, records)}
               />
+            </Field>
+            <Field label="RM Source">
+              <SelectInput
+                value={form.rm_source ?? ''}
+                onChange={handleField('rm_source')}
+                disabled={readOnly}
+                options={['Trading', 'Manufacturing']}
+              />
+            </Field>
+            <Field label="Opening Stock">
+              <TextInput type="number" value={form.opening_stock ?? ''} onChange={handleField('opening_stock')} disabled={readOnly} />
+            </Field>
+            <Field label="Cost Per Unit">
+              <TextInput type="number" value={form.cost_per_unit ?? ''} onChange={handleField('cost_per_unit')} disabled={readOnly} />
             </Field>
           </FormSection>
           </div>

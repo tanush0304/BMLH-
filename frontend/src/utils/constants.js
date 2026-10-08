@@ -24,6 +24,7 @@ export const NAV_ITEMS = [
       { key: 'maintenance', label: 'Maintenance Master' },
       { key: 'finished-goods', label: 'Finished Goods Master' },
       { key: 'wip', label: 'WIP Master' },
+      { key: 'rm-stock', label: 'Stores Master – Raw Material' },
       { key: 'route-card', label: 'Route Card' },
     ],
   },
@@ -39,9 +40,9 @@ export const NAV_ITEMS = [
     key: 'production',
     label: 'Production',
     subItems: [
+      { key: 'planning', label: 'Production Planning' },
       { key: 'production-data-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
-      { key: 'planning', label: 'Production Planning' },
       { key: 'route-card', label: 'Production Route Card' },
     ],
   },

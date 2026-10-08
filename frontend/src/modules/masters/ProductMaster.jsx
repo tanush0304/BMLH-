@@ -5,6 +5,8 @@ import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
+import SelectWithAddNew from '../../components/SelectWithAddNew'
+import { uomOptions } from '../../utils/uomOptions'
 import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -223,7 +225,12 @@ export default function ProductMaster() {
           <div className="lg:col-span-4">
             <FormSection icon={Package} title="2. Product Status" subtitle="Unit and current status">
               <Field label="Unit of Measurement">
-                <TextInput value={form.unit_of_measurement} onChange={handleField('unit_of_measurement')} disabled={readOnly} />
+                <SelectWithAddNew
+                  value={form.unit_of_measurement ?? ''}
+                  onChange={handleField('unit_of_measurement')}
+                  disabled={readOnly}
+                  options={uomOptions(records, rawMaterials)}
+                />
               </Field>
               <Field label="Product Status">
                 <SelectInput

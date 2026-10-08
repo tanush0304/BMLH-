@@ -29,6 +29,14 @@ export function LandingTile({ tile, onSelect }) {
   )
 }
 
+// 4 tiles -> 2x2 square; anything else keeps the auto-fit row(s). Tile
+// width range (280-380px) is the same either way.
+function gridColumns(count) {
+  return count === 4
+    ? '[grid-template-columns:minmax(280px,380px)] sm:[grid-template-columns:repeat(2,minmax(280px,380px))]'
+    : '[grid-template-columns:repeat(auto-fit,minmax(280px,380px))]'
+}
+
 // Module landing page: every sub-screen as a tile. Tiles keep a fixed
 // maximum width (280-380px) and the grid is centred, so a module with 2 screens shows
 // 2 normal-sized tiles rather than 2 stretched ones.
@@ -36,8 +44,11 @@ export default function ModuleLanding({ title, subtitle = 'Select a screen to op
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={title} subtitle={subtitle} />
-      <main className="flex-1 overflow-y-auto bg-[#F5F7FA] px-4 py-8 sm:px-6">
-        <div className="mx-auto grid max-w-[1600px] justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(280px,380px))]">
+      {/* Flex column + m-auto on the grid: the tiles sit in the middle of
+          the content area both ways with equal space around them, and the
+          auto margins collapse to 0 (normal scrolling) when they don't fit. */}
+      <main className="flex flex-1 flex-col overflow-y-auto bg-[#F5F7FA] px-4 py-8 sm:px-6">
+        <div className={`m-auto grid w-full max-w-[1600px] justify-center gap-6 ${gridColumns(tiles.length)}`}>
           {tiles.map((tile) => (
             <LandingTile key={tile.key} tile={tile} onSelect={onSelect} />
           ))}
