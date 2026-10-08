@@ -7,6 +7,7 @@ import StageTraceTable from '../../components/StageTraceTable'
 import { listOrdersAvailableForPlanning, listProductionPlans } from '../../data/queries/productionPlanning'
 import { listProductionBatches } from '../../data/queries/productionBatch'
 import { listCustomers } from '../../data/queries/customers'
+import { listPoHeaders } from '../../data/queries/customerPoHeaders'
 import { listProducts } from '../../data/queries/products'
 import { generateRouteCard } from '../../data/queries/routeCards'
 import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock'
@@ -25,10 +26,15 @@ const LIST_COLUMNS = [
   { key: 'status', label: 'Status', type: 'status' },
 ]
 
-const EMPTY_FORM = { prd_no: '', batch_qty: '', shift_hours: '' }
+const EMPTY_FORM = { po_key: '', prd_no: '', batch_qty: '', shift_hours: '' }
+
+// Dropdown 1 value for older flat orders saved before PO headers existed
+// (customer orders.parent_po_id is null).
+const NO_PO_KEY = 'no-po'
 
 export default function ProductionPlanningScreen() {
   const [orders, setOrders] = useState([])
+  const [poHeaders, setPoHeaders] = useState([])
   const [plans, setPlans] = useState([])
   const [batches, setBatches] = useState([])
   const [customers, setCustomers] = useState([])
@@ -42,8 +48,9 @@ export default function ProductionPlanningScreen() {
   const [viewedPrd, setViewedPrd] = useState(null)
 
   async function refresh() {
-    const [availableOrders, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows] = await Promise.all([
+    const [availableOrders, poHeaderRows, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows] = await Promise.all([
       listOrdersAvailableForPlanning(),
+      listPoHeaders(),
       listProductionPlans(),
       listProductionBatches(),
       listCustomers(),
@@ -52,6 +59,7 @@ export default function ProductionPlanningScreen() {
       listRawMaterialStockBalance(),
     ])
     setOrders(availableOrders)
+    setPoHeaders(poHeaderRows)
     setPlans(planRows)
     setBatches(batchRows)
     setCustomers(customerRows)
@@ -93,11 +101,42 @@ export default function ProductionPlanningScreen() {
       : materialAvailability.map((m) => `${m.raw_material_code}: ${m.current_stock}`).join(', ')
     : 'Pending BOM'
 
-  function handleSelectPrd(e) {
-    const prd = e.target.value
+  // Dropdown 1: only POs that still have at least one unplanned line
+  // (orders is already filtered to PRDs without a route card).
+  const poOptions = poHeaders
+    .filter((h) => orders.some((o) => o.parent_po_id === h.id))
+    .map((h) => ({ value: String(h.id), label: h.po_number }))
+  if (orders.some((o) => o.parent_po_id == null)) {
+    poOptions.push({ value: NO_PO_KEY, label: 'No PO (older orders)' })
+  }
+
+  function linesForPo(poKey) {
+    if (!poKey) return []
+    return poKey === NO_PO_KEY
+      ? orders.filter((o) => o.parent_po_id == null)
+      : orders.filter((o) => String(o.parent_po_id) === poKey)
+  }
+
+  const partOptions = linesForPo(form.po_key).map((o) => {
+    const name = products.find((p) => p.part_serial_number === o.part_serial_number)?.part_name
+    return { value: o.prd_no, label: name ? `${o.part_serial_number} – ${name}` : o.part_serial_number }
+  })
+
+  function selectPrd(prd, poKey) {
     const order = orders.find((o) => o.prd_no === prd)
     const batch = batches.find((b) => b.part_serial_number === order?.part_serial_number)
-    setForm((f) => ({ prd_no: prd, batch_qty: batch?.production_batch_quantity ?? '', shift_hours: f.shift_hours }))
+    setForm((f) => ({ po_key: poKey, prd_no: prd, batch_qty: batch?.production_batch_quantity ?? '', shift_hours: f.shift_hours }))
+  }
+
+  function handleSelectPo(e) {
+    const poKey = e.target.value
+    const lines = linesForPo(poKey)
+    // A PO with a single line needs no second choice.
+    selectPrd(lines.length === 1 ? lines[0].prd_no : '', poKey)
+  }
+
+  function handleSelectPrd(e) {
+    selectPrd(e.target.value, form.po_key)
   }
 
   function handleReset() {
@@ -114,7 +153,7 @@ export default function ProductionPlanningScreen() {
   async function handleSave() {
     setError(null)
     if (!form.prd_no) {
-      setError('Select a Customer Order No first.')
+      setError('Select a Customer PO No and Part first.')
       return
     }
     if (!form.batch_qty || Number(form.batch_qty) <= 0) {
@@ -202,8 +241,14 @@ export default function ProductionPlanningScreen() {
         )}
 
         <FormSection icon={ClipboardList} title="Production Planning Details" subtitle="Plan an order into production" columns={2}>
-          <Field label="Customer Order No" required>
-            <SelectInput value={form.prd_no} onChange={handleSelectPrd} options={orders.map((o) => o.prd_no)} />
+          <Field label="Customer PO No" required>
+            <SelectInput value={form.po_key} onChange={handleSelectPo} options={poOptions} />
+          </Field>
+          <Field label="Part" required>
+            <SelectInput value={form.prd_no} onChange={handleSelectPrd} options={partOptions} disabled={!form.po_key} />
+          </Field>
+          <Field label="PRD No">
+            <AutoFillBox value={form.prd_no} />
           </Field>
           <Field label="Customer Name">
             <AutoFillBox value={selectedCustomer?.customer_name ?? ''} />
@@ -213,6 +258,9 @@ export default function ProductionPlanningScreen() {
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={selectedProduct?.part_name ?? ''} />
+          </Field>
+          <Field label="Part Drawing Reference Number">
+            <AutoFillBox value={selectedProduct?.part_drawing_reference_number ?? ''} />
           </Field>
           <Field label="Order Qty">
             <AutoFillBox value={selectedOrder?.order_qty ?? ''} unit="Nos" />
