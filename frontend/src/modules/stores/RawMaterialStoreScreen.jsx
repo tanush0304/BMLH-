@@ -40,6 +40,7 @@ const EMPTY_RECEIPT_FORM = {
 }
 
 const ISSUE_COLUMNS = [
+  { key: 'doc_no', label: 'Issue No' },
   { key: 'transaction_date', label: 'Issue Date' },
   { key: 'employee_id', label: 'Employee ID' },
   { key: 'employee_name', label: 'Employee Name' },
@@ -52,6 +53,7 @@ const ISSUE_COLUMNS = [
 ]
 
 const RECEIPT_COLUMNS = [
+  { key: 'doc_no', label: 'Receipt No' },
   { key: 'transaction_date', label: 'Receipt Date' },
   { key: 'employee_id', label: 'Employee ID' },
   { key: 'employee_name', label: 'Employee Name' },
@@ -79,6 +81,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
   const [receiptForm, setReceiptForm] = useState(EMPTY_RECEIPT_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  // doc_no is assigned by the DB trigger (migration 022); shown after save.
+  const [savedDocNo, setSavedDocNo] = useState({ issue: '', receipt: '' })
 
   async function refresh() {
     setLoading(true)
@@ -128,6 +132,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
   function handleReset() {
     setIssueForm(EMPTY_ISSUE_FORM)
     setReceiptForm(EMPTY_RECEIPT_FORM)
+    setSavedDocNo({ issue: '', receipt: '' })
     setError(null)
   }
 
@@ -148,7 +153,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     setSaving(true)
     setError(null)
     try {
-      await createRawMaterialTransaction({
+      const saved = await createRawMaterialTransaction({
         raw_material_code: f.raw_material_code,
         transaction_type: 'Issue',
         qty: Number(f.qty),
@@ -159,6 +164,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
         user_id: currentUserId,
       })
       handleReset()
+      setSavedDocNo({ issue: saved?.doc_no ?? '', receipt: '' })
       await refresh()
     } catch (e) {
       setError(e.message)
@@ -176,7 +182,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     setSaving(true)
     setError(null)
     try {
-      await createRawMaterialTransaction({
+      const saved = await createRawMaterialTransaction({
         raw_material_code: f.raw_material_code,
         transaction_type: 'Receipt',
         qty: Number(f.qty),
@@ -187,6 +193,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
         user_id: currentUserId,
       })
       handleReset()
+      setSavedDocNo({ issue: '', receipt: saved?.doc_no ?? '' })
       await refresh()
     } catch (e) {
       setError(e.message)
@@ -219,6 +226,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     if (!search) return true
     const q = search.toLowerCase()
     return (
+      r.doc_no?.toLowerCase().includes(q) ||
       r.transaction_date?.toLowerCase().includes(q) ||
       r.employee_id?.toLowerCase().includes(q) ||
       r.material_name?.toLowerCase().includes(q)
@@ -281,6 +289,9 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
 
         {mode === 'issue' ? (
           <FormSection icon={Boxes} title="Stores Module - Raw Material & Consumables Issue Details" subtitle="Issue to production" columns={2}>
+            <Field label="Issue No">
+              <TextInput value={savedDocNo.issue || '(auto-generated on save)'} readOnly />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={issueForm.employee_id} onChange={handleIssueField('employee_id')} />
             </Field>
@@ -346,6 +357,9 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
           </FormSection>
         ) : (
           <FormSection icon={PackagePlus} title="Stores Module - Raw Material & Consumables Receipt Details" subtitle="Receive from supplier" columns={2}>
+            <Field label="Receipt No">
+              <TextInput value={savedDocNo.receipt || '(auto-generated on save)'} readOnly />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>

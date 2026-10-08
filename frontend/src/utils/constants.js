@@ -105,7 +105,7 @@ export const STORES_LANDING_TILES = [
   { key: 'wip-receipt', label: 'WIP Receipt', subKey: 'wip-receipt' },
   { key: 'wip-issue', label: 'WIP Issue', subKey: 'wip-issue' },
   { key: 'fg-receipt', label: 'Finished Goods Receipt', subKey: 'fg', mode: 'production-receipt' },
-  { key: 'fg-despatch', label: 'Finished Goods Despatch', subKey: 'fg', mode: 'dispatch' },
+  { key: 'fg-despatch', label: 'Finished Goods Dispatch', subKey: 'fg', mode: 'dispatch' },
   { key: 'rm-requisition', label: 'Raw Material Requisition', subKey: 'rm-requisition' },
 ]
 

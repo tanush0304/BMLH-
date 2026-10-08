@@ -17,6 +17,7 @@ import { validateWipIssueQuantity, validateWipIssueStages } from '../../utils/wi
 import EmployeeSelect from '../../components/EmployeeSelect'
 
 const HISTORY_COLUMNS = [
+  { key: 'doc_no', label: 'Doc No' },
   { key: 'transaction_type', label: 'Type' },
   { key: 'nature_of_operation_stage_id', label: 'From Stage ID' },
   { key: 'target_stage_id', label: 'To Stage ID' },
@@ -36,6 +37,9 @@ export default function WipIssueScreen() {
   const [form, setForm] = useState(EMPTY_FORM)
   const part = usePartForPrd(form.prd_no)
   const [saving, setSaving] = useState(false)
+  // doc_no is assigned by the DB trigger (migration 022); shown after save.
+  const [savedDocNo, setSavedDocNo] = useState('')
+  const [search, setSearch] = useState('')
   const [error, setError] = useState(null)
   const selectedPrdRef = useRef('')
   const prdRequestRef = useRef(0)
@@ -73,6 +77,7 @@ export default function WipIssueScreen() {
   async function handlePrdChange(e) {
     const prd = e.target.value
     selectedPrdRef.current = prd
+    setSavedDocNo('')
     prdRequestRef.current += 1
     setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, employee_id: f.employee_id, shift_code: f.shift_code }))
     setStages([])
@@ -132,7 +137,7 @@ export default function WipIssueScreen() {
     setSaving(true)
     try {
       const userId = await getCurrentUserId()
-      await createWipIssue({
+      const saved = await createWipIssue({
         prd_no: form.prd_no,
         nature_of_operation_stage_id: Number(stageValidation.sourceStage.id),
         target_stage_id: Number(stageValidation.targetStage.id),
@@ -144,6 +149,7 @@ export default function WipIssueScreen() {
       })
       if (selectedPrdRef.current === issuePrd) {
         setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, employee_id: f.employee_id, shift_code: f.shift_code }))
+        setSavedDocNo(saved?.doc_no ?? '')
         await refresh(issuePrd)
       }
     } catch (e) {
@@ -152,6 +158,16 @@ export default function WipIssueScreen() {
       setSaving(false)
     }
   }
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      t.doc_no?.toLowerCase().includes(q) ||
+      t.transaction_type?.toLowerCase().includes(q) ||
+      t.transaction_date?.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -167,8 +183,8 @@ export default function WipIssueScreen() {
         saving={saving}
         saveLabel="Issue From WIP"
         showExport={Boolean(form.prd_no)}
-        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, transactions, `wip_issues_${form.prd_no}.csv`)}
-        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, transactions, `WIP Transaction History -- ${form.prd_no}`, `wip_issues_${form.prd_no}`)}
+        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, filteredTransactions, `wip_issues_${form.prd_no}.csv`)}
+        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredTransactions, `WIP Transaction History -- ${form.prd_no}`, `wip_issues_${form.prd_no}`)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -176,6 +192,9 @@ export default function WipIssueScreen() {
         )}
 
         <FormSection icon={PackageMinus} title="Issue Details" subtitle="Release WIP into a stage" columns={3}>
+          <Field label="Issue No">
+            <TextInput value={savedDocNo || '(auto-generated on save)'} readOnly />
+          </Field>
           <Field label="Production Order (PRD No)" required>
             <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
@@ -245,8 +264,11 @@ export default function WipIssueScreen() {
           <RecordsList
             title={`WIP Transaction History -- ${form.prd_no}`}
             columns={HISTORY_COLUMNS}
-            rows={transactions}
+            rows={filteredTransactions}
             rowKey="id"
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search by Doc No / Type / Date..."
           />
         )}
       </div>

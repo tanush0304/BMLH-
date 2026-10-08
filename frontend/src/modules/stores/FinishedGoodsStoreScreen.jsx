@@ -40,6 +40,7 @@ const EMPTY_RECEIPT_FORM = {
 }
 
 const DISPATCH_COLUMNS = [
+  { key: 'doc_no', label: 'Dispatch No' },
   { key: 'transaction_date', label: 'Date' },
   { key: 'employee_id', label: 'Employee ID' },
   { key: 'employee_name', label: 'Employee Name' },
@@ -49,13 +50,14 @@ const DISPATCH_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
-  { key: 'qty', label: 'Despatch Qty (Nos)' },
+  { key: 'qty', label: 'Dispatch Qty (Nos)' },
   { key: 'balance_to_dispatch', label: 'Balance Qty (Nos)' },
   { key: 'order_status', label: 'Order Status', type: 'status' },
   { key: 'eway_bill_no', label: 'E-way Bill / ESUGAM No.' },
 ]
 
 const RECEIPT_COLUMNS = [
+  { key: 'doc_no', label: 'Receipt No' },
   { key: 'transaction_date', label: 'Date' },
   { key: 'employee_id', label: 'Employee ID' },
   { key: 'employee_name', label: 'Employee Name' },
@@ -82,6 +84,8 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
   const [receiptForm, setReceiptForm] = useState(EMPTY_RECEIPT_FORM)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  // doc_no is assigned by the DB trigger (migration 022); shown after save.
+  const [savedDocNo, setSavedDocNo] = useState({ dispatch: '', receipt: '' })
 
   async function refresh() {
     setLoading(true)
@@ -141,13 +145,14 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
   function handleReset() {
     setDispatchForm(EMPTY_DISPATCH_FORM)
     setReceiptForm(EMPTY_RECEIPT_FORM)
+    setSavedDocNo({ dispatch: '', receipt: '' })
     setError(null)
   }
 
   async function handleSaveDispatch() {
     const f = dispatchForm
     if (!f.employee_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
-      setError('Employee Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
+      setError('Employee Name, Shift, Production Order Number, Dispatch Quantity and Date are all required.')
       return
     }
     if (!selectedDispatchOrder?.part_serial_number) {
@@ -166,7 +171,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     setSaving(true)
     setError(null)
     try {
-      await createFinishedGoodsTransaction({
+      const saved = await createFinishedGoodsTransaction({
         part_serial_number: selectedDispatchOrder?.part_serial_number,
         transaction_type: 'Dispatch',
         qty: dispatchValidation.quantity,
@@ -178,6 +183,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
         user_id: currentUserId,
       })
       handleReset()
+      setSavedDocNo({ dispatch: saved?.doc_no ?? '', receipt: '' })
       await refresh()
     } catch (e) {
       setError(e.message)
@@ -204,7 +210,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     setSaving(true)
     setError(null)
     try {
-      await createFinishedGoodsTransaction({
+      const saved = await createFinishedGoodsTransaction({
         part_serial_number: selectedReceiptOrder?.part_serial_number,
         transaction_type: 'Production Receipt',
         qty: quantity,
@@ -215,6 +221,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
         user_id: currentUserId,
       })
       handleReset()
+      setSavedDocNo({ dispatch: '', receipt: saved?.doc_no ?? '' })
       await refresh()
     } catch (e) {
       setError(e.message)
@@ -248,6 +255,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     if (!search) return true
     const q = search.toLowerCase()
     return (
+      r.doc_no?.toLowerCase().includes(q) ||
       r.transaction_date?.toLowerCase().includes(q) ||
       r.prd_no?.toLowerCase().includes(q) ||
       r.part_serial_number?.toLowerCase().includes(q)
@@ -310,6 +318,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
 
         {mode === 'dispatch' ? (
           <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" subtitle="Dispatch to customer" columns={2}>
+            <Field label="Dispatch No">
+              <TextInput value={savedDocNo.dispatch || '(auto-generated on save)'} readOnly />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={dispatchForm.employee_id} onChange={handleDispatchField('employee_id')} />
             </Field>
@@ -338,7 +349,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             <Field label="Date" required>
               <TextInput type="date" value={dispatchForm.transaction_date} onChange={handleDispatchField('transaction_date')} />
             </Field>
-            <Field label="Despatch Quantity" required>
+            <Field label="Dispatch Quantity" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
@@ -360,7 +371,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
                 options={orders.map((o) => o.prd_no)}
               />
             </Field>
-            <Field label="Balance Quantity to be despatched">
+            <Field label="Balance Quantity to be dispatched">
               <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
             </Field>
 
@@ -378,12 +389,15 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "Employee ID" picks who's physically despatching the goods (Employee Master); the account you're
+              "Employee ID" picks who's physically dispatching the goods (Employee Master); the account you're
               logged in as is recorded automatically.
             </p>
           </FormSection>
         ) : (
           <FormSection icon={PackagePlus} title="Stores Module - Finished Goods Production Receipt Details" subtitle="Receive from production" columns={2}>
+            <Field label="Receipt No">
+              <TextInput value={savedDocNo.receipt || '(auto-generated on save)'} readOnly />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>

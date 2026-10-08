@@ -17,6 +17,7 @@ import { parsePositiveWipQuantity, validateWipReceiptStage } from '../../utils/w
 import EmployeeSelect from '../../components/EmployeeSelect'
 
 const HISTORY_COLUMNS = [
+  { key: 'doc_no', label: 'Doc No' },
   { key: 'transaction_type', label: 'Type' },
   { key: 'nature_of_operation_stage_id', label: 'From Stage ID' },
   { key: 'target_stage_id', label: 'To Stage ID' },
@@ -36,6 +37,9 @@ export default function WipReceiptScreen() {
   const [form, setForm] = useState(EMPTY_FORM)
   const part = usePartForPrd(form.prd_no)
   const [saving, setSaving] = useState(false)
+  // doc_no is assigned by the DB trigger (migration 022); shown after save.
+  const [savedDocNo, setSavedDocNo] = useState('')
+  const [search, setSearch] = useState('')
   const [error, setError] = useState(null)
   const selectedPrdRef = useRef('')
   const prdRequestRef = useRef(0)
@@ -54,6 +58,7 @@ export default function WipReceiptScreen() {
     const prd = e.target.value
     const requestId = ++prdRequestRef.current
     selectedPrdRef.current = prd
+    setSavedDocNo('')
     setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, employee_id: f.employee_id, shift_code: f.shift_code }))
     setCompletedStages([])
     setBalances([])
@@ -134,7 +139,7 @@ export default function WipReceiptScreen() {
     setSaving(true)
     try {
       const userId = await getCurrentUserId()
-      await createWipReceipt({
+      const saved = await createWipReceipt({
         prd_no: form.prd_no,
         nature_of_operation_stage_id: Number(form.stage_id),
         qty: quantity,
@@ -145,6 +150,7 @@ export default function WipReceiptScreen() {
       })
       if (selectedPrdRef.current === receiptPrd) {
         setForm((f) => ({ ...EMPTY_FORM, prd_no: f.prd_no, employee_id: f.employee_id, shift_code: f.shift_code }))
+        setSavedDocNo(saved?.doc_no ?? '')
         await refreshBalancesAndHistory(receiptPrd)
       }
     } catch (e) {
@@ -153,6 +159,16 @@ export default function WipReceiptScreen() {
       setSaving(false)
     }
   }
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      t.doc_no?.toLowerCase().includes(q) ||
+      t.transaction_type?.toLowerCase().includes(q) ||
+      t.transaction_date?.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -168,8 +184,8 @@ export default function WipReceiptScreen() {
         saving={saving}
         saveLabel="Receive Into WIP"
         showExport={Boolean(form.prd_no)}
-        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, transactions, `wip_receipts_${form.prd_no}.csv`)}
-        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, transactions, `WIP Transaction History -- ${form.prd_no}`, `wip_receipts_${form.prd_no}`)}
+        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, filteredTransactions, `wip_receipts_${form.prd_no}.csv`)}
+        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredTransactions, `WIP Transaction History -- ${form.prd_no}`, `wip_receipts_${form.prd_no}`)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -177,6 +193,9 @@ export default function WipReceiptScreen() {
         )}
 
         <FormSection icon={PackagePlus} title="Receipt Details" subtitle="Hold a completed stage's output" columns={3}>
+          <Field label="Receipt No">
+            <TextInput value={savedDocNo || '(auto-generated on save)'} readOnly />
+          </Field>
           <Field label="Production Order (PRD No)" required>
             <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
@@ -228,8 +247,11 @@ export default function WipReceiptScreen() {
           <RecordsList
             title={`WIP Transaction History -- ${form.prd_no}`}
             columns={HISTORY_COLUMNS}
-            rows={transactions}
+            rows={filteredTransactions}
             rowKey="id"
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search by Doc No / Type / Date..."
           />
         )}
       </div>
