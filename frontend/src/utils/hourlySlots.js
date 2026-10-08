@@ -1,4 +1,4 @@
-// Pure logic for auto-generating Machine Entry / Manual Operations' hourly
+// Pure logic for auto-generating Production Data Entry / Manual Operations' hourly
 // slots from a shift's start/end time. Reuses the same 12-hour time parser
 // already written for Shift Master (utils/shiftCalculations.js) rather than
 // re-parsing "h:mm AM/PM" a second way.

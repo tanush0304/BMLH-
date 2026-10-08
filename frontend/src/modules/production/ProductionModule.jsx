@@ -1,4 +1,4 @@
-import MachineEntryScreen from './MachineEntryScreen'
+import ProductionDataEntryScreen from './ProductionDataEntryScreen'
 import ManualOperationsScreen from './ManualOperationsScreen'
 import ProductionPlanningScreen from './ProductionPlanningScreen'
 import ProductionRouteCardScreen from './ProductionRouteCardScreen'
@@ -7,7 +7,7 @@ import { landingTiles } from '../moduleLandings'
 import { moduleLabel } from '../../utils/constants'
 
 const TABS = [
-  { key: 'machine-entry', component: MachineEntryScreen },
+  { key: 'production-data-entry', component: ProductionDataEntryScreen },
   { key: 'manual-operations', component: ManualOperationsScreen },
   { key: 'planning', component: ProductionPlanningScreen },
   { key: 'route-card', component: ProductionRouteCardScreen },

@@ -9,7 +9,7 @@ import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
-import { listMachinesForProductSeqs } from '../../data/queries/machineEntry'
+import { listMachinesForProductSeqs } from '../../data/queries/productionDataEntry'
 import { buildMachineLabelMap } from '../../utils/machineLabel'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
@@ -35,7 +35,7 @@ import { pickCycleTime } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 import { subItemLabel } from '../../utils/constants'
 
-export default function MachineEntryScreen({ role }) {
+export default function ProductionDataEntryScreen({ role }) {
   // Shift-incharge verification is supervisor/admin only -- hidden here,
   // and enforced by migration 017's trigger regardless of the UI.
   const canVerify = role === 'supervisor' || role === 'admin'
@@ -366,7 +366,7 @@ export default function MachineEntryScreen({ role }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
-        title={subItemLabel('production', 'machine-entry')}
+        title={subItemLabel('production', 'production-data-entry')}
         subtitle="Employee picks the order + machine; the stage resolves itself"
       />
 

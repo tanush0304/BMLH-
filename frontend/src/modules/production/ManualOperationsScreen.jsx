@@ -84,7 +84,7 @@ export default function ManualOperationsScreen() {
   // Eligible Manual stages for the currently-selected PRD -- more than one
   // pending at once is possible (e.g. an earlier Manual stage still open
   // while a later one's upstream has also caught up), so ask which one is
-  // meant rather than guessing, same as Machine Entry does for multiple
+  // meant rather than guessing, same as Production Data Entry does for multiple
   // eligible stages on one machine.
   const stageChoicesForPrd = prdNo ? pendingStages.filter((s) => s.prd_no === prdNo) : []
 

@@ -12,7 +12,7 @@ import {
 } from '../utils/productionReport'
 
 /**
- * Shared hourly-entry grid for Machine Entry and Manual Operations: one row
+ * Shared hourly-entry grid for Production Data Entry and Manual Operations: one row
  * per hour of the selected shift (real clock-time label, display only --
  * only the slot number is ever stored as hour_slot), plus the original
  * "Add Hour" button for overtime beyond the shift's own slots.
@@ -43,7 +43,7 @@ import {
  * otherwise silently discard typed but unsaved values; with no drafts
  * entered it regenerates silently.
  *
- * `showIdle` (Machine Entry only, migration 017) adds the paper Hourly
+ * `showIdle` (Production Data Entry only, migration 017) adds the paper Hourly
  * Production Report's 8 idle-minute categories + remarks per row, blocks
  * saving any row whose idle exceeds 60 min (or a short slot's own length),
  * and shows live footer totals -- accepted qty, idle, production time,

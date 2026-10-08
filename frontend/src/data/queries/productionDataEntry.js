@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { machinesEligibleForSeqs } from '../../utils/machineEligibility'
 
 /**
- * The reverse lookup used by Machine Entry's PRD-first flow: given the set
+ * The reverse lookup used by Production Data Entry's PRD-first flow: given the set
  * of seqs a PRD's own eligible (Pending, Internal) stages need, finds
  * every machine capable of running at least one of them.
  *

@@ -97,7 +97,7 @@ export async function generateRouteCard({ prdNo, partSerialNumber, batchQty, shi
   // machine not already picked for an earlier stage in this route (so a
   // demo route doesn't pile every stage onto the same machine), falling
   // back to the lowest machine_id once every candidate has been used.
-  // The chosen machine_id is only a DEFAULT -- Machine Entry must keep
+  // The chosen machine_id is only a DEFAULT -- Production Data Entry must keep
   // offering any machine with a Cycle Time Master row for this
   // product+seq, not just this one. Whether planners should instead
   // assign the machine explicitly at planning time is still open.

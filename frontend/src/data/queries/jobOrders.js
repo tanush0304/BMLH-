@@ -1,6 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
 import { nextSequenceNo } from '../../utils/numbering'
-import { todayISO } from '../../utils/dates'
 
 /**
  * Sequence is no longer enforced -- a stage can be fed via WIP Issue rather
@@ -88,36 +87,19 @@ export async function listDispatchesWithoutReceipt() {
 
 /**
  * Recording a receipt also marks the dispatch's route card stage as
- * 'Received' -- without this, an Outsourced stage stays 'Pending' forever
- * (the "job order status" view only derives a display label from
- * dispatch+receipt, it never touches production route card stages), which
- * permanently blocks a stage's downstream work. It also flips the
- * dispatch's is_open to false directly, at the point the receipt actually
- * happens -- not inferred from the receipt row's mere existence elsewhere.
+ * 'Received' (actual_date = receipt date) and closes the dispatch
+ * (is_open = false). All three happen in ONE database transaction inside
+ * create_job_order_receipt (migration 019) -- either everything is saved or
+ * nothing is. A second receipt for the same DC still fails on the receipt
+ * table's unique (dc_no).
  */
 export async function createReceipt(payload) {
-  const { data: dispatch, error: dispatchErr } = await supabase
-    .from('job order dispatch')
-    .select('stage_id')
-    .eq('dc_no', payload.dc_no)
-    .single()
-  if (dispatchErr) throw dispatchErr
-
-  const { data, error } = await supabase.from('job order receipt').insert(payload).select().single()
+  const { data, error } = await supabase.rpc('create_job_order_receipt', {
+    p_dc_no: payload.dc_no,
+    p_qty_received: payload.qty_received,
+    p_receipt_date: payload.receipt_date || null,
+  })
   if (error) throw error
-
-  const { error: stageErr } = await supabase
-    .from('production route card stages')
-    .update({ status: 'Received', actual_date: payload.receipt_date ?? todayISO() })
-    .eq('id', dispatch.stage_id)
-  if (stageErr) throw stageErr
-
-  const { error: closeErr } = await supabase
-    .from('job order dispatch')
-    .update({ is_open: false })
-    .eq('dc_no', payload.dc_no)
-  if (closeErr) throw closeErr
-
   return data
 }
 

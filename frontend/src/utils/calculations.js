@@ -9,7 +9,7 @@
  *
  * Manual stages (De-Burring, Final Inspection, Final Dispatch, ...) log
  * through Manual Operations exactly like Internal stages log through
- * Machine Entry -- same production_logs/production_log_hours tables, same
+ * Production Data Entry -- same production_logs/production_log_hours tables, same
  * `output` aggregation -- so they're treated identically here, not skipped.
  *
  * @param {Array<{id: number|string, seq: number, type: 'Internal'|'Outsourced'|'Manual'}>} stages
@@ -88,7 +88,7 @@ export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
 // Receipt/Issue means a stage can legitimately be fed out of sequence, from
 // WIP holding rather than strictly from the stage before it. The safety
 // mechanism against double-working the same stage is now a lock based on
-// existing data -- an open production log (Machine Entry, see
+// existing data -- an open production log (Production Data Entry, see
 // getOpenLogForStage) or an open dispatch without a receipt (Job Order, see
 // listPendingOutsourcedStagesForPrd) -- not sequence position.
 

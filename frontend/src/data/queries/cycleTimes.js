@@ -29,7 +29,7 @@ export async function deleteCycleTime(id) {
   if (error) throw error
 }
 
-/** Cycle Time Master rows for one part (all seqs/machines) -- Machine Entry
+/** Cycle Time Master rows for one part (all seqs/machines) -- Production Data Entry
  * picks the part + process (seq) row from these via pickCycleTime. */
 export async function listCycleTimesForPart(partSerialNumber) {
   if (!partSerialNumber) return []

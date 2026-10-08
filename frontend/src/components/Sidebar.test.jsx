@@ -85,7 +85,7 @@ describe('contextual sidebar navigation', () => {
     const html = renderToStaticMarkup(
       createElement(Sidebar, {
         activeKey: 'production',
-        activeSubKey: 'machine-entry',
+        activeSubKey: 'production-data-entry',
         onSelect: () => {},
         onSelectSub: () => {},
         userEmail: 'op@example.com',

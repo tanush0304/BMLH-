@@ -31,7 +31,7 @@ export const NAV_ITEMS = [
     key: 'production',
     label: 'Production',
     subItems: [
-      { key: 'machine-entry', label: 'Production Data Entry' },
+      { key: 'production-data-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'planning', label: 'Production Planning' },
       { key: 'route-card', label: 'Production Route Card' },

@@ -26,7 +26,7 @@ export function stagesEligibleForMachine({ stages, cycleTimeRows, partSerialNumb
 
 /** Every machine capable of running at least one of `seqs` for this
  * product. Returns raw {machine_id, seq} rows, not deduped -- the caller
- * (Machine Entry) intersects a specific machine's rows against the PRD's
+ * (Production Data Entry) intersects a specific machine's rows against the PRD's
  * own stage list once a machine is chosen, same as before this fix. */
 export function machinesEligibleForSeqs({ cycleTimeRows, partSerialNumber, seqs }) {
   if (!partSerialNumber || !seqs || seqs.length === 0) return []

@@ -29,7 +29,7 @@ describe('module landing tiles', () => {
 
   it('uses deck pictures where they exist and icons otherwise', () => {
     const art = (key) => Object.fromEntries(landingTiles(key).map((t) => [t.key, t.img ? 'img' : 'icon']))
-    expect(art('production')).toEqual({ 'machine-entry': 'img', 'manual-operations': 'icon', planning: 'img', 'route-card': 'icon' })
+    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'icon', planning: 'img', 'route-card': 'icon' })
     expect(art('customer-order')).toEqual({ enquiry: 'img', order: 'img' })
     expect(Object.values(art('job-order'))).toEqual(['img', 'img'])
     expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])
@@ -52,8 +52,8 @@ describe('module landing tiles', () => {
     expect(tiles.filter((t) => t.img)).toHaveLength(6)
   })
 
-  it('Machine Entry is shown as "Production Data Entry"', () => {
-    expect(subItemLabel('production', 'machine-entry')).toBe('Production Data Entry')
+  it('the production-data-entry screen is labelled "Production Data Entry"', () => {
+    expect(subItemLabel('production', 'production-data-entry')).toBe('Production Data Entry')
     expect(landingTiles('production')[0].label).toBe('Production Data Entry')
   })
 })

@@ -1,4 +1,4 @@
-// Pure logic for Machine Entry's "Hourly Production Report" additions
+// Pure logic for Production Data Entry's "Hourly Production Report" additions
 // (migration 017): idle-minute categories per hour row, per-row validation,
 // and the live footer totals (computed here, never stored).
 import { parseTimeToMinutes } from './shiftCalculations'

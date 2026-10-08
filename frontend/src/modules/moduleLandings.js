@@ -29,7 +29,7 @@ const MODULE_TONES = {
 // tile key. Labels never come from here -- see constants.js.
 const TILE_ART = {
   production: {
-    'machine-entry': { img: productionEntryTile, bg: '#FEF0D3' },
+    'production-data-entry': { img: productionEntryTile, bg: '#FEF0D3' },
     'manual-operations': { icon: Hand },
     planning: { img: productionPlanningTile, bg: '#CFECFE' },
     'route-card': { icon: Route },
