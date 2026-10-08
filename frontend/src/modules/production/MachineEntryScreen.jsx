@@ -33,6 +33,7 @@ import {
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
 import { pickCycleTime } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
+import { subItemLabel } from '../../utils/constants'
 
 export default function MachineEntryScreen({ role }) {
   // Shift-incharge verification is supervisor/admin only -- hidden here,
@@ -365,7 +366,7 @@ export default function MachineEntryScreen({ role }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
-        title="Machine Entry"
+        title={subItemLabel('production', 'machine-entry')}
         subtitle="Employee picks the order + machine; the stage resolves itself"
       />
 

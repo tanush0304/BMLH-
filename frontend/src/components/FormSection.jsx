@@ -31,9 +31,36 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
         {subtitle && (
           <span className="ml-auto truncate pl-2 text-[12px] font-normal text-slate-500">{subtitle}</span>
         )}
+        {number === '1' && (
+          <span className={`card-legend ${subtitle ? 'pl-3' : 'ml-auto'}`}>
+            <FieldLegend />
+          </span>
+        )}
       </div>
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-3">{children}</div>
+      <div className="form-card-body flex flex-wrap items-start gap-x-3 gap-y-2 p-3">{children}</div>
     </section>
+  )
+}
+
+// Colour key for the input colour coding (see index.css). Shown once per
+// form: left of the toolbar's Print button, or -- on screens without a
+// toolbar -- in the header of the first section card.
+export function FieldLegend() {
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-normal text-slate-600" aria-label="Field colour key">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-3 w-5 rounded border border-[#E5C65A] bg-[#FFF6CC]" aria-hidden="true" />
+        Dropdown
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-3 w-5 rounded border border-[#A9C8EE] bg-[#EAF2FD]" aria-hidden="true" />
+        Manual entry
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-3 w-5 rounded border border-[#EFC6A8] bg-[#FDEFE6]" aria-hidden="true" />
+        Auto-filled
+      </span>
+    </span>
   )
 }
 
@@ -62,12 +89,17 @@ export function Field({ label, required, width = 'medium', className = '', child
   )
 }
 
+// Auto-filled = explicitly readOnly, or always-disabled with no onChange
+// (how screens render values pulled from masters / calculated). Fields that
+// are only locked in view/edit mode keep their onChange, so they stay
+// "manual entry" and render neutral while locked.
 export function TextInput(props) {
+  const auto = Boolean(props.readOnly) || (Boolean(props.disabled) && !props.onChange)
   return (
     <input
       {...props}
       type={props.type ?? 'text'}
-      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className={`w-full rounded border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 ${auto ? 'input-auto' : 'input-manual'}`}
     />
   )
 }
@@ -81,7 +113,7 @@ export function SelectInput({ options = [], ...props }) {
   return (
     <select
       {...props}
-      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-bmlhblue/30 disabled:bg-gray-100"
+      className="input-dropdown w-full rounded border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
     >
       <option value="">Select...</option>
       {normalized.map((opt) => (
@@ -98,10 +130,10 @@ export function SelectInput({ options = [], ...props }) {
  * Stores mockups. */
 export function AutoFillBox({ value, unit }) {
   return (
-    <div className="flex rounded border border-gray-300 overflow-hidden bg-gray-100">
-      <div className="flex-1 px-2.5 py-1.5 text-xs text-gray-700 truncate">{value ?? ''}</div>
+    <div className="input-auto flex overflow-hidden rounded border">
+      <div className="flex-1 truncate px-2.5 py-1.5 text-xs">{value ?? ''}</div>
       {unit && (
-        <div className="px-2.5 py-1.5 text-xs text-gray-500 bg-gray-200 border-l border-gray-300 shrink-0">
+        <div className="shrink-0 border-l border-[#EFC6A8] bg-[#F9E2D2] px-2.5 py-1.5 text-xs text-[#8A5A36]">
           {unit}
         </div>
       )}

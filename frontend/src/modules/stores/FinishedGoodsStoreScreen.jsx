@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { PackageCheck, RotateCcw, X, ClipboardList, Trash2, Plus, Save, PackagePlus } from 'lucide-react'
+import { PackageCheck, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import StatusPill from '../../components/StatusPill'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { listEmployees } from '../../data/queries/employees'
@@ -13,7 +15,6 @@ import {
   listFinishedGoodsTransactions,
   listFinishedGoodsOrderStatus,
   createFinishedGoodsTransaction,
-  deleteFinishedGoodsTransaction,
 } from '../../data/queries/finishedGoodsStock'
 import { todayISO } from '../../utils/dates'
 import { parsePositiveQuantity, validateDispatchQuantity } from '../../utils/finishedGoodsValidation'
@@ -63,8 +64,8 @@ const RECEIPT_COLUMNS = [
   { key: 'qty', label: 'Qty Received (Nos)' },
 ]
 
-export default function FinishedGoodsStoreScreen() {
-  const [mode, setMode] = useState('dispatch') // 'dispatch' | 'production-receipt'
+export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
+  const [mode, setMode] = useState(initialMode) // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -221,20 +222,6 @@ export default function FinishedGoodsStoreScreen() {
     }
   }
 
-  async function handleDeleteRow(id) {
-    if (!confirm('Delete this record? This cannot be undone.')) return
-    setSaving(true)
-    setError(null)
-    try {
-      await deleteFinishedGoodsTransaction(id)
-      await refresh()
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const dispatchRows = transactions
     .filter((t) => t.transaction_type === 'Dispatch')
     .map((t) => {
@@ -266,20 +253,10 @@ export default function FinishedGoodsStoreScreen() {
     )
   })
 
-  const activeColumns = [
-    ...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS),
-    {
-      key: 'action',
-      label: 'Action',
-      render: (row) => (
-        <button onClick={() => handleDeleteRow(row.id)} title="Delete">
-          <Trash2 size={15} className="text-red-500" />
-        </button>
-      ),
-    },
-  ]
+  const activeColumns = mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS
+  const listTitle = mode === 'dispatch' ? 'Finished Goods Dispatch List' : 'Finished Goods Production Receipt List'
+  const exportName = mode === 'dispatch' ? 'fg_dispatch' : 'fg_production_receipt'
 
-  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-40'
   const handleSave = mode === 'dispatch' ? handleSaveDispatch : handleSaveReceipt
 
   return (
@@ -312,31 +289,16 @@ export default function FinishedGoodsStoreScreen() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">
-        <button className={`${btn} bg-green-600 text-white hover:bg-green-700`} onClick={handleReset}>
-          <Plus size={16} /> New
-        </button>
-        <button
-          className={`${btn} bg-bmlhblue text-white hover:bg-[#163d70]`}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save size={16} /> {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <RotateCcw size={16} /> Reset
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <X size={16} /> Cancel
-        </button>
-        <div className="w-px self-stretch bg-gray-200 mx-1" />
-        <button
-          className={`${btn} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`}
-          onClick={() => setSearch('')}
-        >
-          <ClipboardList size={16} /> View History
-        </button>
-      </div>
+      {/* Stock ledger: no Edit / Delete -- corrections are a new entry with remarks. */}
+      <ActionToolbar
+        showEditDelete={false}
+        onNew={handleReset}
+        onSave={handleSave}
+        onClear={handleReset}
+        saving={saving}
+        onExportExcel={() => exportToCsv(activeColumns, filteredRows, `${exportName}.csv`)}
+        onExportPdf={() => exportToPdf(activeColumns, filteredRows, listTitle, exportName)}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -472,7 +434,7 @@ export default function FinishedGoodsStoreScreen() {
         )}
 
         <RecordsList
-          title={mode === 'dispatch' ? 'Finished Goods Dispatch List' : 'Finished Goods Production Receipt List'}
+          title={listTitle}
           columns={activeColumns}
           rows={filteredRows}
           loading={loading}

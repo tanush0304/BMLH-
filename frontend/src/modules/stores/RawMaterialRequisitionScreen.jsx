@@ -3,6 +3,8 @@ import { ClipboardPlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { listProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -177,6 +179,16 @@ export default function RawMaterialRequisitionScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Raw Material Requisition" subtitle="Request Material Against a Production Order" />
+      <ActionToolbar
+        showEditDelete={false}
+        onNew={handleReset}
+        onSave={handleSave}
+        onClear={handleReset}
+        saving={saving}
+        saveLabel="Submit Requisition"
+        onExportExcel={() => exportToCsv(listColumns, filteredRequisitions, 'rm_requisitions.csv')}
+        onExportPdf={() => exportToPdf(listColumns, filteredRequisitions, 'Raw Material Requisitions', 'rm_requisitions')}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -228,21 +240,6 @@ export default function RawMaterialRequisitionScreen() {
           <Field label="Requested By">
             <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
           </Field>
-          <div className="flex items-end gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
-            >
-              {saving ? 'Saving...' : 'Submit Requisition'}
-            </button>
-            <button
-              onClick={handleReset}
-              className="bg-gray-200 text-gray-700 rounded px-3 py-1.5 text-xs font-medium hover:bg-gray-300"
-            >
-              Clear
-            </button>
-          </div>
         </FormSection>
 
         <RecordsList

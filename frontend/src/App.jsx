@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
 import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
 import LoginScreen from './components/LoginScreen'
 import Dashboard from './modules/Dashboard'
+import ReportsModule from './modules/ReportsModule'
 import MainMenu from './modules/MainMenu'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
@@ -16,6 +17,7 @@ import { ModuleThemeProvider } from './components/ModuleTheme'
 import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS } from './utils/constants'
+import { authTransition } from './utils/authTransition'
 
 const TITLES = {}
 
@@ -27,30 +29,37 @@ function headerBreadcrumb(topKey, subKey) {
   return sub ? [{ label: top.label }, { label: sub.label }] : [{ label: top.label }]
 }
 
-function firstSubKey(topKey) {
-  // Masters opens its module selector first; other modules keep their default.
-  if (topKey === 'masters') return null
-  return NAV_ITEMS.find((n) => n.key === topKey)?.subItems?.[0]?.key ?? null
-}
 
 function App() {
   const [session, setSession] = useState(undefined) // undefined = still checking, null = signed out
   const [role, setRole] = useState(undefined) // undefined = still resolving, null = no row found
   const [activeKey, setActiveKey] = useState('dashboard')
   const [activeSubKey, setActiveSubKey] = useState(null)
+  // Tab to pre-select inside a combined screen (Stores RM / FG), set by a
+  // landing tile; null when a screen is opened from the sidebar.
+  const [activeMode, setActiveMode] = useState(null)
   const [showMainMenu, setShowMainMenu] = useState(true)
 
+  // Id of the signed-in user the current screen belongs to; see authTransition.
+  const userIdRef = useRef(null)
+  const userId = session?.user?.id ?? null
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setShowMainMenu(true)
-      setSession(session)
-    })
+    function applySession(next) {
+      const { userId: nextUserId, goToMainMenu } = authTransition(userIdRef.current, next)
+      userIdRef.current = nextUserId
+      if (goToMainMenu) setShowMainMenu(true)
+      // Same user: the refreshed session is stored silently -- userId is
+      // unchanged, so the role lookup below doesn't re-run.
+      setSession(next)
+    }
+    supabase.auth.getSession().then(({ data }) => applySession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => applySession(next))
     return () => sub.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       setRole(session === null ? null : undefined)
       return
     }
@@ -60,8 +69,8 @@ function App() {
       // Every account defaults to 'operator' on first login; someone with
       // Supabase table-editor access promotes specific accounts to
       // supervisor/admin afterward.
-      let appUser = await getMyAppUser(session.user.id)
-      if (!appUser) appUser = await createAppUser(session.user.id, 'operator')
+      let appUser = await getMyAppUser(userId)
+      if (!appUser) appUser = await createAppUser(userId, 'operator')
       if (!cancelled) setRole(appUser.role)
     }
     resolveRole().catch((e) => {
@@ -71,22 +80,26 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [session])
+    // Keyed on the user id, not the session object: token refreshes swap the
+    // session but must not re-run this. `session` is read only for the
+    // still-checking (undefined) vs signed-out (null) distinction.
+  }, [userId])
 
-  // Used by the Sidebar for leaf top-level items (Dashboard, Quality) and by
-  // Dashboard's own shortcut buttons, which only know the top-level key --
-  // default to that module's first sub-item so there's always something to
-  // show.
+  // A module click (sidebar, Main Menu, Dashboard shortcuts) opens that
+  // module's landing tiles -- no screen selected. Quality has no sub-screens
+  // and opens directly; Reports & Dashboard opens the Dashboard.
   function handleSelect(key) {
     setShowMainMenu(false)
     setActiveKey(key)
-    setActiveSubKey(firstSubKey(key))
+    setActiveSubKey(null)
+    setActiveMode(null)
   }
 
-  function handleSelectSub(topKey, subKey) {
+  function handleSelectSub(topKey, subKey, mode = null) {
     setShowMainMenu(false)
     setActiveKey(topKey)
     setActiveSubKey(subKey)
+    setActiveMode(mode)
   }
 
   function handleHome() {
@@ -113,17 +126,23 @@ function App() {
 
   let content
   let themeKey = activeKey
-  if (activeKey === 'dashboard') content = <Dashboard onNavigate={handleSelect} />
+  if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} onNavigate={handleSelect} />
   else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
   else if (activeKey === 'masters') {
     content = <Dashboard />
     themeKey = 'dashboard'
-  } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} />
-  else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} />
+  } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
+  else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('production', subKey)} />
   else if (activeKey === 'quality') content = <QualityModule />
-  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} />
-  else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} />
-  else if (activeKey === 'stores') content = <StoresModule activeTab={activeSubKey} />
+  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
+  else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
+  else if (activeKey === 'stores') content = (
+      <StoresModule
+        activeTab={activeSubKey}
+        activeMode={activeMode}
+        onSelect={(subKey, mode) => handleSelectSub('stores', subKey, mode)}
+      />
+    )
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (

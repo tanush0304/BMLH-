@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ActionToolbar from './ActionToolbar'
-import FormSection from './FormSection'
+import FormSection, { TextInput, SelectInput, AutoFillBox } from './FormSection'
 import RecordsList, { sortRows } from './RecordsList'
 import PageHeader, { PageHeaderBandProvider } from './PageHeader'
 
@@ -24,6 +24,18 @@ describe('ActionToolbar', () => {
   it('shows Print disabled on screens that turn export off', () => {
     const html = render(createElement(ActionToolbar, { showExport: false }))
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*title="Print is not available on this screen yet"/)
+  })
+
+  it('stock-ledger mode hides Edit and Delete and keeps New/Save/Clear/Print', () => {
+    const html = render(createElement(ActionToolbar, { showEditDelete: false, saveLabel: 'Receive Into WIP' }))
+    ;['New', 'Receive Into WIP', 'Clear', 'Print'].forEach((label) => expect(html).toContain(label))
+    expect(html).not.toContain('Edit')
+    expect(html).not.toContain('Delete')
+  })
+
+  it('shows Saving... and disables Save while saving', () => {
+    const html = render(createElement(ActionToolbar, { saving: true }))
+    expect(html).toMatch(/disabled=""[^>]*>.*Saving\.\.\./)
   })
 
   it('keeps the existing canSave/canEdit/canDelete gating', () => {
@@ -84,5 +96,30 @@ describe('PageHeader', () => {
     )
     expect(html).toContain('aria-current="page">WIP Issue</span>')
     expect(html).not.toContain('bg-gradient-to-r')
+  })
+})
+
+describe('Input colour coding', () => {
+  const noop = () => {}
+  it('typed fields are manual entry, also while locked in view mode', () => {
+    expect(render(createElement(TextInput, { value: 'x', onChange: noop }))).toContain('input-manual')
+    expect(render(createElement(TextInput, { value: 'x', onChange: noop, disabled: true }))).toContain('input-manual')
+  })
+
+  it('always-disabled values with no onChange, and readOnly fields, are auto-filled', () => {
+    expect(render(createElement(TextInput, { value: 'x', disabled: true }))).toContain('input-auto')
+    expect(render(createElement(TextInput, { value: 'x', readOnly: true, onChange: noop }))).toContain('input-auto')
+    expect(render(createElement(AutoFillBox, { value: '5', unit: 'Nos' }))).toContain('input-auto')
+  })
+
+  it('selects are dropdowns', () => {
+    expect(render(createElement(SelectInput, { value: '', onChange: noop, options: ['A'] }))).toContain('input-dropdown')
+  })
+
+  it('shows the legend once per form -- on section 1 only', () => {
+    const first = render(createElement(FormSection, { title: '1. Details', subtitle: 'Core' }, 'x'))
+    const second = render(createElement(FormSection, { title: '2. More' }, 'x'))
+    ;['Dropdown', 'Manual entry', 'Auto-filled'].forEach((t) => expect(first).toContain(t))
+    expect(second).not.toContain('Manual entry')
   })
 })

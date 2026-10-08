@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { FieldLegend } from './FormSection'
 import { Plus, Save, Pencil, Trash2, X, Printer, ChevronDown, FileSpreadsheet, FileText } from 'lucide-react'
 
 // Client-deck toolbar: New (green) . Save (blue) . Edit / Delete / Clear (grey)
@@ -14,6 +15,11 @@ const BTN_LIGHT = `${BTN} min-w-[120px] border border-[#A9C6EE] bg-[#E6F0FD] tex
 
 export default function ActionToolbar({
   showCrudButtons = true,
+  // false on stock-ledger screens: entries are never edited or deleted --
+  // corrections are a new entry with remarks.
+  showEditDelete = true,
+  saving = false,
+  saveLabel = 'Save',
   onNew,
   onSave,
   onEdit,
@@ -49,15 +55,19 @@ export default function ActionToolbar({
           <button type="button" className={BTN_GREEN} onClick={onNew}>
             <Plus size={16} /> New
           </button>
-          <button type="button" className={BTN_BLUE} onClick={onSave} disabled={!canSave}>
-            <Save size={16} /> Save
+          <button type="button" className={BTN_BLUE} onClick={onSave} disabled={!canSave || saving}>
+            <Save size={16} /> {saving ? 'Saving...' : saveLabel}
           </button>
-          <button type="button" className={BTN_GREY} onClick={onEdit} disabled={!canEdit}>
-            <Pencil size={16} /> Edit
-          </button>
-          <button type="button" className={BTN_GREY} onClick={onDelete} disabled={!canDelete}>
-            <Trash2 size={16} /> Delete
-          </button>
+          {showEditDelete && (
+            <>
+              <button type="button" className={BTN_GREY} onClick={onEdit} disabled={!canEdit}>
+                <Pencil size={16} /> Edit
+              </button>
+              <button type="button" className={BTN_GREY} onClick={onDelete} disabled={!canDelete}>
+                <Trash2 size={16} /> Delete
+              </button>
+            </>
+          )}
           <button type="button" className={BTN_GREY} onClick={onClear}>
             <X size={16} /> Clear
           </button>
@@ -65,47 +75,54 @@ export default function ActionToolbar({
         </>
       )}
 
-      <div className="relative ml-auto" ref={printRef}>
-        <button
-          type="button"
-          className={BTN_LIGHT}
-          aria-haspopup="menu"
-          aria-expanded={printOpen}
-          disabled={!showExport}
-          title={showExport ? undefined : 'Print is not available on this screen yet'}
-          onClick={() => setPrintOpen((v) => !v)}
-        >
-          <Printer size={16} /> Print <ChevronDown size={15} />
-        </button>
-        {showExport && printOpen && (
-          <div
-            role="menu"
-            className="absolute right-0 top-full z-30 mt-1 w-48 overflow-hidden rounded-xl border border-[#D5E3F4] bg-white shadow-lg"
+      {/* Field colour key, left of Print -- shown only when the screen has a
+          form card (see .toolbar-legend in index.css). */}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+        <span className="toolbar-legend">
+          <FieldLegend />
+        </span>
+        <div className="relative" ref={printRef}>
+          <button
+            type="button"
+            className={BTN_LIGHT}
+            aria-haspopup="menu"
+            aria-expanded={printOpen}
+            disabled={!showExport}
+            title={showExport ? undefined : 'Print is not available on this screen yet'}
+            onClick={() => setPrintOpen((v) => !v)}
           >
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-green-50"
-              onClick={() => {
-                setPrintOpen(false)
-                onExportExcel?.()
-              }}
+            <Printer size={16} /> Print <ChevronDown size={15} />
+          </button>
+          {showExport && printOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-30 mt-1 w-48 overflow-hidden rounded-xl border border-[#D5E3F4] bg-white shadow-lg"
             >
-              <FileSpreadsheet size={16} className="text-green-700" /> Excel
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-red-50"
-              onClick={() => {
-                setPrintOpen(false)
-                onExportPdf?.()
-              }}
-            >
-              <FileText size={16} className="text-red-600" /> PDF
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-green-50"
+                onClick={() => {
+                  setPrintOpen(false)
+                  onExportExcel?.()
+                }}
+              >
+                <FileSpreadsheet size={16} className="text-green-700" /> Excel
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-red-50"
+                onClick={() => {
+                  setPrintOpen(false)
+                  onExportPdf?.()
+                }}
+              >
+                <FileText size={16} className="text-red-600" /> PDF
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

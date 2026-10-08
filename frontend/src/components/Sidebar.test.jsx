@@ -57,8 +57,13 @@ describe('contextual sidebar navigation', () => {
     const html = renderSidebar('customer-order', 'enquiry')
     expect(html).toContain('Enquiries')
     expect(html).toContain('Orders')
-    expect(html).toContain('PO Summary')
+    expect(html).not.toContain('PO Summary') // moved to Reports & Dashboard
     expect(html).not.toContain('Product Master')
+  })
+
+  it('lists the moved reports under Reports & Dashboard', () => {
+    const html = renderSidebar('dashboard', 'schedule')
+    ;['PO Summary', 'Production Schedule', 'Order Traceability'].forEach((label) => expect(html).toContain(label))
   })
 
   it('keeps the Masters group collapsed on the landing page and auto-expands it inside a Master', () => {
@@ -72,7 +77,7 @@ describe('contextual sidebar navigation', () => {
     // Other modules stay visible, but only the active module's group expands.
     expect(inside).toContain('Open Production')
     expect(inside).toContain('Open Stores')
-    expect(inside).not.toContain('Machine Entry')
+    expect(inside).not.toContain('Production Data Entry')
     expect(inside.match(/aria-expanded="true"/g)).toHaveLength(1)
   })
 
@@ -90,7 +95,7 @@ describe('contextual sidebar navigation', () => {
     )
     expect(html).toContain('Supervisor or admin access required')
     expect(html).not.toContain('Product Master')
-    expect(html).toContain('Machine Entry')
+    expect(html).toContain('Production Data Entry')
   })
 
   it('keeps the navigation scrollable when contextual content exceeds its height', () => {

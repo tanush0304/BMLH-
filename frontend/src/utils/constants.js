@@ -31,10 +31,8 @@ export const NAV_ITEMS = [
     key: 'production',
     label: 'Production',
     subItems: [
-      { key: 'machine-entry', label: 'Machine Entry' },
+      { key: 'machine-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
-      { key: 'schedule', label: 'Production Schedule' },
-      { key: 'traceability', label: 'Order Traceability' },
       { key: 'planning', label: 'Production Planning' },
     ],
   },
@@ -45,7 +43,6 @@ export const NAV_ITEMS = [
     subItems: [
       { key: 'enquiry', label: 'Enquiries' },
       { key: 'order', label: 'Orders' },
-      { key: 'po-summary', label: 'PO Summary' },
     ],
   },
   {
@@ -75,7 +72,40 @@ export const NAV_ITEMS = [
       { key: 'rm-requisition', label: 'Raw Material Requisition' },
     ],
   },
-  { key: 'dashboard', label: 'Reports & Dashboard' },
+  {
+    key: 'dashboard',
+    label: 'Reports & Dashboard',
+    // The module itself opens the Dashboard; these reports moved here from
+    // Customer Orders (PO Summary) and Production (Schedule, Traceability).
+    subItems: [
+      { key: 'po-summary', label: 'PO Summary' },
+      { key: 'schedule', label: 'Production Schedule' },
+      { key: 'traceability', label: 'Order Traceability' },
+    ],
+  },
+]
+
+/** A module's display label from NAV_ITEMS. */
+export function moduleLabel(topKey) {
+  return NAV_ITEMS.find((n) => n.key === topKey)?.label ?? ''
+}
+
+/** A sub-screen's display label from NAV_ITEMS (sidebar, tiles, headers). */
+export function subItemLabel(topKey, subKey) {
+  return NAV_ITEMS.find((n) => n.key === topKey)?.subItems?.find((s) => s.key === subKey)?.label ?? ''
+}
+
+// Stores landing: RM and FG each have one combined screen with Issue/Receipt
+// (Dispatch/Receipt) tabs, so they get two tiles each that open that screen
+// with the matching tab pre-selected (`mode` = the screen's own tab key).
+export const STORES_LANDING_TILES = [
+  { key: 'rm-receipt', label: 'Raw Material Receipt', subKey: 'rm', mode: 'receipt' },
+  { key: 'rm-issue', label: 'Raw Material Issue', subKey: 'rm', mode: 'issue' },
+  { key: 'wip-receipt', label: 'WIP Receipt', subKey: 'wip-receipt' },
+  { key: 'wip-issue', label: 'WIP Issue', subKey: 'wip-issue' },
+  { key: 'fg-receipt', label: 'Finished Goods Receipt', subKey: 'fg', mode: 'production-receipt' },
+  { key: 'fg-despatch', label: 'Finished Goods Despatch', subKey: 'fg', mode: 'dispatch' },
+  { key: 'rm-requisition', label: 'Raw Material Requisition', subKey: 'rm-requisition' },
 ]
 
 export const STATUS_COLORS = {

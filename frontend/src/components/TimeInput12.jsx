@@ -38,7 +38,7 @@ export default function TimeInput12({ value, onChange, disabled }) {
   }
 
   const selectClass =
-    'px-2 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-bmlhblue disabled:bg-gray-100 disabled:text-gray-400'
+    'input-dropdown px-2 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-bmlhblue'
 
   return (
     <div className="flex items-center gap-1">

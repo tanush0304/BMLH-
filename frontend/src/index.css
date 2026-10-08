@@ -6,3 +6,35 @@ body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Input colour coding (client reference): yellow = dropdown, blue = manual
+   entry, peach = auto-filled / read-only. Peach is deliberately softer and
+   pinker than the amber warning banners and Pending pills.
+   Shared inputs (FormSection's TextInput/SelectInput/AutoFillBox,
+   TimeInput12, MultiSelectDropdown) set these classes directly; the
+   .form-card-body fallback below colours any raw input/select a screen renders
+   inside a form card's body. A locked field in view mode (disabled, but not
+   auto-filled) shows neutral, as in the reference. */
+@layer components {
+  .input-dropdown { background-color: #FFF6CC; border-color: #E5C65A; }
+  .input-manual { background-color: #EAF2FD; border-color: #A9C8EE; }
+  .input-auto,
+  .input-auto:disabled { background-color: #FDEFE6; border-color: #EFC6A8; color: #6B4426; -webkit-text-fill-color: #6B4426; opacity: 1; }
+  .input-dropdown:disabled,
+  .input-manual:disabled { background-color: #F5F7FA; border-color: #D5DEE8; color: #334155; -webkit-text-fill-color: #334155; opacity: 1; }
+
+  .form-card-body select:not([class*='input-']) { background-color: #FFF6CC; border-color: #E5C65A; }
+  .form-card-body input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([class*='input-']),
+  .form-card-body textarea:not([class*='input-']) { background-color: #EAF2FD; border-color: #A9C8EE; }
+  .form-card-body input:not([class*='input-']):read-only:not(:disabled):not([type='checkbox']):not([type='radio']) { background-color: #FDEFE6; border-color: #EFC6A8; color: #6B4426; }
+  .form-card-body input:not([class*='input-']):disabled:not([type='checkbox']):not([type='radio']),
+  .form-card-body select:not([class*='input-']):disabled,
+  .form-card-body textarea:not([class*='input-']):disabled { background-color: #F5F7FA; border-color: #D5DEE8; }
+}
+
+/* Field colour key placement: next to Print when the screen has a toolbar
+   and a form; otherwise on the first form card. One screen is on show at a
+   time, so body-level :has() is enough. */
+.toolbar-legend { display: none; }
+body:has(.form-card-body) .toolbar-legend { display: flex; }
+body:has([role='toolbar']) .card-legend { display: none; }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Boxes, RotateCcw, X, ClipboardList, Trash2, Plus, Save, PackagePlus } from 'lucide-react'
+import { Boxes, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProducts } from '../../data/queries/products'
 import { listEmployees } from '../../data/queries/employees'
@@ -13,7 +15,6 @@ import {
   listRawMaterialStockBalance,
   listRawMaterialTransactions,
   createRawMaterialTransaction,
-  deleteRawMaterialTransaction,
 } from '../../data/queries/rawMaterialStock'
 import { todayISO } from '../../utils/dates'
 import EmployeeSelect from '../../components/EmployeeSelect'
@@ -59,8 +60,8 @@ const RECEIPT_COLUMNS = [
   { key: 'current_stock', label: 'Current Stock (Nos)' },
 ]
 
-export default function RawMaterialStoreScreen() {
-  const [mode, setMode] = useState('issue') // 'issue' | 'receipt'
+export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
+  const [mode, setMode] = useState(initialMode) // 'issue' | 'receipt'
   const [rawMaterials, setRawMaterials] = useState([])
   const [products, setProducts] = useState([])
   const [employees, setEmployees] = useState([])
@@ -192,20 +193,6 @@ export default function RawMaterialStoreScreen() {
     }
   }
 
-  async function handleDeleteRow(id) {
-    if (!confirm('Delete this record? This cannot be undone.')) return
-    setSaving(true)
-    setError(null)
-    try {
-      await deleteRawMaterialTransaction(id)
-      await refresh()
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const issueRows = transactions
     .filter((t) => t.transaction_type === 'Issue')
     .map((t) => ({
@@ -236,20 +223,10 @@ export default function RawMaterialStoreScreen() {
     )
   })
 
-  const activeColumns = [
-    ...(mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS),
-    {
-      key: 'action',
-      label: 'Action',
-      render: (row) => (
-        <button onClick={() => handleDeleteRow(row.id)} title="Delete">
-          <Trash2 size={15} className="text-red-500" />
-        </button>
-      ),
-    },
-  ]
+  const activeColumns = mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS
+  const listTitle = mode === 'issue' ? 'Raw Material & Consumables Issue List' : 'Raw Material & Consumables Receipt List'
+  const exportName = mode === 'issue' ? 'rm_issue' : 'rm_receipt'
 
-  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-40'
   const handleSave = mode === 'issue' ? handleSaveIssue : handleSaveReceipt
 
   return (
@@ -282,31 +259,16 @@ export default function RawMaterialStoreScreen() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">
-        <button className={`${btn} bg-green-600 text-white hover:bg-green-700`} onClick={handleReset}>
-          <Plus size={16} /> New
-        </button>
-        <button
-          className={`${btn} bg-bmlhblue text-white hover:bg-[#163d70]`}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save size={16} /> {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <RotateCcw size={16} /> Reset
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <X size={16} /> Cancel
-        </button>
-        <div className="w-px self-stretch bg-gray-200 mx-1" />
-        <button
-          className={`${btn} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`}
-          onClick={() => setSearch('')}
-        >
-          <ClipboardList size={16} /> View History
-        </button>
-      </div>
+      {/* Stock ledger: no Edit / Delete -- corrections are a new entry with remarks. */}
+      <ActionToolbar
+        showEditDelete={false}
+        onNew={handleReset}
+        onSave={handleSave}
+        onClear={handleReset}
+        saving={saving}
+        onExportExcel={() => exportToCsv(activeColumns, filteredRows, `${exportName}.csv`)}
+        onExportPdf={() => exportToPdf(activeColumns, filteredRows, listTitle, exportName)}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -437,7 +399,7 @@ export default function RawMaterialStoreScreen() {
         )}
 
         <RecordsList
-          title={mode === 'issue' ? 'Raw Material & Consumables Issue List' : 'Raw Material & Consumables Receipt List'}
+          title={listTitle}
           columns={activeColumns}
           rows={filteredRows}
           loading={loading}

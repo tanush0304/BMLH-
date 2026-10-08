@@ -3,6 +3,8 @@ import { PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, TextInput } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { listPrdsWithRouteCard } from '../../data/queries/qualityLogs'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { listEmployees } from '../../data/queries/employees'
@@ -11,6 +13,14 @@ import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipReceipt, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
 import { parsePositiveWipQuantity, validateWipReceiptStage } from '../../utils/wipValidation'
 import EmployeeSelect from '../../components/EmployeeSelect'
+
+const HISTORY_COLUMNS = [
+  { key: 'transaction_type', label: 'Type' },
+  { key: 'nature_of_operation_stage_id', label: 'From Stage ID' },
+  { key: 'target_stage_id', label: 'To Stage ID' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'transaction_date', label: 'Date' },
+]
 
 const EMPTY_FORM = { prd_no: '', stage_id: '', qty: '', employee_id: '', shift_code: '', remarks: '' }
 
@@ -144,6 +154,20 @@ export default function WipReceiptScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="WIP Receipt" subtitle="Log Completed Output Into Work-In-Progress Holding" />
+      {/* Stock ledger: no Edit / Delete -- corrections are a new entry with remarks.
+          New / Clear reuse the PRD change path with no PRD, which resets the
+          form and its stale-fetch guard (Employee and Shift are kept). */}
+      <ActionToolbar
+        showEditDelete={false}
+        onNew={() => handlePrdChange({ target: { value: '' } })}
+        onSave={handleSave}
+        onClear={() => handlePrdChange({ target: { value: '' } })}
+        saving={saving}
+        saveLabel="Receive Into WIP"
+        showExport={Boolean(form.prd_no)}
+        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, transactions, `wip_receipts_${form.prd_no}.csv`)}
+        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, transactions, `WIP Transaction History -- ${form.prd_no}`, `wip_receipts_${form.prd_no}`)}
+      />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
@@ -177,15 +201,6 @@ export default function WipReceiptScreen() {
           <Field label="Remarks">
             <TextInput value={form.remarks} onChange={handleField('remarks')} />
           </Field>
-          <div className="flex items-end">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
-            >
-              {saving ? 'Saving...' : 'Receive Into WIP'}
-            </button>
-          </div>
         </FormSection>
 
         {form.prd_no && (
@@ -203,13 +218,7 @@ export default function WipReceiptScreen() {
         {form.prd_no && (
           <RecordsList
             title={`WIP Transaction History -- ${form.prd_no}`}
-            columns={[
-              { key: 'transaction_type', label: 'Type' },
-              { key: 'nature_of_operation_stage_id', label: 'From Stage ID' },
-              { key: 'target_stage_id', label: 'To Stage ID' },
-              { key: 'qty', label: 'Qty' },
-              { key: 'transaction_date', label: 'Date' },
-            ]}
+            columns={HISTORY_COLUMNS}
             rows={transactions}
             rowKey="id"
           />

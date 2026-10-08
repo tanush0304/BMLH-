@@ -60,7 +60,7 @@ export default function MultiSelectDropdown({ options, selected, onChange, onAdd
         type="button"
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
-        className="w-full flex items-center justify-between gap-1 border border-gray-300 rounded px-2.5 py-1.5 text-xs bg-white text-left disabled:bg-gray-100"
+        className="input-dropdown w-full flex items-center justify-between gap-1 border rounded px-2.5 py-1.5 text-xs text-left"
       >
         <span className="truncate text-gray-700">{summary}</span>
         <ChevronDown size={12} className="shrink-0 text-gray-400" />
