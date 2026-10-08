@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ClipboardPlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -76,18 +77,11 @@ export default function RawMaterialRequisitionScreen() {
 
   async function handlePrdChange(e) {
     const prd = e.target.value
-    // Changing the order still clears the order-dependent raw material
-    // pick/qty (the previous PRD's BOM no longer applies), but Part Name /
-    // Part Serial Number / Part Drawing Number are preserved across the
-    // reset if the user had already typed into them -- they're pre-filled
-    // below only where still blank, never overwritten.
-    setForm((f) => ({
-      ...EMPTY_FORM,
-      prd_no: prd,
-      part_name: f.part_name,
-      part_serial_number: f.part_serial_number,
-      part_drawing_reference_number: f.part_drawing_reference_number,
-    }))
+    // Changing the order clears everything order-dependent: the raw
+    // material pick/qty (the previous PRD's BOM no longer applies) and the
+    // part details, which are read-only and always taken from the PRD's
+    // part in Product Master below.
+    setForm({ ...EMPTY_FORM, prd_no: prd })
     if (!prd) {
       setBomForProduct([])
       return
@@ -103,14 +97,12 @@ export default function RawMaterialRequisitionScreen() {
       setError(e.message)
     }
     const product = products.find((p) => p.part_serial_number === order.part_serial_number)
-    if (product) {
-      setForm((f) => ({
-        ...f,
-        part_name: f.part_name || product.part_name || '',
-        part_serial_number: f.part_serial_number || product.part_serial_number || '',
-        part_drawing_reference_number: f.part_drawing_reference_number || product.part_drawing_reference_number || '',
-      }))
-    }
+    setForm((f) => ({
+      ...f,
+      part_name: product?.part_name ?? '',
+      part_serial_number: order.part_serial_number,
+      part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
+    }))
   }
 
   function handleMaterialChange(e) {
@@ -201,13 +193,13 @@ export default function RawMaterialRequisitionScreen() {
             <AutoFillBox value="(auto-generated on save)" />
           </Field>
           <Field label="Production Order (PRD No)" required>
-            <SelectInput value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+            <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
           <Field label="Raw Material" required>
             {/* Filtered to this order's own product BOM, not every raw material
                 in the master -- a requisition only makes sense for a material
                 the product actually consumes. */}
-            <SelectInput
+            <SearchableSelect
               value={form.raw_material_code}
               onChange={handleMaterialChange}
               disabled={!form.prd_no}
@@ -229,13 +221,13 @@ export default function RawMaterialRequisitionScreen() {
             <TextInput type="number" value={form.qty_required} onChange={handleField('qty_required')} />
           </Field>
           <Field label="Part Name">
-            <TextInput value={form.part_name} onChange={handleField('part_name')} />
+            <AutoFillBox value={form.part_name} />
           </Field>
           <Field label="Part Serial Number">
-            <TextInput value={form.part_serial_number} onChange={handleField('part_serial_number')} />
+            <AutoFillBox value={form.part_serial_number} />
           </Field>
           <Field label="Part Drawing Reference Number">
-            <TextInput value={form.part_drawing_reference_number} onChange={handleField('part_drawing_reference_number')} />
+            <AutoFillBox value={form.part_drawing_reference_number} />
           </Field>
           <Field label="Requested By">
             <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />

@@ -10,7 +10,7 @@ import {
 } from '../../data/queries/maintenancePlan'
 import { formatLocalISODate, mondayOf } from '../../utils/dates'
 
-const WEEK_COUNT = 12
+const WEEK_COUNT = 14
 
 // Every week-start date this grid computes/displays/saves is a MONDAY --
 // the "maintenance plan status" view spans planned_week_start_date through

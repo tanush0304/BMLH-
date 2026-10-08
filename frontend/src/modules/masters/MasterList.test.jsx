@@ -24,7 +24,7 @@ const EXPECTED_LABELS = [
 ]
 
 describe('Masters landing entries', () => {
-  it('keeps the client tile order and maps every card to a screen and tile image', () => {
+  it('keeps the client tile order and maps every card to a screen, icon and description', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.label)).toEqual(EXPECTED_LABELS)
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
       NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)
@@ -32,8 +32,8 @@ describe('Masters landing entries', () => {
     expect(MASTER_ENTRIES).toHaveLength(16)
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
-    expect(MASTER_ENTRIES.every((entry) => Boolean(entry.tile))).toBe(true)
-    expect(new Set(MASTER_ENTRIES.map((entry) => entry.tile)).size).toBe(16)
+    expect(MASTER_ENTRIES.every((entry) => entry.description?.startsWith('Manage '))).toBe(true)
+    expect(MASTER_ENTRIES.every((entry) => /^#[0-9A-F]{6}$/.test(entry.color) && /^#[0-9A-F]{6}$/.test(entry.bg))).toBe(true)
   })
 
   it('shows all 16 cards when Masters has no selected submenu', () => {
@@ -41,6 +41,13 @@ describe('Masters landing entries', () => {
     expect(html).toContain('Select a master module to view or manage its records.')
     expect(html.match(/aria-label="Open /g)).toHaveLength(16)
     EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
+  })
+
+  it('renders PPT-style cards: description text, no tile pictures', () => {
+    const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
+    expect(html).not.toMatch(/\.webp/)
+    expect(html).toContain('Manage employee details, roles and skills')
+    expect(html).toContain('Manage operation sequences and routing details')
   })
 
   it('resolves each submenu key to its registered screen', () => {

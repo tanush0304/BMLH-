@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { PackageCheck, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -27,7 +29,6 @@ const EMPTY_DISPATCH_FORM = {
   transaction_date: todayISO(),
   prd_no: '',
   qty: '',
-  eway_bill_no: '',
 }
 
 const EMPTY_RECEIPT_FORM = {
@@ -130,6 +131,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
   const selectedDispatchOrder = orders.find((o) => o.prd_no === dispatchForm.prd_no)
   const selectedDispatchStatus = orderStatus.find((s) => s.prd_no === dispatchForm.prd_no)
   const selectedReceiptOrder = orders.find((o) => o.prd_no === receiptForm.prd_no)
+  const receiptPart = usePartForPrd(receiptForm.prd_no)
 
   const qtyInStockForPrd = (prdNo) =>
     balances.find((b) => b.prd_no === prdNo)?.current_stock ?? 0
@@ -174,7 +176,6 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
         employee_id: f.employee_id,
         shift_code: f.shift_code,
         user_id: currentUserId,
-        eway_bill_no: f.eway_bill_no || null,
       })
       handleReset()
       await refresh()
@@ -353,7 +354,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             </Field>
 
             <Field label="Production Order number" required>
-              <SelectInput
+              <SearchableSelect
                 value={dispatchForm.prd_no}
                 onChange={handleDispatchField('prd_no')}
                 options={orders.map((o) => o.prd_no)}
@@ -374,10 +375,6 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
                   <span className="text-sm text-gray-400">—</span>
                 )}
               </div>
-            </Field>
-
-            <Field label="E-way Bill / ESUGAM No.">
-              <TextInput value={dispatchForm.eway_bill_no} onChange={handleDispatchField('eway_bill_no')} />
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
@@ -424,11 +421,21 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             </Field>
 
             <Field label="Production Order number" required>
-              <SelectInput
+              <SearchableSelect
                 value={receiptForm.prd_no}
                 onChange={handleReceiptField('prd_no')}
                 options={orders.map((o) => o.prd_no)}
               />
+            </Field>
+            <Field label="Part Name">
+              <AutoFillBox value={receiptPart.part_name} />
+            </Field>
+
+            <Field label="Order Quantity">
+              <AutoFillBox value={selectedReceiptOrder?.order_qty} unit="Nos" />
+            </Field>
+            <Field label="Quantity in Stock">
+              <AutoFillBox value={receiptForm.prd_no ? qtyInStockForPrd(receiptForm.prd_no) : ''} unit="Nos" />
             </Field>
           </FormSection>
         )}

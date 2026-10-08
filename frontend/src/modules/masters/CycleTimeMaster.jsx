@@ -4,6 +4,8 @@ import { Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import {
   listCycleTimes,
@@ -214,11 +216,11 @@ export default function CycleTimeMaster() {
 
         <FormSection icon={Route} title="1. Route Step Details" subtitle="One operation in a route" columns={3}>
           <Field label="Part Serial Number" required>
-            <SelectInput
+            <SearchableSelect
               value={form.part_serial_number}
               onChange={handleField('part_serial_number')}
               disabled={readOnly}
-              options={products.map((p) => p.part_serial_number)}
+              options={productOptions(products)}
             />
           </Field>
           <Field label="Part Name">
@@ -243,7 +245,7 @@ export default function CycleTimeMaster() {
           </Field>
           {form.type === 'Internal' && (
             <Field label="Machine" required>
-              <SelectInput
+              <SearchableSelect
                 value={form.machine_id}
                 onChange={handleField('machine_id')}
                 disabled={readOnly}
@@ -253,7 +255,7 @@ export default function CycleTimeMaster() {
           )}
           {form.type === 'Outsourced' && (
             <Field label="Job Work Type" required>
-              <SelectInput
+              <SearchableSelect
                 value={form.job_work_code}
                 onChange={handleField('job_work_code')}
                 disabled={readOnly}

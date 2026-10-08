@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { Boxes, Ruler, Trash2, Plus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 import RecordsList from '../../components/RecordsList'
 import {
   listRawMaterials,
@@ -50,7 +52,7 @@ const LIST_COLUMNS = [
   { key: 'raw_material_code', label: 'RM Code' },
   { key: 'raw_material_name', label: 'RM Name' },
   { key: 'raw_material_category', label: 'Category' },
-  { key: 'rm_type', label: 'Type' },
+  { key: 'rm_type', label: 'Raw Material Type' },
   { key: 'unit_of_measurement', label: 'UoM' },
 ]
 
@@ -326,19 +328,19 @@ export default function RawMaterialMaster() {
               />
             </Field>
             <Field label="Category">
-              <SelectInput
-                value={form.raw_material_category}
+              <SelectWithAddNew
+                value={form.raw_material_category ?? ''}
                 onChange={handleField('raw_material_category')}
                 disabled={readOnly}
-                options={['Steel', 'Aluminium', 'Alloy', 'Consumables']}
+                options={mergeOptions(['Steel', 'Aluminium', 'Alloy', 'Consumables'], records.map((r) => r.raw_material_category))}
               />
             </Field>
-            <Field label="Type">
-              <SelectInput
-                value={form.rm_type}
+            <Field label="Raw Material Type">
+              <SelectWithAddNew
+                value={form.rm_type ?? ''}
                 onChange={handleField('rm_type')}
                 disabled={readOnly}
-                options={['Bar', 'Sheet', 'Plate', 'Casting', 'Forging', 'Consumable']}
+                options={mergeOptions(['Bar', 'Sheet', 'Plate', 'Casting', 'Forging', 'Consumable'], records.map((r) => r.rm_type))}
               />
             </Field>
           </FormSection>
@@ -431,7 +433,7 @@ export default function RawMaterialMaster() {
               {!readOnly && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 p-4 border-t border-gray-200 bg-gray-50 items-end">
                   <Field label="Supplier" className="lg:col-span-1">
-                    <SelectInput
+                    <SearchableSelect
                       value={linkRow.supplier_id}
                       onChange={handleLinkField('supplier_id')}
                       options={suppliers.map((s) => ({ value: s.supplier_id, label: `${s.supplier_name} (${s.supplier_id})` }))}

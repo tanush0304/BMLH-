@@ -4,6 +4,7 @@ import { Package, Boxes, Plus, X } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -241,7 +242,7 @@ export default function ProductMaster() {
                 {bomRows.map((row, i) => (
                   <div key={i} className="flex flex-wrap items-end gap-3">
                     <Field label="Raw Material" width="medium">
-                      <SelectInput
+                      <SearchableSelect
                         value={row.raw_material_code}
                         onChange={handleBomField(i, 'raw_material_code')}
                         disabled={readOnly}

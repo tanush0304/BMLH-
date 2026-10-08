@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Truck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
@@ -36,6 +38,7 @@ export default function JobOrderDispatchScreen() {
   const [error, setError] = useState(null)
 
   const [prdNo, setPrdNo] = useState('')
+  const part = usePartForPrd(prdNo)
   const [eligibleStages, setEligibleStages] = useState([])
   const [stageId, setStageId] = useState('')
   const [vendorOptions, setVendorOptions] = useState([])
@@ -179,10 +182,16 @@ export default function JobOrderDispatchScreen() {
 
         <FormSection icon={Truck} title="1. Dispatch Details" subtitle="Batch sent out to a vendor" columns={3}>
           <Field label="Production Order (PRD No)" required>
-            <SelectInput value={prdNo} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+            <SearchableSelect value={prdNo} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+          </Field>
+          <Field label="Part Serial Number">
+            <AutoFillBox value={part.part_serial_number} />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={part.part_name} />
           </Field>
           <Field label="Outsourced Stage" required>
-            <SelectInput
+            <SearchableSelect
               value={stageId}
               onChange={handleStageChange}
               disabled={!prdNo || eligibleStages.length === 0}
@@ -192,8 +201,13 @@ export default function JobOrderDispatchScreen() {
           <Field label="Job Work Type">
             <TextInput value={selectedStage?.job_work_code ?? ''} disabled />
           </Field>
+          <Field label="Lead Time (days)">
+            <AutoFillBox
+              value={jobWorkTypes.find((j) => j.job_work_code === selectedStage?.job_work_code)?.lead_time_days ?? ''}
+            />
+          </Field>
           <Field label="Vendor" required>
-            <SelectInput
+            <SearchableSelect
               value={form.vendor_id}
               onChange={handleField('vendor_id')}
               disabled={vendorOptions.length === 0}

@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { Layers } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import {
   listProductionBatches,
@@ -166,11 +168,11 @@ export default function ProductionBatchMaster() {
 
         <FormSection icon={Layers} title="1. Batch Details" subtitle="Standard qty per product" columns={2}>
           <Field label="Part Serial Number" required>
-            <SelectInput
+            <SearchableSelect
               value={form.part_serial_number}
               onChange={handleField('part_serial_number')}
               disabled={readOnly || pkLocked}
-              options={products.map((p) => p.part_serial_number)}
+              options={productOptions(products)}
             />
           </Field>
           <Field label="Part Name">

@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import {
   listQualityParameters,
@@ -220,14 +222,14 @@ export default function QualityMaster() {
         )}
         <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Route-specific inspection criteria" columns={3}>
           <Field label="Part Serial Number" required>
-            <SelectInput value={form.part_serial_number} onChange={handlePartChange} disabled={readOnly} options={products.map((product) => product.part_serial_number)} />
+            <SearchableSelect value={form.part_serial_number} onChange={handlePartChange} disabled={readOnly} options={productOptions(products)} />
           </Field>
           <Field label="Part Name"><AutoFillBox value={selectedProduct?.part_name} /></Field>
           <Field label="Machine" required>
-            <SelectInput value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
+            <SearchableSelect value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
           </Field>
           <Field label="Type of Operation" required>
-            <SelectInput value={form.type_of_operation} onChange={handleField('type_of_operation')} disabled={readOnly || operations.length === 0} options={operations} />
+            <SearchableSelect value={form.type_of_operation} onChange={handleField('type_of_operation')} disabled={readOnly || operations.length === 0} options={operations} />
           </Field>
           <Field label="Quality Parameter" required>
             <TextInput list="quality-parameter-suggestions" value={form.quality_parameter} onChange={handleField('quality_parameter')} disabled={readOnly} />

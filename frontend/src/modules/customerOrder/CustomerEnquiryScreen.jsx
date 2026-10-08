@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { FileText, GitBranch } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import {
   listCustomerEnquiries,
@@ -291,7 +293,7 @@ export default function CustomerEnquiryScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Customer Enquiries" subtitle="Quotation Stage  |  Enquiry to Quote" />
+      <PageHeader title="New Enquiry" subtitle="Quotation Stage  |  Enquiry to Quote" />
       <ActionToolbar
         onNew={handleNew}
         onSave={handleSave}
@@ -335,7 +337,7 @@ export default function CustomerEnquiryScreen() {
             </div>
           )}
           <Field label="Customer" required>
-            <SelectInput
+            <SearchableSelect
               value={form.customer_id}
               onChange={handleField('customer_id')}
               disabled={readOnly || isRevision}
@@ -354,12 +356,12 @@ export default function CustomerEnquiryScreen() {
                 placeholder="Type new part number"
               />
             ) : (
-              <SelectInput
+              <SearchableSelect
                 value={form.part_serial_number}
                 onChange={handlePartChange}
                 disabled={partLocked}
                 options={[
-                  ...products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number })),
+                  ...productOptions(products),
                   { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                 ]}
               />

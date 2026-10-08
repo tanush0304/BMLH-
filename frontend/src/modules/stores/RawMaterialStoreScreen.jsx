@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Boxes, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -314,7 +316,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
             </Field>
 
             <Field label="Raw material / Consumable name" required>
-              <SelectInput
+              <SearchableSelect
                 value={issueForm.raw_material_code}
                 onChange={handleIssueField('raw_material_code')}
                 options={rawMaterials.map((r) => ({
@@ -328,10 +330,10 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
             </Field>
 
             <Field label="Part Serial Number">
-              <SelectInput
+              <SearchableSelect
                 value={issueForm.part_serial_number}
                 onChange={handleIssueField('part_serial_number')}
-                options={products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number }))}
+                options={productOptions(products)}
               />
             </Field>
 
@@ -355,7 +357,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
               <AutoFillBox value={employeeName(receiptForm.employee_id)} />
             </Field>
             <Field label="Supplier">
-              <SelectInput
+              <SearchableSelect
                 value={receiptForm.supplier_id}
                 onChange={handleReceiptField('supplier_id')}
                 options={suppliers.map((s) => ({ value: s.supplier_id, label: s.supplier_name || s.supplier_id }))}
@@ -383,7 +385,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
             </Field>
 
             <Field label="Raw material / Consumable name" required>
-              <SelectInput
+              <SearchableSelect
                 value={receiptForm.raw_material_code}
                 onChange={handleReceiptField('raw_material_code')}
                 options={rawMaterials.map((r) => ({

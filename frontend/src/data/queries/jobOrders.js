@@ -90,7 +90,8 @@ export async function listDispatchesWithoutReceipt() {
  * 'Received' (actual_date = receipt date) and closes the dispatch
  * (is_open = false). All three happen in ONE database transaction inside
  * create_job_order_receipt (migration 019) -- either everything is saved or
- * nothing is. A second receipt for the same DC still fails on the receipt
+ * nothing is. Since migration 021 it also generates the JR-NNN receipt_no
+ * and returns it on the row. A second receipt for the same DC still fails on the receipt
  * table's unique (dc_no).
  */
 export async function createReceipt(payload) {
@@ -99,6 +100,14 @@ export async function createReceipt(payload) {
     p_qty_received: payload.qty_received,
     p_receipt_date: payload.receipt_date || null,
   })
+  if (error) throw error
+  return data
+}
+
+/** dc_no -> receipt_no, merged into the Job Order Status list (the view
+ * itself doesn't carry receipt_no). dc_no is unique on the receipt table. */
+export async function listReceiptNumbers() {
+  const { data, error } = await supabase.from('job order receipt').select('dc_no, receipt_no')
   if (error) throw error
   return data
 }

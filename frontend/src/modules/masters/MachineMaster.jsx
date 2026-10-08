@@ -16,6 +16,12 @@ const EMPTY_FORM = {
   manufacturer_name: '',
   category: '',
   model: '',
+  chuck_dia: '',
+  x_axis: '',
+  y_axis: '',
+  fifth_axis: '',
+  dia: '',
+  remarks: '',
 }
 
 const LIST_COLUMNS = [
@@ -163,8 +169,15 @@ export default function MachineMaster() {
               <SelectInput value={form.category} onChange={handleField('category')} disabled={readOnly} options={['Cutting', 'CNC Turning', 'VMC', 'Grinding']} />
             </Field>
           </FormSection>
-          <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model">
+          <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model and specification" columns={3}>
             <Field label="Model"><TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} /></Field>
+            {/* Free text, as in the client's Machine Master sheet ("No Specification", "> 250 x 500"). */}
+            <Field label="Chuck Dia"><TextInput value={form.chuck_dia ?? ''} onChange={handleField('chuck_dia')} disabled={readOnly} /></Field>
+            <Field label="X Axis"><TextInput value={form.x_axis ?? ''} onChange={handleField('x_axis')} disabled={readOnly} /></Field>
+            <Field label="Y Axis"><TextInput value={form.y_axis ?? ''} onChange={handleField('y_axis')} disabled={readOnly} /></Field>
+            <Field label="5th Axis"><TextInput value={form.fifth_axis ?? ''} onChange={handleField('fifth_axis')} disabled={readOnly} /></Field>
+            <Field label="Dia"><TextInput value={form.dia ?? ''} onChange={handleField('dia')} disabled={readOnly} /></Field>
+            <Field label="Remarks" width="long"><TextInput value={form.remarks ?? ''} onChange={handleField('remarks')} disabled={readOnly} /></Field>
           </FormSection>
           <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
             <Field label="Operations Performed" width="long">

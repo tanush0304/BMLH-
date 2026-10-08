@@ -4,6 +4,7 @@ import { CalendarClock, Wrench } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import {
   listMaintenanceChecklist,
@@ -16,7 +17,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
-const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', remarks: '' }
+const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', status: 'Active', remarks: '' }
 const FREQUENCIES = ['Daily', 'Weekly', 'Fortnightly', 'Monthly']
 
 const LIST_COLUMNS = [
@@ -31,6 +32,7 @@ const SCHEDULE_COLUMNS = [
   { key: 'maintenance_frequency', label: 'Maintenance Frequency' },
   { key: 'last_maintenance_date', label: 'Last Maintenance Date' },
   { key: 'next_maintenance_due', label: 'Next Due' },
+  { key: 'status', label: 'Status', type: 'status' },
   { key: 'remarks', label: 'Remarks' },
 ]
 
@@ -130,6 +132,7 @@ export default function MaintenanceMaster() {
       maintenance_frequency: row.maintenance_frequency ?? '',
       last_maintenance_date: row.last_maintenance_date ?? '',
       next_maintenance_due: row.next_maintenance_due ?? '',
+      status: row.status ?? '',
       remarks: row.remarks ?? '',
     })
     setScheduleError(null)
@@ -148,6 +151,7 @@ export default function MaintenanceMaster() {
         maintenance_frequency: scheduleForm.maintenance_frequency,
         last_maintenance_date: scheduleForm.last_maintenance_date,
         next_maintenance_due: addFrequency(scheduleForm.last_maintenance_date, scheduleForm.maintenance_frequency),
+        status: scheduleForm.status || null,
         remarks: scheduleForm.remarks.trim() || null,
       })
       setScheduleForm(EMPTY_SCHEDULE)
@@ -184,7 +188,7 @@ export default function MaintenanceMaster() {
 
         <FormSection icon={CalendarClock} title="1. Machine-level Maintenance Schedule" subtitle="Set the next maintenance due date" columns={3}>
           <Field label="Machine" required>
-            <SelectInput value={scheduleForm.machine_id} onChange={handleScheduleMachine} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
+            <SearchableSelect value={scheduleForm.machine_id} onChange={handleScheduleMachine} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
           </Field>
           <Field label="Manufacturer Name"><AutoFillBox value={selectedMachine?.manufacturer_name} /></Field>
           <Field label="Model"><AutoFillBox value={selectedMachine?.model} /></Field>
@@ -195,6 +199,9 @@ export default function MaintenanceMaster() {
             <TextInput type="date" value={scheduleForm.last_maintenance_date} onChange={handleScheduleField('last_maintenance_date')} />
           </Field>
           <Field label="Next Due"><AutoFillBox value={addFrequency(scheduleForm.last_maintenance_date, scheduleForm.maintenance_frequency)} /></Field>
+          <Field label="Status">
+            <SelectInput value={scheduleForm.status} onChange={handleScheduleField('status')} options={['Active', 'Inactive']} />
+          </Field>
           <Field label="Remarks" width="long"><TextInput value={scheduleForm.remarks} onChange={handleScheduleField('remarks')} /></Field>
           <button type="button" onClick={handleScheduleSave} disabled={scheduleSaving} className="self-end rounded bg-bmlhblue px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
             {scheduleSaving ? 'Saving...' : 'Save Schedule'}
@@ -204,7 +211,7 @@ export default function MaintenanceMaster() {
 
         <FormSection icon={Wrench} title="2. Checklist Item Details" subtitle="Keep reusable checklist items per machine" columns={2}>
           <Field label="Machine">
-            <SelectInput value={form.machine_id} onChange={handleField('machine_id')} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
+            <SearchableSelect value={form.machine_id} onChange={handleField('machine_id')} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
           </Field>
           <Field label="Checklist Item" required>
             <TextInput value={form.checklist_item} onChange={handleField('checklist_item')} disabled={readOnly} />

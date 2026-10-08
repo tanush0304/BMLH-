@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Search as SearchIcon } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, SelectInput } from '../../components/FormSection'
+import FormSection, { Field } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import StageTraceTable from '../../components/StageTraceTable'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 
@@ -33,7 +34,7 @@ export default function OrderTraceabilityScreen() {
 
         <FormSection icon={SearchIcon} title="1. Select Order" subtitle="Pick an order to trace" columns={2}>
           <Field label="Production Order (PRD No)">
-            <SelectInput value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
+            <SearchableSelect value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
           </Field>
         </FormSection>
 

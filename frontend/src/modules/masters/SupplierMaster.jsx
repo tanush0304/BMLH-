@@ -35,7 +35,7 @@ const SECTIONS = [
     fields: [
       { key: 'supplier_id', label: 'Supplier ID', required: true, lockOnEdit: true },
       { key: 'supplier_name', label: 'Supplier Name', required: true },
-      { key: 'supplier_address', label: 'Address', colSpan: 'sm:col-span-2' },
+      { key: 'supplier_address', label: 'Supplier Address', colSpan: 'sm:col-span-2', fullWidth: true },
     ],
   },
   {

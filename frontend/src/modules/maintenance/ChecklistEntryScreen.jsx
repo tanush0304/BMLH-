@@ -3,6 +3,7 @@ import { Wrench, ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
 import { listEmployees } from '../../data/queries/employees'
@@ -17,6 +18,9 @@ import {
   listRecentMaintenanceLogs,
 } from '../../data/queries/maintenanceLogs'
 
+// Type of Maintenance options, per the client's Maintenance Module sheet.
+const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly']
+
 export default function ChecklistEntryScreen() {
   const [machines, setMachines] = useState([])
   const [employees, setEmployees] = useState([])
@@ -29,6 +33,7 @@ export default function ChecklistEntryScreen() {
   const [employeeId, setEmployeeId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
   const [logDate, setLogDate] = useState('')
+  const [maintenanceType, setMaintenanceType] = useState('')
   const [checklistItems, setChecklistItems] = useState([])
   const [activeLog, setActiveLog] = useState(null)
   const [itemResults, setItemResults] = useState({})
@@ -89,6 +94,7 @@ export default function ChecklistEntryScreen() {
         employee_id: employeeId,
         shift_code: shiftCode,
         log_date: logDate,
+        maintenance_type: maintenanceType || null,
       })
       setActiveLog(log)
       setRecentLogs((await listRecentMaintenanceLogs()) ?? [])
@@ -137,6 +143,7 @@ export default function ChecklistEntryScreen() {
     { key: 'employee_id', label: 'Engineer', render: (r) => employeeLabelForId(r.employee_id, employees) },
     { key: 'shift_code', label: 'Shift' },
     { key: 'log_date', label: 'Date' },
+    { key: 'maintenance_type', label: 'Type' },
   ]
 
   return (
@@ -155,7 +162,7 @@ export default function ChecklistEntryScreen() {
 
         <FormSection icon={Wrench} title="1. Visit Details" subtitle="Maintenance visit and machine" columns={4}>
           <Field label="Machine" required>
-            <SelectInput value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
+            <SearchableSelect value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
           </Field>
           <Field label="Maintenance Engineer" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
@@ -165,6 +172,14 @@ export default function ChecklistEntryScreen() {
           </Field>
           <Field label="Date" required>
             <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
+          </Field>
+          <Field label="Type of Maintenance">
+            <SelectInput
+              value={maintenanceType}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+              disabled={!!activeLog}
+              options={MAINTENANCE_TYPES}
+            />
           </Field>
           <div className="flex items-end">
             <button

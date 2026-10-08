@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import StatusPill from '../../components/StatusPill'
@@ -94,6 +96,7 @@ export default function QualityModule() {
   }, [])
 
   const selectedOrder = orders.find((o) => o.prd_no === header.prd_no)
+  const part = usePartForPrd(header.prd_no)
 
   async function handlePrdChange(e) {
     const prd = e.target.value
@@ -288,20 +291,23 @@ export default function QualityModule() {
               <AutoFillBox value={new Date().toLocaleString()} />
             </Field>
             <Field label="Production Order (PRD No)" required>
-              <SelectInput value={header.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+              <SearchableSelect value={header.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
             </Field>
             <Field label="Part Serial Number">
               <AutoFillBox value={selectedOrder?.part_serial_number ?? ''} />
             </Field>
+            <Field label="Part Name">
+              <AutoFillBox value={part.part_name} />
+            </Field>
             <Field label="Machine" required>
-              <SelectInput
+              <SearchableSelect
                 value={header.machine_id}
                 onChange={handleMachineChange}
                 options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
               />
             </Field>
             <Field label="Type of Operation" required>
-              <SelectInput
+              <SearchableSelect
                 value={header.operation}
                 onChange={handleOperationChange}
                 disabled={!header.prd_no}

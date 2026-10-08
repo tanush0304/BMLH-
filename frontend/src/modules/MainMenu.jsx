@@ -23,20 +23,6 @@ const MODULES = [
     color: 'blue',
   },
   {
-    key: 'production',
-    title: 'Production',
-    description: 'Manage production orders, job route cards, operation entry and production monitoring.',
-    icon: Factory,
-    color: 'red',
-  },
-  {
-    key: 'quality',
-    title: 'Quality',
-    description: 'Handle in-process and final inspection, quality records and customer complaints.',
-    icon: ShieldCheck,
-    color: 'green',
-  },
-  {
     key: 'customer-order',
     title: 'Customer Orders',
     description: 'Manage customer enquiries, quotations, sales orders and dispatch.',
@@ -44,11 +30,25 @@ const MODULES = [
     color: 'purple',
   },
   {
+    key: 'production',
+    title: 'Production',
+    description: 'Manage production orders, job route cards, operation entry and production monitoring.',
+    icon: Factory,
+    color: 'red',
+  },
+  {
     key: 'job-order',
     title: 'Jobwork',
     description: 'Manage jobwork orders, materials sent to job workers, receipts and completion status.',
     icon: Truck,
     color: 'orange',
+  },
+  {
+    key: 'quality',
+    title: 'Quality',
+    description: 'Handle in-process and final inspection, quality records and customer complaints.',
+    icon: ShieldCheck,
+    color: 'green',
   },
   {
     key: 'maintenance',
@@ -89,40 +89,36 @@ export default function MainMenu({ userEmail, role, onNavigate, onSignOut }) {
 
   return (
     <main className="flex min-h-screen flex-col bg-[#F5F7FA] text-[#1D2B3B]">
-      <header className="flex min-h-[76px] flex-wrap items-center justify-between gap-3 border-b border-[#D9E1E8] bg-white px-4 py-2.5 shadow-sm sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+      <header className="grid min-h-[76px] grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[#D9E1E8] bg-white px-4 py-2.5 shadow-sm sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center">
           <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="w-[145px] shrink-0 object-contain sm:w-[180px]" />
-          <div className="hidden h-10 w-px bg-[#D3DCE5] sm:block" />
-          <h1 className="text-base font-semibold leading-tight text-[#173A63] sm:text-xl">Data Management System</h1>
         </div>
-        <div className="flex items-center gap-3 sm:gap-5">
+        <h1 className="text-center text-lg font-bold leading-tight text-[#173A63] sm:text-2xl lg:text-[30px]">Data Management System</h1>
+        <div className="flex items-center justify-end gap-3 sm:gap-5">
           <nav aria-label="Main navigation" className="hidden sm:block">
             <button type="button" aria-current="page" className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-[#344F69]">
               <House size={17} aria-hidden="true" /> Home
             </button>
           </nav>
-          <img src={bmlhLogo} alt="BMLH Engineering" className="hidden h-10 w-auto max-w-[132px] object-contain sm:block" />
+          <button onClick={onSignOut} className="rounded-md border border-[#CBD5E1] px-3 py-2 text-xs font-medium text-[#465D73] transition hover:border-[#176FA8] hover:text-[#176FA8] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/25 sm:text-sm">
+            Sign out
+          </button>
           <div className="hidden min-w-0 text-right md:block">
             <div className="max-w-[200px] truncate text-sm font-semibold text-[#263D54]">{userEmail}</div>
             <div className="text-xs capitalize text-[#718096]">{role}</div>
           </div>
-          <button onClick={onSignOut} className="rounded-md border border-[#CBD5E1] px-3 py-2 text-xs font-medium text-[#465D73] transition hover:border-[#176FA8] hover:text-[#176FA8] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/25 sm:text-sm">
-            Sign out
-          </button>
+          <img src={bmlhLogo} alt="BMLH Engineering" className="hidden h-10 w-auto max-w-[132px] object-contain sm:block" />
         </div>
       </header>
 
       <section
-        className="relative flex min-h-[132px] items-center overflow-hidden bg-[#0F3767] bg-cover bg-center px-5 py-5 text-white sm:min-h-[145px] sm:px-8 lg:px-12"
+        className="relative flex min-h-[132px] items-center justify-center overflow-hidden bg-[#0F3767] bg-cover bg-center px-5 py-5 text-white sm:min-h-[145px] sm:px-8 lg:px-12"
         style={{ backgroundImage: `linear-gradient(90deg, rgba(9,43,84,.76), rgba(9,43,84,.24)), url(${mainMenuHero})` }}
         aria-labelledby="main-menu-title"
       >
-        <div>
+        <div className="text-center">
           <h2 id="main-menu-title" className="text-3xl font-bold tracking-tight drop-shadow sm:text-[38px]">Main Menu</h2>
           <p className="mt-1 text-sm text-white/95 sm:text-lg">Select a module to access the system</p>
-        </div>
-        <div className="absolute bottom-4 right-5 hidden items-center gap-3 border-b-2 border-[#8FE06A] pb-2 text-sm font-medium text-white/95 sm:flex sm:right-8 lg:right-12 lg:text-base" aria-hidden="true">
-          <span>Plan</span><span className="text-white/60">|</span><span>Produce</span><span className="text-white/60">|</span><span>Deliver</span><span className="text-white/60">|</span><span>Grow</span>
         </div>
       </section>
 

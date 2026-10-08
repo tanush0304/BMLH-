@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ClipboardCheck, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import HourlySlotsEntry from '../../components/HourlySlotsEntry'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import { listEmployees } from '../../data/queries/employees'
@@ -44,6 +46,7 @@ export default function ManualOperationsScreen() {
   const [shiftCode, setShiftCode] = useState('')
 
   const [prdNo, setPrdNo] = useState('')
+  const part = usePartForPrd(prdNo)
   const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible Manual stage
   const [resolvedStage, setResolvedStage] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
@@ -280,15 +283,21 @@ export default function ManualOperationsScreen() {
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
           </Field>
           <Field label="Production Order (PRD No)" required>
-            <SelectInput
+            <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
+          <Field label="Part Serial Number">
+            <AutoFillBox value={part.part_serial_number} />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={part.part_name} />
+          </Field>
           {stageChoicesForPrd.length > 1 && (
             <Field label="Which Stage?" required>
-              <SelectInput
+              <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
                 options={stageChoicesForPrd.map((s) => ({ value: s.id, label: `Seq ${s.seq} - ${s.operation}` }))}
@@ -363,8 +372,10 @@ export default function ManualOperationsScreen() {
                 resetKey={activeLog.id}
               />
               {totals && (
-                <div className="text-sm text-gray-600 flex gap-6 pt-2 mt-2 border-t border-gray-100">
+                <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
                   <span>Total Produced: <strong>{totals.total_produced}</strong></span>
+                  <span>Total Rejected: <strong>{totals.total_rejected ?? 0}</strong></span>
+                  <span>Total Rework: <strong>{totals.total_rework ?? 0}</strong></span>
                   <span>Efficiency: <strong>{totals.efficiency_pct ?? '—'}%</strong></span>
                   <span>Reject %: <strong>{totals.reject_pct ?? '—'}%</strong></span>
                   <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>

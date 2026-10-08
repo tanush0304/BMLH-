@@ -28,6 +28,14 @@ export const NAV_ITEMS = [
     ],
   },
   {
+    key: 'customer-order',
+    label: 'Customer Orders',
+    subItems: [
+      { key: 'enquiry', label: 'New Enquiry' },
+      { key: 'order', label: 'New Order' },
+    ],
+  },
+  {
     key: 'production',
     label: 'Production',
     subItems: [
@@ -35,15 +43,6 @@ export const NAV_ITEMS = [
       { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'planning', label: 'Production Planning' },
       { key: 'route-card', label: 'Production Route Card' },
-    ],
-  },
-  { key: 'quality', label: 'Quality' },
-  {
-    key: 'customer-order',
-    label: 'Customer Orders',
-    subItems: [
-      { key: 'enquiry', label: 'Enquiries' },
-      { key: 'order', label: 'Orders' },
     ],
   },
   {
@@ -54,6 +53,7 @@ export const NAV_ITEMS = [
       { key: 'receipt', label: 'Receipt' },
     ],
   },
+  { key: 'quality', label: 'Quality' },
   {
     key: 'maintenance',
     label: 'Maintenance',

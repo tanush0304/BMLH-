@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { PackageMinus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -32,6 +34,7 @@ export default function WipIssueScreen() {
   const [balances, setBalances] = useState([])
   const [transactions, setTransactions] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
+  const part = usePartForPrd(form.prd_no)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const selectedPrdRef = useRef('')
@@ -174,10 +177,13 @@ export default function WipIssueScreen() {
 
         <FormSection icon={PackageMinus} title="Issue Details" subtitle="Release WIP into a stage" columns={3}>
           <Field label="Production Order (PRD No)" required>
-            <SelectInput value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+            <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+          </Field>
+          <Field label="Part Serial Number">
+            <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="WIP Pool (Completion Point)" required>
-            <SelectInput
+            <SearchableSelect
               value={form.pool_stage_id}
               onChange={handleField('pool_stage_id')}
               disabled={!form.prd_no}
@@ -195,7 +201,7 @@ export default function WipIssueScreen() {
           {/* Target stage is deliberately ANY stage on this PRD's route card, not
               just "the next one" -- WIP is meant to feed whichever stage needs it. */}
           <Field label="Target Stage" required>
-            <SelectInput
+            <SearchableSelect
               value={form.target_stage_id}
               onChange={handleField('target_stage_id')}
               disabled={!form.prd_no}

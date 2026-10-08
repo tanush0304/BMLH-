@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import { listProducts } from '../../data/queries/products'
 import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
@@ -53,7 +54,7 @@ export default function RouteCardScreen() {
 
         <FormSection icon={Route} title="1. Part" subtitle="Pick a part to see its route template" columns={3}>
           <Field label="Part Serial Number" required>
-            <SelectInput
+            <SearchableSelect
               value={partSerialNumber}
               onChange={(e) => setPartSerialNumber(e.target.value)}
               options={partOptions}

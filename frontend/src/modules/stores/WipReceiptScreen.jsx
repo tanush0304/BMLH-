@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, SelectInput, TextInput } from '../../components/FormSection'
+import FormSection, { Field, SelectInput, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -32,6 +34,7 @@ export default function WipReceiptScreen() {
   const [balances, setBalances] = useState([])
   const [transactions, setTransactions] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
+  const part = usePartForPrd(form.prd_no)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const selectedPrdRef = useRef('')
@@ -175,10 +178,16 @@ export default function WipReceiptScreen() {
 
         <FormSection icon={PackagePlus} title="Receipt Details" subtitle="Hold a completed stage's output" columns={3}>
           <Field label="Production Order (PRD No)" required>
-            <SelectInput value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+            <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+          </Field>
+          <Field label="Part Serial Number">
+            <AutoFillBox value={part.part_serial_number} />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={part.part_name} />
           </Field>
           <Field label="Completed Stage" required>
-            <SelectInput
+            <SearchableSelect
               value={form.stage_id}
               onChange={handleField('stage_id')}
               disabled={!form.prd_no}

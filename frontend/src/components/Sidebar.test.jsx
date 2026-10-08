@@ -55,8 +55,8 @@ describe('contextual sidebar navigation', () => {
 
   it('shows the selected submodule list for other modules too', () => {
     const html = renderSidebar('customer-order', 'enquiry')
-    expect(html).toContain('Enquiries')
-    expect(html).toContain('Orders')
+    expect(html).toContain('New Enquiry')
+    expect(html).toContain('New Order')
     expect(html).not.toContain('PO Summary') // moved to Reports & Dashboard
     expect(html).not.toContain('Product Master')
   })

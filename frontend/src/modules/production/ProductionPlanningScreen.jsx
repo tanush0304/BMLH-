@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Plus, Save, RotateCcw, X, ListChecks, ClipboardList, Eye, Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, SelectInput, TextInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import StageTraceTable from '../../components/StageTraceTable'
 import JobRouteCardSheet from '../../components/JobRouteCardSheet'
@@ -249,10 +250,10 @@ export default function ProductionPlanningScreen() {
 
         <FormSection icon={ClipboardList} title="Production Planning Details" subtitle="Plan an order into production" columns={2}>
           <Field label="Customer PO No" required>
-            <SelectInput value={form.po_key} onChange={handleSelectPo} options={poOptions} />
+            <SearchableSelect value={form.po_key} onChange={handleSelectPo} options={poOptions} />
           </Field>
           <Field label="Part" required>
-            <SelectInput value={form.prd_no} onChange={handleSelectPrd} options={partOptions} disabled={!form.po_key} />
+            <SearchableSelect value={form.prd_no} onChange={handleSelectPrd} options={partOptions} disabled={!form.po_key} />
           </Field>
           <Field label="PRD No">
             <AutoFillBox value={form.prd_no} />

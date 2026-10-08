@@ -4,6 +4,8 @@ import { ClipboardList, FileStack, Plus, X } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
 import {
   listCustomerOrders,
@@ -388,7 +390,7 @@ export default function CustomerOrderScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Customer Orders" subtitle="Purchase Order Stage  |  One PO, Many Line Items" />
+      <PageHeader title="New Order" subtitle="Purchase Order Stage  |  One PO, Many Line Items" />
       <ActionToolbar
         onNew={handleNew}
         onSave={handleSave}
@@ -413,7 +415,7 @@ export default function CustomerOrderScreen() {
           <>
             <FormSection icon={FileStack} title="1. PO Header" subtitle="Once per real customer PO">
               <Field label="Customer" required>
-                <SelectInput
+                <SearchableSelect
                   value={poHeader.customer_id}
                   onChange={handlePoHeaderField('customer_id')}
                   options={customerDropdownOptions(customers)}
@@ -459,11 +461,11 @@ export default function CustomerOrderScreen() {
                           placeholder="Type new part number"
                         />
                       ) : (
-                        <SelectInput
+                        <SearchableSelect
                           value={it.partSerialNumber}
                           onChange={handleLineItemProductChange(it.key)}
                           options={[
-                            ...products.map((p) => ({ value: p.part_serial_number, label: p.part_serial_number })),
+                            ...productOptions(products),
                             { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                           ]}
                         />
@@ -501,7 +503,7 @@ export default function CustomerOrderScreen() {
                       />
                     </Field>
                     <Field label="Quotation (QTN)" width="medium">
-                      <SelectInput
+                      <SearchableSelect
                         value={it.qtnNo}
                         onChange={handleLineItemQtnChange(it.key)}
                         options={enquiryOptionsForOrder({
@@ -566,7 +568,7 @@ export default function CustomerOrderScreen() {
               <AutoFillBox value={form.prd_no || '(auto-generated on save)'} />
             </Field>
             <Field label="Quotation (QTN)">
-              <SelectInput
+              <SearchableSelect
                 value={form.qtn_no}
                 onChange={handleQtnChange}
                 disabled={readOnly}
@@ -578,7 +580,7 @@ export default function CustomerOrderScreen() {
               />
             </Field>
             <Field label="Customer" required>
-              <SelectInput
+              <SearchableSelect
                 value={form.customer_id}
                 onChange={handleField('customer_id')}
                 disabled={readOnly}
@@ -592,11 +594,11 @@ export default function CustomerOrderScreen() {
               <TextInput type="date" value={form.po_date} onChange={handleField('po_date')} disabled={readOnly} />
             </Field>
             <Field label="Product" required>
-              <SelectInput
+              <SearchableSelect
                 value={form.part_serial_number}
                 onChange={handleField('part_serial_number')}
                 disabled={readOnly}
-                options={products.map((p) => p.part_serial_number)}
+                options={productOptions(products)}
               />
             </Field>
             <Field label="Order Type">
