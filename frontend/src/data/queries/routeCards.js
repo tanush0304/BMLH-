@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { nextSequenceNo } from '../../utils/numbering'
 import { todayISO } from '../../utils/dates'
 
 const CARDS_TABLE = 'production route cards'
@@ -34,6 +35,23 @@ export async function updateStageStatus(stageId, status, actualDate) {
   return data
 }
 
+export async function getRouteCard(prdNo) {
+  const { data, error } = await supabase.from(CARDS_TABLE).select('*').eq('prd_no', prdNo).single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Next JC number is the highest existing "JC-NNN" suffix + 1 -- the same
+ * pattern as PRD-NNN / DC-NNN. Migration 018 backfilled existing cards and
+ * made jc_no unique, so a genuine collision surfaces as a Postgres 23505.
+ */
+export async function generateNextJcNo() {
+  const { data, error } = await supabase.from(CARDS_TABLE).select('jc_no')
+  if (error) throw error
+  return nextSequenceNo('JC', data.map((r) => r.jc_no))
+}
+
 /**
  * Generates a route card for a PRD by snapshotting the product's CURRENT
  * cycle time master rows into production_route_card_stages -- a frozen
@@ -52,9 +70,11 @@ export async function generateRouteCard({ prdNo, partSerialNumber, batchQty, shi
     throw new Error(`No Cycle Time Master rows found for product "${partSerialNumber}" -- nothing to snapshot.`)
   }
 
+  const jcNo = await generateNextJcNo()
   const { data: card, error: cardErr } = await supabase
     .from(CARDS_TABLE)
     .insert({
+      jc_no: jcNo,
       prd_no: prdNo,
       batch_qty: batchQty === '' ? null : Number(batchQty),
       shift_hours: shiftHours === '' ? null : Number(shiftHours),

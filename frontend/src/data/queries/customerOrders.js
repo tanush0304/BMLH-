@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { nextSequenceNo } from '../../utils/numbering'
 
 const TABLE = 'customer orders'
 
@@ -24,11 +25,7 @@ export async function createCustomerOrder(payload) {
 export async function generateNextPrdNo() {
   const { data, error } = await supabase.from(TABLE).select('prd_no')
   if (error) throw error
-  const maxNum = data.reduce((max, r) => {
-    const match = /^PRD-(\d+)$/.exec(r.prd_no ?? '')
-    return match ? Math.max(max, Number(match[1])) : max
-  }, 0)
-  return `PRD-${String(maxNum + 1).padStart(3, '0')}`
+  return nextSequenceNo('PRD', data.map((r) => r.prd_no))
 }
 
 export async function updateCustomerOrder(prdNo, payload) {

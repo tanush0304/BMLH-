@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { nextSequenceNo } from '../../utils/numbering'
 import { todayISO } from '../../utils/dates'
 
 /**
@@ -53,11 +54,7 @@ export async function listDispatches() {
 export async function generateNextDcNo() {
   const { data, error } = await supabase.from('job order dispatch').select('dc_no')
   if (error) throw error
-  const maxNum = data.reduce((max, r) => {
-    const match = /^DC-(\d+)$/.exec(r.dc_no ?? '')
-    return match ? Math.max(max, Number(match[1])) : max
-  }, 0)
-  return `DC-${String(maxNum + 1).padStart(3, '0')}`
+  return nextSequenceNo('DC', data.map((r) => r.dc_no))
 }
 
 /**

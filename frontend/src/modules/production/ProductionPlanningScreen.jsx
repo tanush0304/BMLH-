@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Save, RotateCcw, X, ListChecks, ClipboardList, Eye } from 'lucide-react'
+import { Plus, Save, RotateCcw, X, ListChecks, ClipboardList, Eye, Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, TextInput, AutoFillBox } from '../../components/FormSection'
 import RecordsList from '../../components/RecordsList'
 import StageTraceTable from '../../components/StageTraceTable'
+import JobRouteCardSheet from '../../components/JobRouteCardSheet'
 import { listOrdersAvailableForPlanning, listProductionPlans } from '../../data/queries/productionPlanning'
 import { listProductionBatches } from '../../data/queries/productionBatch'
 import { listCustomers } from '../../data/queries/customers'
@@ -14,6 +15,7 @@ import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock
 import { listOrderMaterialRequirement, listOrderMaterialShortfall } from '../../data/queries/rawMaterialRequisitions'
 
 const LIST_COLUMNS = [
+  { key: 'jc_no', label: 'JC No' },
   { key: 'customer_order_no', label: 'Customer Order No' },
   { key: 'customer_name', label: 'Customer Name' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
@@ -46,6 +48,7 @@ export default function ProductionPlanningScreen() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [viewedPrd, setViewedPrd] = useState(null)
+  const [routeCardPrd, setRouteCardPrd] = useState(null)
 
   async function refresh() {
     const [availableOrders, poHeaderRows, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows] = await Promise.all([
@@ -142,6 +145,7 @@ export default function ProductionPlanningScreen() {
   function handleReset() {
     setForm(EMPTY_FORM)
     setViewedPrd(null)
+    setRouteCardPrd(null)
     setError(null)
   }
 
@@ -191,8 +195,11 @@ export default function ProductionPlanningScreen() {
         availableRmQtySnapshot: hasBom ? materialAvailability[0].current_stock : null,
         unitsProducible: hasBom ? unitsProducible : null,
       })
+      const savedPrd = form.prd_no
       handleReset()
       await refresh()
+      // Show the Job Route Card that was just generated.
+      setRouteCardPrd(savedPrd)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -294,6 +301,8 @@ export default function ProductionPlanningScreen() {
           </Field>
         </FormSection>
 
+        {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} onClose={() => setRouteCardPrd(null)} />}
+
         {viewedPrd && (
           <StageTraceTable
             prdNo={viewedPrd}
@@ -310,12 +319,20 @@ export default function ProductionPlanningScreen() {
               key: 'action',
               label: 'Action',
               render: (r) => (
-                <button
-                  className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm"
-                  onClick={() => setViewedPrd(r.prd_no)}
-                >
-                  <Eye size={14} /> View
-                </button>
+                <span className="inline-flex items-center gap-3">
+                  <button
+                    className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm"
+                    onClick={() => setViewedPrd(r.prd_no)}
+                  >
+                    <Eye size={14} /> View
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm"
+                    onClick={() => setRouteCardPrd(r.prd_no)}
+                  >
+                    <Route size={14} /> Route Card
+                  </button>
+                </span>
               ),
             },
           ]}

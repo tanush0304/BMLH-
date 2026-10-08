@@ -1,111 +1,103 @@
 import { useEffect, useState } from 'react'
+import { Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import RecordsList from '../../components/RecordsList'
-import { listRouteCards, getStagesForPrd } from '../../data/queries/routeCards'
+import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
+import { listProducts } from '../../data/queries/products'
+import { listCycleTimes } from '../../data/queries/cycleTimes'
+import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
+import { listMachines } from '../../data/queries/machines'
+import { TEMPLATE_COLUMNS, templateRow } from '../../utils/jobRouteCard'
 
-const CARD_COLUMNS = [
-  { key: 'prd_no', label: 'PRD No' },
-  { key: 'batch_qty', label: 'Batch Qty' },
-  { key: 'shift_hours', label: 'Shift Hours' },
-  { key: 'planned_date', label: 'Planned Date' },
-]
-
-// No of Shifts Planned = cycle_time_min * batch_qty / (shift_hours * 60), the
-// client's own Route Card formula -- derived at display time from the card's
-// batch_qty/shift_hours, never stored, same pattern as every other computed
-// figure in this app (see StageTraceTable's available_qty, for instance).
-function shiftsPlannedColumns(card) {
-  return [
-    { key: 'seq', label: 'Seq' },
-    { key: 'operation', label: 'Operation' },
-    { key: 'type', label: 'Type' },
-    { key: 'machine_id', label: 'Machine ID' },
-    { key: 'job_work_code', label: 'Job Work Code' },
-    { key: 'cycle_time_min', label: 'Cycle Time (min)' },
-    {
-      key: 'shifts_planned',
-      label: 'No of Shifts Planned',
-      render: (r) => {
-        if (!card?.batch_qty || !card?.shift_hours || !r.cycle_time_min) return '—'
-        const shifts = (r.cycle_time_min * card.batch_qty) / (card.shift_hours * 60)
-        return shifts.toFixed(2)
-      },
-    },
-    { key: 'status', label: 'Status', type: 'status' },
-  ]
-}
-
-/** Route card generation now lives in Production > Production Planning, whose
- * Submit is what creates the card and snapshots its stages. This screen is a
- * read-only viewer of what's already been generated. */
+/** Masters > Route Card: the per-part route template, read straight from
+ * Cycle Time Master (the same rows Production Planning snapshots into a
+ * PRD's Job Route Card on submit). Read-only -- edit routes in Cycle Time
+ * Master. An Internal operation runnable on several machines shows one row
+ * per machine, as it is stored. */
 export default function RouteCardScreen() {
-  const [routeCards, setRouteCards] = useState([])
+  const [products, setProducts] = useState([])
+  const [cycleTimes, setCycleTimes] = useState([])
+  const [jobWorkTypes, setJobWorkTypes] = useState([])
+  const [machines, setMachines] = useState([])
+  const [partSerialNumber, setPartSerialNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [viewedCard, setViewedCard] = useState(null)
-  const [stages, setStages] = useState([])
-  const [stagesLoading, setStagesLoading] = useState(false)
-
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        setRouteCards(await listRouteCards())
-      } catch (e) {
-        setError(e.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    Promise.all([listProducts(), listCycleTimes(), listJobWorkTypes(), listMachines()])
+      .then(([productRows, cycleRows, jobWorkRows, machineRows]) => {
+        setProducts(productRows)
+        setCycleTimes(cycleRows)
+        setJobWorkTypes(jobWorkRows)
+        setMachines(machineRows)
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
-  async function handleViewCard(row) {
-    setViewedCard(row)
-    setStagesLoading(true)
-    try {
-      setStages(await getStagesForPrd(row.prd_no))
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setStagesLoading(false)
-    }
-  }
+  const partsWithRoute = new Set(cycleTimes.map((r) => r.part_serial_number))
+  const partOptions = products
+    .filter((p) => partsWithRoute.has(p.part_serial_number))
+    .map((p) => ({ value: p.part_serial_number, label: `${p.part_serial_number} – ${p.part_name ?? ''}` }))
+  const product = products.find((p) => p.part_serial_number === partSerialNumber)
+  const rows = cycleTimes
+    .filter((r) => r.part_serial_number === partSerialNumber)
+    .sort((a, b) => a.seq - b.seq || String(a.machine_id ?? '').localeCompare(String(b.machine_id ?? '')))
+    .map((r) => ({ id: r.id, seq: r.seq, ...templateRow(r, jobWorkTypes, machines) }))
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader
-        title="Production Route Cards"
-        subtitle="Generated From Production Planning  |  Frozen Snapshot Per Order"
-      />
+      <PageHeader title="Route Card" subtitle="Route Template Per Part | From Cycle Time Master" />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
-        )}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
 
-        <RecordsList
-          title="Route Cards"
-          columns={CARD_COLUMNS}
-          rows={routeCards}
-          loading={loading}
-          error={null}
-          rowKey="prd_no"
-          selectedKey={viewedCard?.prd_no}
-          onRowClick={handleViewCard}
-        />
+        <FormSection icon={Route} title="1. Part" subtitle="Pick a part to see its route template" columns={3}>
+          <Field label="Part Serial Number" required>
+            <SelectInput
+              value={partSerialNumber}
+              onChange={(e) => setPartSerialNumber(e.target.value)}
+              options={partOptions}
+              disabled={loading}
+            />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={product?.part_name ?? ''} />
+          </Field>
+          <Field label="Drawing Reference Number">
+            <AutoFillBox value={product?.part_drawing_reference_number ?? ''} />
+          </Field>
+        </FormSection>
 
-        {viewedCard && (
-          <RecordsList
-            title={`Stages for ${viewedCard.prd_no}`}
-            columns={shiftsPlannedColumns(viewedCard)}
-            rows={stages}
-            loading={stagesLoading}
-            error={null}
-            rowKey="id"
-          />
+        {partSerialNumber && (
+          <section className="rounded-xl border border-[#D5E3F4] bg-white p-3 shadow-sm">
+            <div className="mb-2 text-[13px] font-semibold text-[#0B2A5B]">2. Route Template</div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[12.5px]">
+                <thead>
+                  <tr>
+                    <th className="border border-slate-400 bg-[#FFF2B3] px-2 py-1.5 text-left font-semibold text-slate-800">Seq</th>
+                    {TEMPLATE_COLUMNS.map((c) => (
+                      <th key={c.key} className="border border-slate-400 bg-[#FFF2B3] px-2 py-1.5 text-left font-semibold text-slate-800">
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="bg-[#FFF8D6]">
+                      <td className="border border-slate-400 px-2 py-1.5">{r.seq}</td>
+                      {TEMPLATE_COLUMNS.map((c) => (
+                        <td key={c.key} className="border border-slate-400 px-2 py-1.5 text-slate-900">
+                          {r[c.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </div>
     </div>

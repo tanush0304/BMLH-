@@ -1,4 +1,4 @@
-import { ClipboardPlus, Hand } from 'lucide-react'
+import { ClipboardPlus, Hand, Route } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
@@ -32,6 +32,7 @@ const TILE_ART = {
     'machine-entry': { img: productionEntryTile, bg: '#FEF0D3' },
     'manual-operations': { icon: Hand },
     planning: { img: productionPlanningTile, bg: '#CFECFE' },
+    'route-card': { icon: Route },
   },
   'customer-order': {
     enquiry: { img: customerEnquiryTile, bg: '#E4F1FF' },

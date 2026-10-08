@@ -34,6 +34,7 @@ export const NAV_ITEMS = [
       { key: 'machine-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'planning', label: 'Production Planning' },
+      { key: 'route-card', label: 'Production Route Card' },
     ],
   },
   { key: 'quality', label: 'Quality' },
