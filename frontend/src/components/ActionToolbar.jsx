@@ -18,6 +18,8 @@ export default function ActionToolbar({
   // false on stock-ledger screens: entries are never edited or deleted --
   // corrections are a new entry with remarks.
   showEditDelete = true,
+  // Edit without Delete (Stores: supervisors may edit, nobody deletes).
+  showDelete = showEditDelete,
   saving = false,
   saveLabel = 'Save',
   onNew,
@@ -59,14 +61,14 @@ export default function ActionToolbar({
             <Save size={16} /> {saving ? 'Saving...' : saveLabel}
           </button>
           {showEditDelete && (
-            <>
-              <button type="button" className={BTN_GREY} onClick={onEdit} disabled={!canEdit}>
-                <Pencil size={16} /> Edit
-              </button>
-              <button type="button" className={BTN_GREY} onClick={onDelete} disabled={!canDelete}>
-                <Trash2 size={16} /> Delete
-              </button>
-            </>
+            <button type="button" className={BTN_GREY} onClick={onEdit} disabled={!canEdit}>
+              <Pencil size={16} /> Edit
+            </button>
+          )}
+          {showDelete && (
+            <button type="button" className={BTN_GREY} onClick={onDelete} disabled={!canDelete}>
+              <Trash2 size={16} /> Delete
+            </button>
           )}
           <button type="button" className={BTN_GREY} onClick={onClear}>
             <X size={16} /> Clear

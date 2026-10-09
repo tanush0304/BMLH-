@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { listCustomerOrders } from '../data/queries/customerOrders'
 import { listProducts } from '../data/queries/products'
 
-const EMPTY = { part_serial_number: '', part_name: '', order_qty: '', order_type: '' }
+const EMPTY = { part_serial_number: '', part_name: '', part_drawing_reference_number: '', order_qty: '', order_type: '' }
 
 /** Read-only part details for a PRD (customer orders row + Product Master
  * name), for the auto-filled Part Serial Number / Part Name fields the
@@ -25,6 +25,7 @@ export default function usePartForPrd(prdNo) {
         setPart({
           part_serial_number: order?.part_serial_number ?? '',
           part_name: product?.part_name ?? '',
+          part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
           order_qty: order?.order_qty ?? '',
           order_type: order?.order_type ?? '',
         })

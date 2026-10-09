@@ -17,11 +17,14 @@ import {
   listRawMaterialStockBalance,
   listRawMaterialTransactions,
   createRawMaterialTransaction,
+  updateRawMaterialTransaction,
 } from '../../data/queries/rawMaterialStock'
 import { todayISO } from '../../utils/dates'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { unitsProducible, validateRmIssueQuantity } from '../../utils/rmStock'
 import EmployeeSelect from '../../components/EmployeeSelect'
+import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import { canEditStock, stockEditPatch, validateRmIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
 
 const EMPTY_ISSUE_FORM = {
   employee_id: '',
@@ -66,7 +69,7 @@ const RECEIPT_COLUMNS = [
   { key: 'current_stock', label: 'Current Stock (Nos)' },
 ]
 
-export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
+export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) {
   const [mode, setMode] = useState(initialMode) // 'issue' | 'receipt'
   const [rawMaterials, setRawMaterials] = useState([])
   const [products, setProducts] = useState([])
@@ -86,6 +89,10 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
   const [search, setSearch] = useState('')
   // doc_no is assigned by the DB trigger (migration 022); shown after save.
   const [savedDocNo, setSavedDocNo] = useState({ issue: '', receipt: '' })
+  // Supervisor/admin edit of an existing row (Delete stays hidden).
+  const appUsers = useAppUsers()
+  const [selectedRow, setSelectedRow] = useState(null)
+  const [editingRow, setEditingRow] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -146,7 +153,27 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     setIssueForm(EMPTY_ISSUE_FORM)
     setReceiptForm(EMPTY_RECEIPT_FORM)
     setSavedDocNo({ issue: '', receipt: '' })
+    setSelectedRow(null)
+    setEditingRow(null)
     setError(null)
+  }
+
+  // Re-checks stock with this row taken out first (same rules as a new
+  // entry), then saves only qty / date / remarks (+ supplier on receipts).
+  async function handleSaveEdit(draft) {
+    const row = editingRow
+    if (!draft.transaction_date) return 'Date is required.'
+    const closing = currentStockFor(row.raw_material_code)
+    const isIssue = row.transaction_type === 'Issue'
+    const problem = isIssue
+      ? validateRmIssueEdit(draft.qty, row.qty, closing)
+      : validateReceiptEdit(draft.qty, row.qty, closing)
+    if (problem) return problem
+    await updateRawMaterialTransaction(row.id, stockEditPatch(draft, { withSupplier: !isIssue }))
+    setEditingRow(null)
+    setSelectedRow(null)
+    await refresh()
+    return null
   }
 
   function handleIssueField(key) {
@@ -239,7 +266,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
       current_stock: currentStockFor(t.raw_material_code),
     }))
 
-  const activeRows = mode === 'issue' ? issueRows : receiptRows
+  const activeRows = withEditedLabels(mode === 'issue' ? issueRows : receiptRows, appUsers)
   const filteredRows = activeRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
@@ -251,7 +278,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
     )
   })
 
-  const activeColumns = mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS
+  const activeColumns = [...(mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN]
   const listTitle = mode === 'issue' ? 'Raw Material & Consumables Issue List' : 'Raw Material & Consumables Receipt List'
   const exportName = mode === 'issue' ? 'rm_issue' : 'rm_receipt'
 
@@ -274,6 +301,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
             key={t.key}
             onClick={() => {
               setMode(t.key)
+              setSelectedRow(null)
+              setEditingRow(null)
               setError(null)
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
@@ -289,7 +318,10 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
 
       {/* Stock ledger: no Edit / Delete -- corrections are a new entry with remarks. */}
       <ActionToolbar
-        showEditDelete={false}
+        showEditDelete={canEditStock(role)}
+        showDelete={false}
+        onEdit={() => setEditingRow(selectedRow)}
+        canEdit={!!selectedRow && !editingRow}
         onNew={handleReset}
         onSave={handleSave}
         onClear={handleReset}
@@ -430,6 +462,28 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
           </FormSection>
         )}
 
+        {editingRow && (
+          <StockEditPanel
+            row={editingRow}
+            info={[
+              { label: editingRow.transaction_type === 'Issue' ? 'Issue No' : 'Receipt No', value: editingRow.doc_no },
+              { label: 'Transaction Type', value: editingRow.transaction_type },
+              { label: 'Raw Material', value: materialName(editingRow.raw_material_code) },
+              ...(editingRow.transaction_type === 'Issue'
+                ? [{ label: 'Part Serial Number', value: editingRow.part_serial_number }]
+                : []),
+            ]}
+            qtyLabel={editingRow.transaction_type === 'Issue' ? 'Quantity Issued' : 'Quantity Received'}
+            supplierOptions={
+              editingRow.transaction_type === 'Receipt'
+                ? suppliers.map((s) => ({ value: s.supplier_id, label: s.supplier_name || s.supplier_id }))
+                : undefined
+            }
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingRow(null)}
+          />
+        )}
+
         <RecordsList
           title={listTitle}
           columns={activeColumns}
@@ -437,6 +491,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue' }) {
           loading={loading}
           error={null}
           rowKey="id"
+          selectedKey={selectedRow?.id}
+          onRowClick={(r) => !editingRow && setSelectedRow(r)}
           searchValue={search}
           onSearchChange={setSearch}
         />

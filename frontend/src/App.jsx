@@ -119,7 +119,7 @@ function App() {
   }
 
   if (showMainMenu) {
-    return <MainMenu userEmail={session.user.email} role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+    return <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
   }
 
   const canSeeMasters = role === 'supervisor' || role === 'admin'
@@ -140,6 +140,7 @@ function App() {
       <StoresModule
         activeTab={activeSubKey}
         activeMode={activeMode}
+        role={role}
         onSelect={(subKey, mode) => handleSelectSub('stores', subKey, mode)}
       />
     )

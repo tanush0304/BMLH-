@@ -1,3 +1,4 @@
+import { computeQualityResult } from '../../utils/qualityResult'
 import { useEffect, useState } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -33,19 +34,9 @@ const HISTORY_COLUMNS = [
  * Quality result is computed live from quality master tolerances (view:
  * "quality log results"). Whether a result should be frozen at inspection
  * time is pending BMLH's answer.
- *
- * This mirrors that view's CASE expression exactly so what the user sees
- * while typing matches what gets stored/derived after save.
+ * computeQualityResult (utils/qualityResult.js) mirrors that view's CASE
+ * so what the user sees while typing matches what is derived after save.
  */
-function computeResult(standard, upperTolerance, lowerTolerance, observedValue) {
-  if (standard === null || standard === undefined || standard === '') return null
-  const obs = Number(observedValue)
-  if (observedValue === '' || Number.isNaN(obs)) return null
-  const lower = standard - (lowerTolerance ?? 0)
-  const upper = standard + (upperTolerance ?? 0)
-  return obs >= lower && obs <= upper ? 'Accepted' : 'Not Accepted'
-}
-
 export default function QualityModule() {
   const [step, setStep] = useState('header')
 
@@ -299,6 +290,9 @@ export default function QualityModule() {
             <Field label="Part Name">
               <AutoFillBox value={part.part_name} />
             </Field>
+            <Field label="Part Drawing Number">
+              <AutoFillBox value={part.part_drawing_reference_number} />
+            </Field>
             <Field label="Machine" required>
               <SearchableSelect
                 value={header.machine_id}
@@ -369,7 +363,7 @@ export default function QualityModule() {
                   </thead>
                   <tbody>
                     {readingRows.map((row) => {
-                      const result = computeResult(row.standard, row.upper_tolerance, row.lower_tolerance, row.observed_value)
+                      const result = computeQualityResult(row.standard, row.upper_tolerance, row.lower_tolerance, row.observed_value)
                       const noLimit = row.standard === null || row.standard === undefined
                       return (
                         <tr key={row.quality_parameter_id} className="border-t border-gray-100">

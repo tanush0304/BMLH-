@@ -35,7 +35,6 @@ import ProductionBatchMaster from './ProductionBatchMaster'
 import RouteCardScreen from '../customerOrder/RouteCardScreen'
 import FinishedGoodsMaster from './FinishedGoodsMaster'
 import WipMaster from './WipMaster'
-import RawMaterialStockMaster from './RawMaterialStockMaster'
 
 const MASTER_COMPONENTS = {
   product: ProductMaster,
@@ -54,7 +53,6 @@ const MASTER_COMPONENTS = {
   'route-card': RouteCardScreen,
   'finished-goods': FinishedGoodsMaster,
   wip: WipMaster,
-  'rm-stock': RawMaterialStockMaster,
 }
 
 // PPT card style: pastel circle + coloured icon, title, two-line description.
@@ -76,7 +74,6 @@ const MASTER_PRESENTATION = {
   maintenance: { icon: Wrench, badge: Hammer, color: '#2563EB', bg: '#DBEAFE', description: 'Manage maintenance details and schedules' },
   'finished-goods': { icon: Warehouse, color: '#16A34A', bg: '#DCFCE7', description: 'Manage finished goods store details and parameters' },
   wip: { icon: Warehouse, color: '#7C3AED', bg: '#EDE9FE', description: 'Manage work in progress store details and parameters' },
-  'rm-stock': { icon: Warehouse, color: '#EA580C', bg: '#FFEDD5', description: 'Manage raw material stock, cost and units producible' },
   'route-card': { icon: Route, color: '#D97706', bg: '#FEF3C7', description: 'Manage operation sequences and routing details' },
 }
 
@@ -138,12 +135,12 @@ function MastersLanding({ onSelect }) {
         title="Masters"
         subtitle="Select a master module to view or manage its records."
       />
-      {/* md+: 4-column grid (17 cards -> 5 rows) sized to the visible content area (no scrolling down to
+      {/* md+: 4x4 grid sized to the visible content area (no scrolling down to
           ~700px viewport height, where the min-height lets it scroll). Narrow
           screens fall back to 2 columns of cards with normal scrolling. */}
       <main className="flex-1 overflow-y-auto bg-[#F5F7FA] px-4 py-4 sm:px-6">
         <div className="mx-auto h-full w-full max-w-[1480px]">
-          <div className="grid grid-cols-2 gap-3 md:h-full md:min-h-[600px] md:grid-cols-4 md:grid-rows-5">
+          <div className="grid grid-cols-2 gap-3 md:h-full md:min-h-[520px] md:grid-cols-4 md:grid-rows-4">
             {MASTER_ENTRIES.map((item) => (
               <MasterCard key={item.key} item={item} onSelect={onSelect} />
             ))}

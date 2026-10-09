@@ -17,6 +17,7 @@ import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const EMPTY_FORM = {
   id: '',
@@ -34,13 +35,14 @@ const EMPTY_FORM = {
 const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'machine_label', label: 'Machine' },
   { key: 'type_of_operation', label: 'Type of Operation' },
   { key: 'quality_parameter', label: 'Quality Parameter' },
   { key: 'standard', label: 'Standard' },
   { key: 'upper_tolerance', label: 'Upper Tolerance' },
   { key: 'lower_tolerance', label: 'Lower Tolerance' },
-  { key: 'expected_text_value', label: 'Expected Text Value' },
+  { key: 'unit_of_measurement', label: 'UoM' },
   { key: 'remarks', label: 'Remarks' },
 ]
 
@@ -92,13 +94,18 @@ export default function QualityMaster() {
     .map((row) => row.operation)
     .filter(Boolean))]
   const parameterSuggestions = [...new Set(records.map((row) => row.quality_parameter).filter(Boolean))]
-  const displayRecords = useMemo(() => records.map((row) => ({
+  const displayRecords = useMemo(() => records.map((row) => {
+    const product = products.find((p) => p.part_serial_number === row.part_serial_number)
+    return {
     ...row,
-    part_name: products.find((product) => product.part_serial_number === row.part_serial_number)?.part_name ?? '',
+    part_name: product?.part_name ?? '',
+    part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
+    unit_of_measurement: product?.unit_of_measurement ?? '',
     machine_label: machines.find((machine) => machine.machine_id === row.machine_id)
       ? machineOptionLabel(machines.find((machine) => machine.machine_id === row.machine_id))
       : row.machine_id ?? '',
-  })), [records, products, machines])
+    }
+  }), [records, products, machines])
 
   function handleField(key) {
     return (e) => setForm((current) => ({ ...current, [key]: e.target.value }))
@@ -138,10 +145,10 @@ export default function QualityMaster() {
       setSaveError('Part Serial Number, Machine, Type of Operation and Quality Parameter are required.')
       return
     }
-    const hasNumbers = [form.standard, form.upper_tolerance, form.lower_tolerance].some((value) => value !== '')
-    const hasTextValue = Boolean(form.expected_text_value.trim())
-    if (hasNumbers === hasTextValue) {
-      setSaveError('Enter numeric standard/tolerance values or an Expected Text Value, but not both.')
+    // Standard is required; a blank Upper/Lower Tolerance is saved as null
+    // and means no allowance on that side (quality result treats it as 0).
+    if (String(form.standard ?? '').trim() === '') {
+      setSaveError('Standard is required.')
       return
     }
     setSaving(true)
@@ -152,10 +159,10 @@ export default function QualityMaster() {
         machine_id: form.machine_id,
         type_of_operation: form.type_of_operation,
         quality_parameter: form.quality_parameter.trim(),
-        standard: form.standard === '' ? null : Number(form.standard),
-        upper_tolerance: form.upper_tolerance === '' ? null : Number(form.upper_tolerance),
-        lower_tolerance: form.lower_tolerance === '' ? null : Number(form.lower_tolerance),
-        expected_text_value: form.expected_text_value.trim() || null,
+        standard: toNumberOrNull(form.standard),
+        upper_tolerance: toNumberOrNull(form.upper_tolerance),
+        lower_tolerance: toNumberOrNull(form.lower_tolerance),
+        expected_text_value: null,
         remarks: form.remarks.trim() || null,
       }
       if (mode === 'edit') await updateQualityParameter(form.id, payload)
@@ -225,6 +232,8 @@ export default function QualityMaster() {
             <SearchableSelect value={form.part_serial_number} onChange={handlePartChange} disabled={readOnly} options={productOptions(products)} />
           </Field>
           <Field label="Part Name"><AutoFillBox value={selectedProduct?.part_name} /></Field>
+          <Field label="Part Drawing Number"><AutoFillBox value={selectedProduct?.part_drawing_reference_number} /></Field>
+          <Field label="UoM"><AutoFillBox value={selectedProduct?.unit_of_measurement} /></Field>
           <Field label="Machine" required>
             <SearchableSelect value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
           </Field>
@@ -237,10 +246,9 @@ export default function QualityMaster() {
               {parameterSuggestions.map((name) => <option key={name} value={name} />)}
             </datalist>
           </Field>
-          <Field label="Standard"><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>
+          <Field label="Standard" required><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>
           <Field label="Upper Tolerance"><TextInput type="number" value={inputValue(form.upper_tolerance)} onChange={handleField('upper_tolerance')} disabled={readOnly} /></Field>
           <Field label="Lower Tolerance"><TextInput type="number" value={inputValue(form.lower_tolerance)} onChange={handleField('lower_tolerance')} disabled={readOnly} /></Field>
-          <Field label="Expected Text Value"><TextInput value={form.expected_text_value} onChange={handleField('expected_text_value')} disabled={readOnly} placeholder="e.g. 10 x 36 Deg or In Position" /></Field>
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
 

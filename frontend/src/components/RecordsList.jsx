@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { List, Search, ChevronDown, ChevronUp, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react'
 import StatusPill from './StatusPill'
+import { isQuantityColumn, NUM_HIGHLIGHT_CLASS } from '../utils/numberHighlight'
 
 const COLLAPSED_ROW_COUNT = 2
 
@@ -144,7 +145,7 @@ export default function RecordsList({
                   >
                     <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>
                     {columns.map((col) => (
-                      <td key={col.key} className="whitespace-nowrap px-3 py-1.5 text-slate-800">
+                      <td key={col.key} className={`whitespace-nowrap px-3 py-1.5 ${isQuantityColumn(col) ? NUM_HIGHLIGHT_CLASS : 'text-slate-800'}`}>
                         {col.type === 'status' ? (
                           <StatusPill status={row[col.key]} />
                         ) : col.render ? (

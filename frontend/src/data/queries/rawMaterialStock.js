@@ -26,3 +26,13 @@ export async function deleteRawMaterialTransaction(id) {
   const { error } = await supabase.from('raw material transactions').delete().eq('id', id)
   if (error) throw error
 }
+
+/** Supervisor/admin edit of an existing row -- `patch` holds only the
+ * editable fields (see utils/stockEdit.js). On the three stock tables the
+ * migration-025 trigger stamps edited_by/edited_at/previous_qty and refuses
+ * changes to the identifying columns. */
+export async function updateRawMaterialTransaction(id, patch) {
+  const { data, error } = await supabase.from('raw material transactions').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}

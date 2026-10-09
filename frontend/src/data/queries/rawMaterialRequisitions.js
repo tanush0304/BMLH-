@@ -44,3 +44,13 @@ export async function listOrderMaterialShortfall() {
   if (error) throw error
   return data
 }
+
+/** Supervisor/admin edit of an existing row -- `patch` holds only the
+ * editable fields (see utils/stockEdit.js). On the three stock tables the
+ * migration-025 trigger stamps edited_by/edited_at/previous_qty and refuses
+ * changes to the identifying columns. */
+export async function updateRequisition(id, patch) {
+  const { data, error } = await supabase.from('raw material requisitions').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}

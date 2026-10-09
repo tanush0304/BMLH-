@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabaseClient'
 import { nextSequenceNo } from '../../utils/numbering'
 import { todayISO } from '../../utils/dates'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const CARDS_TABLE = 'production route cards'
 const STAGES_TABLE = 'production route card stages'
@@ -76,8 +77,8 @@ export async function generateRouteCard({ prdNo, partSerialNumber, batchQty, shi
     .insert({
       jc_no: jcNo,
       prd_no: prdNo,
-      batch_qty: batchQty === '' ? null : Number(batchQty),
-      shift_hours: shiftHours === '' ? null : Number(shiftHours),
+      batch_qty: toNumberOrNull(batchQty),
+      shift_hours: toNumberOrNull(shiftHours),
       // Snapshotted at planning time, same as batch_qty/shift_hours -- a
       // frozen record of what was available/producible when this was
       // planned, not a live-recomputed figure. Left null when the product

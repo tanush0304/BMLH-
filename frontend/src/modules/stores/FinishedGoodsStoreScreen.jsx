@@ -17,11 +17,14 @@ import {
   listFinishedGoodsTransactions,
   listFinishedGoodsOrderStatus,
   createFinishedGoodsTransaction,
+  updateFinishedGoodsTransaction,
 } from '../../data/queries/finishedGoodsStock'
 import { todayISO } from '../../utils/dates'
 import { parsePositiveQuantity, validateDispatchQuantity } from '../../utils/finishedGoodsValidation'
 import { listFinishedGoodsMaster } from '../../data/queries/storeMasters'
 import EmployeeSelect from '../../components/EmployeeSelect'
+import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import { canEditStock, stockEditPatch, validateFgDispatchEdit, validateReceiptEdit } from '../../utils/stockEdit'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -67,7 +70,7 @@ const RECEIPT_COLUMNS = [
   { key: 'qty', label: 'Qty Received (Nos)' },
 ]
 
-export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
+export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', role }) {
   const [mode, setMode] = useState(initialMode) // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
   const [employees, setEmployees] = useState([])
@@ -86,6 +89,10 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
   const [search, setSearch] = useState('')
   // doc_no is assigned by the DB trigger (migration 022); shown after save.
   const [savedDocNo, setSavedDocNo] = useState({ dispatch: '', receipt: '' })
+  // Supervisor/admin edit of an existing row (Delete stays hidden).
+  const appUsers = useAppUsers()
+  const [selectedRow, setSelectedRow] = useState(null)
+  const [editingRow, setEditingRow] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -146,7 +153,26 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     setDispatchForm(EMPTY_DISPATCH_FORM)
     setReceiptForm(EMPTY_RECEIPT_FORM)
     setSavedDocNo({ dispatch: '', receipt: '' })
+    setSelectedRow(null)
+    setEditingRow(null)
     setError(null)
+  }
+
+  // Re-checks stock with this row taken out first (same rules as a new
+  // entry), then saves only qty / date / remarks.
+  async function handleSaveEdit(draft) {
+    const row = editingRow
+    if (!draft.transaction_date) return 'Date is required.'
+    const stock = qtyInStockForPrd(row.prd_no)
+    const problem = row.transaction_type === 'Dispatch'
+      ? validateFgDispatchEdit(draft.qty, row.qty, stock, orderStatus.find((s) => s.prd_no === row.prd_no)?.balance_to_dispatch)
+      : validateReceiptEdit(draft.qty, row.qty, stock)
+    if (problem) return problem
+    await updateFinishedGoodsTransaction(row.id, stockEditPatch(draft))
+    setEditingRow(null)
+    setSelectedRow(null)
+    await refresh()
+    return null
   }
 
   async function handleSaveDispatch() {
@@ -250,7 +276,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     .filter((t) => t.transaction_type === 'Production Receipt')
     .map((t) => ({ ...t, employee_name: employeeName(t.employee_id) }))
 
-  const activeRows = mode === 'dispatch' ? dispatchRows : receiptRows
+  const activeRows = withEditedLabels(mode === 'dispatch' ? dispatchRows : receiptRows, appUsers)
   const filteredRows = activeRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
@@ -262,7 +288,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
     )
   })
 
-  const activeColumns = mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS
+  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN]
   const listTitle = mode === 'dispatch' ? 'Finished Goods Dispatch List' : 'Finished Goods Production Receipt List'
   const exportName = mode === 'dispatch' ? 'fg_dispatch' : 'fg_production_receipt'
 
@@ -285,6 +311,8 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             key={t.key}
             onClick={() => {
               setMode(t.key)
+              setSelectedRow(null)
+              setEditingRow(null)
               setError(null)
             }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
@@ -300,7 +328,10 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
 
       {/* Stock ledger: no Edit / Delete -- corrections are a new entry with remarks. */}
       <ActionToolbar
-        showEditDelete={false}
+        showEditDelete={canEditStock(role)}
+        showDelete={false}
+        onEdit={() => setEditingRow(selectedRow)}
+        canEdit={!!selectedRow && !editingRow}
         onNew={handleReset}
         onSave={handleSave}
         onClear={handleReset}
@@ -444,6 +475,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
             <Field label="Part Name">
               <AutoFillBox value={receiptPart.part_name} />
             </Field>
+            <Field label="Part Drawing Number">
+              <AutoFillBox value={receiptPart.part_drawing_reference_number} />
+            </Field>
 
             <Field label="Order Quantity">
               <AutoFillBox value={selectedReceiptOrder?.order_qty} unit="Nos" />
@@ -454,6 +488,21 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
           </FormSection>
         )}
 
+        {editingRow && (
+          <StockEditPanel
+            row={editingRow}
+            info={[
+              { label: editingRow.transaction_type === 'Dispatch' ? 'Dispatch No' : 'Receipt No', value: editingRow.doc_no },
+              { label: 'Transaction Type', value: editingRow.transaction_type },
+              { label: 'Production Order (PRD No)', value: editingRow.prd_no },
+              { label: 'Part Serial Number', value: editingRow.part_serial_number },
+            ]}
+            qtyLabel={editingRow.transaction_type === 'Dispatch' ? 'Dispatch Quantity' : 'Quantity Received'}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingRow(null)}
+          />
+        )}
+
         <RecordsList
           title={listTitle}
           columns={activeColumns}
@@ -461,6 +510,8 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch' }) {
           loading={loading}
           error={null}
           rowKey="id"
+          selectedKey={selectedRow?.id}
+          onRowClick={(r) => !editingRow && setSelectedRow(r)}
           searchValue={search}
           onSearchChange={setSearch}
         />

@@ -1,3 +1,5 @@
+import { toNumberOrNull, withNumericFields } from './numericFields'
+
 // Raw Material Master: the material and its supplier links can't be
 // inserted as one DB transaction from the app, so the sequencing and
 // failure handling live here as a plain function -- saveMaterial and
@@ -68,16 +70,24 @@ export function validateSupplierDraftRows(rows, existingSupplierIds = []) {
   return null
 }
 
-// The three migration-023 fields need DB-friendly values: opening_stock is
-// NOT NULL DEFAULT 0 (blank -> 0), cost_per_unit is numeric (blank -> null),
-// rm_source has a check constraint (blank -> null). Everything else in the
-// form is sent exactly as before.
+// Raw Material Master payload: every numeric column goes out as a number or
+// null, never "" (Postgres rejects "" for numeric). opening_stock is NOT NULL
+// DEFAULT 0, so blank -> 0. rm_source has a check constraint -> null when
+// blank. diameter_mm stays text (ranges like "75 to 80").
+export const RAW_MATERIAL_NUMERIC_FIELDS = ['length_mtrs', 'width', 'thickness', 'opening_stock', 'cost_per_unit']
+
 export function rawMaterialPayload(form) {
-  const blank = (v) => v === '' || v === null || v === undefined
   return {
-    ...form,
-    rm_source: blank(form.rm_source) ? null : form.rm_source,
-    opening_stock: blank(form.opening_stock) ? 0 : Number(form.opening_stock),
-    cost_per_unit: blank(form.cost_per_unit) ? null : Number(form.cost_per_unit),
+    ...withNumericFields(form, RAW_MATERIAL_NUMERIC_FIELDS, { zeroIfBlank: ['opening_stock'] }),
+    rm_source: form.rm_source ? form.rm_source : null,
+  }
+}
+
+// One "rm suppliers" row: price / lead time blank -> null.
+export function supplierRowPayload(row) {
+  return {
+    supplier_id: row.supplier_id,
+    standard_purchase_price: toNumberOrNull(row.standard_purchase_price),
+    lead_time_days: toNumberOrNull(row.lead_time_days),
   }
 }

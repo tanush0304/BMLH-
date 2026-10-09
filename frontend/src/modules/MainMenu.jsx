@@ -84,7 +84,7 @@ const CARD_COLORS = {
   lime: { surface: 'bg-[#F1F9E5]', icon: 'bg-[#367F16]', text: 'text-[#2F7012]' },
 }
 
-export default function MainMenu({ userEmail, role, onNavigate, onSignOut }) {
+export default function MainMenu({ role, onNavigate, onSignOut }) {
   const canSeeMasters = role === 'supervisor' || role === 'admin'
 
   return (
@@ -103,10 +103,6 @@ export default function MainMenu({ userEmail, role, onNavigate, onSignOut }) {
           <button onClick={onSignOut} className="rounded-md border border-[#CBD5E1] px-3 py-2 text-xs font-medium text-[#465D73] transition hover:border-[#176FA8] hover:text-[#176FA8] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/25 sm:text-sm">
             Sign out
           </button>
-          <div className="hidden min-w-0 text-right md:block">
-            <div className="max-w-[200px] truncate text-sm font-semibold text-[#263D54]">{userEmail}</div>
-            <div className="text-xs capitalize text-[#718096]">{role}</div>
-          </div>
           <img src={bmlhLogo} alt="BMLH Engineering" className="hidden h-10 w-auto max-w-[132px] object-contain sm:block" />
         </div>
       </header>

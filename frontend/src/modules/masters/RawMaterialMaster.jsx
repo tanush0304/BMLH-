@@ -5,11 +5,12 @@ import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
-import { rawMaterialPayload } from '../../utils/rawMaterialSave'
+import { rawMaterialPayload, supplierRowPayload } from '../../utils/rawMaterialSave'
 import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 import { uomOptions } from '../../utils/uomOptions'
 import { listProducts } from '../../data/queries/products'
 import RecordsList from '../../components/RecordsList'
+import { listRawMaterialStockMaster } from '../../data/queries/storeMasters'
 import {
   listRawMaterials,
   createRawMaterial,
@@ -60,13 +61,25 @@ const LIST_COLUMNS = [
   { key: 'raw_material_category', label: 'Category' },
   { key: 'rm_type', label: 'Raw Material Type' },
   { key: 'unit_of_measurement', label: 'UoM' },
+  { key: 'supplier_names', label: 'Supplier Name' },
+  { key: 'rm_source', label: 'Raw Material Source' },
+  { key: 'opening_stock', label: 'Opening Stock' },
+  { key: 'receipts', label: 'Receipts' },
+  { key: 'issued', label: 'Issued' },
+  { key: 'closing_stock', label: 'Closing Stock' },
 ]
+
+// Display-only fields taken from "raw material stock master" (migration
+// 023) -- never part of the form/save payload.
+const STOCK_FIELDS = ['supplier_names', 'receipts', 'issued', 'closing_stock']
 
 export default function RawMaterialMaster() {
   const [records, setRecords] = useState([])
   const [suppliers, setSuppliers] = useState([])
   // Only for the shared UoM dropdown options.
   const [products, setProducts] = useState([])
+  // "raw material stock master" rows: one per material x BOM part.
+  const [stockRows, setStockRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -83,7 +96,13 @@ export default function RawMaterialMaster() {
     setLoading(true)
     setError(null)
     try {
-      const [materials, sups, prods] = await Promise.all([listRawMaterials(), listSuppliers(), listProducts()])
+      const [materials, sups, prods, stock] = await Promise.all([
+        listRawMaterials(),
+        listSuppliers(),
+        listProducts(),
+        listRawMaterialStockMaster(),
+      ])
+      setStockRows(stock)
       setRecords(materials)
       setSuppliers(sups)
       setProducts(prods)
@@ -130,7 +149,9 @@ export default function RawMaterialMaster() {
     setSaveError(null)
   }
 
-  async function handleRowClick(row) {
+  async function handleRowClick(listRow) {
+    // The list row carries display-only stock fields; open the plain record.
+    const row = records.find((r) => r.raw_material_code === listRow.raw_material_code) ?? listRow
     setForm({ ...EMPTY_FORM, ...row })
     setMode('view')
     setSaveError(null)
@@ -179,14 +200,6 @@ export default function RawMaterialMaster() {
       setSaveError(e.message)
     } finally {
       setLinkSaving(false)
-    }
-  }
-
-  function supplierRowPayload(row) {
-    return {
-      supplier_id: row.supplier_id,
-      standard_purchase_price: row.standard_purchase_price === '' ? null : Number(row.standard_purchase_price),
-      lead_time_days: row.lead_time_days === '' ? null : Number(row.lead_time_days),
     }
   }
 
@@ -277,7 +290,15 @@ export default function RawMaterialMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Raw Material Master', 'raw_material_master')
   }
 
-  const filteredRecords = records.filter((r) => {
+  const listRows = records.map((r) => {
+    const stock = stockRows.find((s) => s.raw_material_code === r.raw_material_code)
+    return { ...r, ...Object.fromEntries(STOCK_FIELDS.map((k) => [k, stock?.[k] ?? ''])) }
+  })
+  const partsUsingMaterial = form.raw_material_code && mode !== 'new'
+    ? stockRows.filter((s) => s.raw_material_code === form.raw_material_code && s.part_serial_number)
+    : []
+
+  const filteredRecords = listRows.filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
     return (
@@ -398,9 +419,6 @@ export default function RawMaterialMaster() {
             <Field label="Opening Stock">
               <TextInput type="number" value={form.opening_stock ?? ''} onChange={handleField('opening_stock')} disabled={readOnly} />
             </Field>
-            <Field label="Cost Per Unit">
-              <TextInput type="number" value={form.cost_per_unit ?? ''} onChange={handleField('cost_per_unit')} disabled={readOnly} />
-            </Field>
           </FormSection>
           </div>
         </div>
@@ -483,6 +501,45 @@ export default function RawMaterialMaster() {
                 </div>
           )}
         </div>
+
+        {mode !== 'new' && (
+          <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+            <div className="bg-bmlhsky border-b border-gray-200 px-4 py-2.5">
+              <h2 className="text-sm font-semibold text-bmlhnavy">4. Parts using this material</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600 text-left">
+                    <th className="px-4 py-2 font-medium">Part Serial Number</th>
+                    <th className="px-4 py-2 font-medium">Part Name</th>
+                    <th className="px-4 py-2 font-medium">Part Drawing Number</th>
+                    <th className="px-4 py-2 font-medium">Standard consumption per Unit</th>
+                    <th className="px-4 py-2 font-medium">No of units can be produced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partsUsingMaterial.map((p) => (
+                    <tr key={p.row_key} className="border-t border-gray-100">
+                      <td className="px-4 py-2">{p.part_serial_number}</td>
+                      <td className="px-4 py-2">{p.part_name ?? ''}</td>
+                      <td className="px-4 py-2">{p.part_drawing_reference_number ?? ''}</td>
+                      <td className="px-4 py-2">{p.consumption_per_unit ?? ''}</td>
+                      <td className="px-4 py-2">{p.units_producible ?? '—'}</td>
+                    </tr>
+                  ))}
+                  {partsUsingMaterial.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-4 text-center text-gray-400">
+                        No part uses this material in its BOM.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <RecordsList
           title="Raw Material Master List"

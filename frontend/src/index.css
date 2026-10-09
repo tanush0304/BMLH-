@@ -16,6 +16,9 @@ body {
    inside a form card's body. A locked field in view mode (disabled, but not
    auto-filled) shows neutral, as in the reference. */
 @layer components {
+  /* Quantity / amount values in lists and totals (utils/numberHighlight.js). */
+  .num-highlight { color: #1D4ED8; font-weight: 600; font-variant-numeric: tabular-nums; }
+
   .input-dropdown { background-color: #FFF6CC; border-color: #E5C65A; }
   .input-manual { background-color: #EAF2FD; border-color: #A9C8EE; }
   .input-auto,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, PlayCircle, Clock3, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Factory, PlayCircle, Clock3, CheckCircle2, ShieldCheck, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -24,6 +24,8 @@ import {
   listLogHoursForLogIds,
   closeProductionLog,
   verifyProductionLog,
+  endProductionLog,
+  listOpenLogsForUser,
 } from '../../data/queries/productionLogs'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -35,7 +37,9 @@ import {
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
 import { pickCycleTime } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
+import { stageLabel } from '../../utils/stageLabel'
 import { subItemLabel } from '../../utils/constants'
+import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
 
 export default function ProductionDataEntryScreen({ role }) {
   // Shift-incharge verification is supervisor/admin only -- hidden here,
@@ -76,10 +80,34 @@ export default function ProductionDataEntryScreen({ role }) {
   const [settingTimeMin, setSettingTimeMin] = useState('')
   const [masterCycleTime, setMasterCycleTime] = useState(null) // Cycle Time Master, part + seq (+ machine)
   const [verifying, setVerifying] = useState(false)
+  const [endingLog, setEndingLog] = useState(false)
 
   async function loadPendingStages() {
     const allStages = await listAllStages()
-    setPendingStages(allStages.filter((s) => s.type === 'Internal' && s.status === 'Pending'))
+    const pending = allStages.filter((s) => s.type === 'Internal' && s.status === 'Pending')
+    setPendingStages(pending)
+    return pending
+  }
+
+  // Reopening the screen: if this login has an open log on an Internal stage,
+  // load it straight away (PRD / machine / stage then stay locked). Before
+  // migration 024 there is no user_id column -- the query fails and the
+  // screen simply starts empty, as it did before.
+  async function restoreOpenLog(pending) {
+    let openLogs
+    try {
+      openLogs = await listOpenLogsForUser(await getCurrentUserId())
+    } catch {
+      return
+    }
+    const match = pickOpenLogForScreen(openLogs, pending)
+    if (!match) return
+    const { log, stage } = match
+    await selectPrd(log.prd_no, pending)
+    setMachineId(log.machine_id ?? '')
+    setStageChoiceId(String(stage.id))
+    if (log.employee_id) setEmployeeId(log.employee_id)
+    await resolveStage(log.prd_no, stage, log.machine_id)
   }
 
   useEffect(() => {
@@ -91,7 +119,8 @@ export default function ProductionDataEntryScreen({ role }) {
         setEmployees(employeeRows)
         setShifts(shf)
         setMachineLabels(buildMachineLabelMap(machs))
-        await loadPendingStages()
+        const pending = await loadPendingStages()
+        await restoreOpenLog(pending)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -106,7 +135,11 @@ export default function ProductionDataEntryScreen({ role }) {
   const eligibleMachineIds = [...new Set(machineOpsForPrd.map((r) => r.machine_id))]
 
   async function handlePrdChange(e) {
-    const prd = e.target.value
+    if (activeLog) return // locked while a log is open
+    await selectPrd(e.target.value, pendingStages)
+  }
+
+  async function selectPrd(prd, pending) {
     setPrdNo(prd)
     setMachineId('')
     setStageChoiceId('')
@@ -124,7 +157,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setResolving(true)
     setError(null)
     try {
-      const stages = pendingStages.filter((s) => s.prd_no === prd)
+      const stages = pending.filter((s) => s.prd_no === prd)
       setPrdStages(stages)
       // Eligibility comes from Cycle Time Master (part_serial_number + seq +
       // machine_id), not from matching operation text against "machine
@@ -149,6 +182,7 @@ export default function ProductionDataEntryScreen({ role }) {
     : []
 
   function handleMachineChange(e) {
+    if (activeLog) return // locked while a log is open
     const id = e.target.value
     setMachineId(id)
     setStageChoiceId('')
@@ -170,6 +204,7 @@ export default function ProductionDataEntryScreen({ role }) {
   }
 
   function handleStageChoice(e) {
+    if (activeLog) return // locked while a log is open
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
@@ -342,25 +377,48 @@ export default function ProductionDataEntryScreen({ role }) {
       if (activeLog) await closeProductionLog(activeLog.id)
       // Stage is done -- clear the resolved state and refresh the pending
       // stage list (the next stage, if Internal, will now show up).
-      setPrdNo('')
-      setMachineId('')
-      setStageChoiceId('')
-      setResolvedStage(null)
-      setPlannedQty(null)
-      setStageTarget(null)
-      setStageOutputSoFar(0)
-      setActiveLog(null)
-      resetReportHeader()
-      setLogHours([])
-      setTotals(null)
-      setPrdStages([])
-      setMachineOpsForPrd([])
-      await loadPendingStages()
+      await clearSelection()
     } catch (e) {
       setError(e.message)
     } finally {
       setCompleting(false)
     }
+  }
+
+  // Close the open log without completing the stage (switching operation
+  // mid-stage). The stage stays Pending; the log's unused reservation goes
+  // back to the pool (see endProductionLog). Employee and Shift are kept.
+  async function handleEndLog() {
+    if (!activeLog) return
+    if (!window.confirm('End this log without completing the stage? You can start a new log afterwards.')) return
+    setEndingLog(true)
+    setError(null)
+    try {
+      const hours = await listLogHoursForLogIds([activeLog.id])
+      await endProductionLog(activeLog.id, releasedPlannedQty(activeLog.planned_qty, hours))
+      await clearSelection()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setEndingLog(false)
+    }
+  }
+
+  async function clearSelection() {
+    setPrdNo('')
+    setMachineId('')
+    setStageChoiceId('')
+    setResolvedStage(null)
+    setPlannedQty(null)
+    setStageTarget(null)
+    setStageOutputSoFar(0)
+    setActiveLog(null)
+    resetReportHeader()
+    setLogHours([])
+    setTotals(null)
+    setPrdStages([])
+    setMachineOpsForPrd([])
+    await loadPendingStages()
   }
 
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
@@ -388,6 +446,7 @@ export default function ProductionDataEntryScreen({ role }) {
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
+              disabled={!!activeLog}
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
@@ -397,11 +456,14 @@ export default function ProductionDataEntryScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={part.part_drawing_reference_number} />
+          </Field>
           <Field label="Machine" required>
             <SearchableSelect
               value={machineId}
               onChange={handleMachineChange}
-              disabled={!prdNo || eligibleMachineIds.length === 0}
+              disabled={!!activeLog || !prdNo || eligibleMachineIds.length === 0}
               options={eligibleMachineIds.map((id) => ({ value: id, label: machineLabels[id] ?? id }))}
             />
           </Field>
@@ -410,11 +472,23 @@ export default function ProductionDataEntryScreen({ role }) {
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
-                options={stageChoicesForPrd.map((s) => ({ value: s.id, label: `Seq ${s.seq} - ${s.operation}` }))}
+                disabled={!!activeLog}
+                options={stageChoicesForPrd.map((s) => ({ value: s.id, label: stageLabel(s) }))}
               />
             </Field>
           )}
           {resolving && <div className="flex items-end text-sm text-gray-400">Resolving...</div>}
+          {activeLog && resolvedStage && (
+            <p className="sm:col-span-3 flex items-start gap-2 text-xs text-[#0A4CB0] bg-[#EAF2FD] border border-[#A9C8EE] rounded px-3 py-2">
+              <Lock size={14} className="mt-px shrink-0" aria-hidden="true" />
+              <span>
+                Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · Machine{' '}
+                <strong>{machineLabels[activeLog.machine_id] ?? activeLog.machine_id}</strong> · started{' '}
+                {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD, Stage and Machine
+                are locked until you End Log or Mark Stage Complete.
+              </span>
+            </p>
+          )}
           {noEligibleMachine && (
             <p className="text-sm text-amber-600 sm:col-span-3">
               No machine is currently set up to perform the operation this production order needs next.
@@ -508,12 +582,12 @@ export default function ProductionDataEntryScreen({ role }) {
               />
               {totals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
-                  <span>Total Produced: <strong>{totals.total_produced}</strong></span>
-                  <span>Total Rejected: <strong>{totals.total_rejected ?? 0}</strong></span>
-                  <span>Total Rework: <strong>{totals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong>{totals.efficiency_pct ?? '—'}%</strong></span>
-                  <span>Reject %: <strong>{totals.reject_pct ?? '—'}%</strong></span>
-                  <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>
+                  <span>Total Produced: <strong className="num-highlight">{totals.total_produced}</strong></span>
+                  <span>Total Rejected: <strong className="num-highlight">{totals.total_rejected ?? 0}</strong></span>
+                  <span>Total Rework: <strong className="num-highlight">{totals.total_rework ?? 0}</strong></span>
+                  <span>Efficiency: <strong className="num-highlight">{totals.efficiency_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong className="num-highlight">{totals.reject_pct ?? '—'}%</strong></span>
+                  <span>Rework %: <strong className="num-highlight">{totals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
               <div className="flex items-center gap-3 pt-2 mt-2 border-t border-gray-100 text-sm">
@@ -543,6 +617,17 @@ export default function ProductionDataEntryScreen({ role }) {
             <p className="text-sm text-gray-600">
               Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
             </p>
+            <div className="flex items-center gap-2">
+            {activeLog && (
+              <button
+                onClick={handleEndLog}
+                disabled={endingLog || completing}
+                className="inline-flex items-center gap-1.5 bg-gray-600 text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-gray-700"
+              >
+                <StopCircle size={15} />
+                {endingLog ? 'Ending...' : 'End Log'}
+              </button>
+            )}
             {stageOutputSoFar >= stageTarget && stageTarget > 0 && (
               <button
                 onClick={handleMarkComplete}
@@ -553,6 +638,7 @@ export default function ProductionDataEntryScreen({ role }) {
                 {completing ? 'Marking Complete...' : 'Mark Stage Complete'}
               </button>
             )}
+            </div>
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ const LIST_COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'planned_date', label: 'Planned Date' },
 ]
 

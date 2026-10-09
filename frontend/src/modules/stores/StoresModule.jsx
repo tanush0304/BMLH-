@@ -22,7 +22,7 @@ const TABS = [
 // `activeMode` (from a landing tile) pre-selects the Issue/Receipt or
 // Dispatch/Receipt tab of the combined RM / FG screens; keyed so picking a
 // different tile for the same screen remounts it on that tab.
-export default function StoresModule({ activeTab, activeMode, onSelect }) {
+export default function StoresModule({ activeTab, activeMode, role, onSelect }) {
   if (!activeTab) {
     return (
       <ModuleLanding
@@ -34,5 +34,5 @@ export default function StoresModule({ activeTab, activeMode, onSelect }) {
   }
   const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
-  return <Screen key={`${tab.key}/${activeMode ?? ''}`} initialMode={activeMode || undefined} />
+  return <Screen key={`${tab.key}/${activeMode ?? ''}`} initialMode={activeMode || undefined} role={role} />
 }

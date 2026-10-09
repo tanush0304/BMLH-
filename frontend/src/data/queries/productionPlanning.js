@@ -38,6 +38,7 @@ export async function listProductionPlans() {
       customer_name: customer?.customer_name ?? '',
       part_serial_number: order?.part_serial_number ?? '',
       part_name: product?.part_name ?? '',
+      part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
       order_qty: order?.order_qty ?? '',
       expected_delivery: order?.expected_delivery ?? '',
       status: derivePlanStatus(stagesByPrd.get(card.prd_no) ?? []),

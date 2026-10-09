@@ -18,7 +18,11 @@ import {
   createRequisition,
   listOrderMaterialRequirement,
   generateNextRequisitionNo,
+  updateRequisition,
 } from '../../data/queries/rawMaterialRequisitions'
+import StockEditPanel from '../../components/StockEditPanel'
+import { canEditStock, stockEditPatch } from '../../utils/stockEdit'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const EMPTY_FORM = {
   prd_no: '',
@@ -30,7 +34,7 @@ const EMPTY_FORM = {
   qty_required: '',
 }
 
-export default function RawMaterialRequisitionScreen() {
+export default function RawMaterialRequisitionScreen({ role }) {
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([])
   const [employees, setEmployees] = useState([])
@@ -43,6 +47,9 @@ export default function RawMaterialRequisitionScreen() {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  // Supervisor/admin edit of an existing requisition (Delete stays hidden).
+  const [selectedRow, setSelectedRow] = useState(null)
+  const [editingRow, setEditingRow] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -118,7 +125,21 @@ export default function RawMaterialRequisitionScreen() {
   function handleReset() {
     setForm(EMPTY_FORM)
     setBomForProduct([])
+    setSelectedRow(null)
+    setEditingRow(null)
     setError(null)
+  }
+
+  // A requisition is a request, not stock -- only qty > 0 and a date.
+  async function handleSaveEdit(draft) {
+    const qty = toNumberOrNull(draft.qty)
+    if (qty === null || qty <= 0) return 'Qty Required must be greater than 0.'
+    if (!draft.transaction_date) return 'Order Date is required.'
+    await updateRequisition(editingRow.id, stockEditPatch(draft, { withRemarks: false, qtyKey: 'qty_required', dateKey: 'order_date' }))
+    setEditingRow(null)
+    setSelectedRow(null)
+    await refresh()
+    return null
   }
 
   async function handleSave() {
@@ -172,7 +193,10 @@ export default function RawMaterialRequisitionScreen() {
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Raw Material Requisition" subtitle="Request Material Against a Production Order" />
       <ActionToolbar
-        showEditDelete={false}
+        showEditDelete={canEditStock(role)}
+        showDelete={false}
+        onEdit={() => setEditingRow(selectedRow)}
+        canEdit={!!selectedRow && !editingRow}
         onNew={handleReset}
         onSave={handleSave}
         onClear={handleReset}
@@ -234,6 +258,25 @@ export default function RawMaterialRequisitionScreen() {
           </Field>
         </FormSection>
 
+        {editingRow && (
+          <StockEditPanel
+            row={editingRow}
+            info={[
+              { label: 'Requisition No', value: editingRow.requisition_no },
+              { label: 'Production Order (PRD No)', value: editingRow.prd_no },
+              { label: 'Raw Material', value: editingRow.raw_material_code },
+              { label: 'Part Serial Number', value: editingRow.part_serial_number },
+            ]}
+            qtyLabel="Qty Required"
+            dateLabel="Order Date"
+            qtyKey="qty_required"
+            dateKey="order_date"
+            showRemarks={false}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingRow(null)}
+          />
+        )}
+
         <RecordsList
           title="Raw Material Requisitions"
           columns={listColumns}
@@ -241,6 +284,8 @@ export default function RawMaterialRequisitionScreen() {
           loading={loading}
           error={null}
           rowKey="id"
+          selectedKey={selectedRow?.id}
+          onRowClick={(r) => !editingRow && setSelectedRow(r)}
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by PRD / Raw Material..."

@@ -17,6 +17,7 @@ import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const EMPTY_FORM = {
   id: '',
@@ -138,7 +139,7 @@ export default function CycleTimeMaster() {
         type: form.type,
         machine_id: form.type === 'Internal' ? form.machine_id : null,
         job_work_code: form.type === 'Outsourced' ? form.job_work_code : null,
-        cycle_time_min: form.cycle_time_min === '' ? null : Number(form.cycle_time_min),
+        cycle_time_min: toNumberOrNull(form.cycle_time_min),
       }
       if (mode === 'edit') {
         await updateCycleTime(form.id, payload)

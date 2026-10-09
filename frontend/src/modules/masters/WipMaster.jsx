@@ -5,6 +5,7 @@ const COLUMNS = [
   { key: 'prd_no', label: 'PRD Number' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'customer_name', label: 'Customer Name' },
   { key: 'unit_of_measurement', label: 'UoM' },
   { key: 'order_type', label: 'Order Type' },

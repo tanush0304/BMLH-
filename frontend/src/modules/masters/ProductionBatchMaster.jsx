@@ -14,6 +14,7 @@ import {
   deleteProductionBatch,
 } from '../../data/queries/productionBatch'
 import { listProducts } from '../../data/queries/products'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -92,7 +93,7 @@ export default function ProductionBatchMaster() {
     try {
       const payload = {
         production_batch_quantity:
-          form.production_batch_quantity === '' ? null : Number(form.production_batch_quantity),
+          toNumberOrNull(form.production_batch_quantity),
       }
       if (mode === 'edit') {
         await updateProductionBatch(form.part_serial_number, payload)

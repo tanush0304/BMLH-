@@ -21,6 +21,7 @@ const LIST_COLUMNS = [
   { key: 'customer_name', label: 'Customer Name' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
   { key: 'available_rm_qty_snapshot', label: 'Available RM Qty', render: (r) => r.available_rm_qty_snapshot ?? 'Pending BOM' },

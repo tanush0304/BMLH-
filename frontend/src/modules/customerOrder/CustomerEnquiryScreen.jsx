@@ -21,6 +21,7 @@ import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { todayISO } from '../../utils/dates'
 import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
+import { toNumberOrNull } from '../../utils/numericFields'
 
 const NEW_PART_VALUE = '__new__'
 
@@ -217,12 +218,12 @@ export default function CustomerEnquiryScreen() {
         drawing_number: form.drawing_number || null,
         part_serial_number: resolved.partSerialNumber || null,
         part_name: form.part_name || null,
-        quoted_price: form.quoted_price === '' ? null : Number(form.quoted_price),
+        quoted_price: toNumberOrNull(form.quoted_price),
         // System date, set once at creation/revision and never re-typed --
         // form.quoted_date is read-only, so on an edit this just resends
         // whatever was already stored.
         quoted_date: form.quoted_date || todayISO(),
-        supply_lead_time_days: form.supply_lead_time_days === '' ? null : Number(form.supply_lead_time_days),
+        supply_lead_time_days: toNumberOrNull(form.supply_lead_time_days),
         revision_status: form.revision_status || null,
       }
       let saved

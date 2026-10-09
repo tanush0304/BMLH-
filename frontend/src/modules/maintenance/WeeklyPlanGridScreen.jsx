@@ -101,7 +101,7 @@ export default function WeeklyPlanGridScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Weekly Maintenance Plan" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned" />
+      <PageHeader title="Maintenance Planning" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned" />
       <ActionToolbar
         showCrudButtons={false}
         showExport={false}

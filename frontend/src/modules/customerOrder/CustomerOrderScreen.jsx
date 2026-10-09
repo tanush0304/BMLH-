@@ -17,6 +17,9 @@ import {
 import { createPoHeader } from '../../data/queries/customerPoHeaders'
 import { listCustomerEnquiries } from '../../data/queries/customerEnquiries'
 import { listCustomers } from '../../data/queries/customers'
+import { listPoHeaders } from '../../data/queries/customerPoHeaders'
+import SelectWithAddNew from '../../components/SelectWithAddNew'
+import { paymentTermsOptions, deliveryTermsOptions, withCustomer } from '../../utils/poTermsOptions'
 import { listProducts, resolveProductWithConfirmation } from '../../data/queries/products'
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
@@ -64,9 +67,10 @@ function emptyLineItem() {
 
 const LIST_COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
-  { key: 'customer_id', label: 'Customer' },
+  { key: 'customer_name', label: 'Customer Name' },
   { key: 'po_number', label: 'PO Number' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
@@ -75,6 +79,8 @@ export default function CustomerOrderScreen() {
   const [records, setRecords] = useState([])
   const [enquiries, setEnquiries] = useState([])
   const [customers, setCustomers] = useState([])
+  // Saved PO headers -- only for the Delivery / Payment Terms dropdown options.
+  const [poHeaders, setPoHeaders] = useState([])
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -95,12 +101,14 @@ export default function CustomerOrderScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [orders, enq, custs, prods] = await Promise.all([
+      const [orders, enq, custs, prods, headers] = await Promise.all([
         listCustomerOrders(),
         listCustomerEnquiries(),
         listCustomers(),
         listProducts(),
+        listPoHeaders(),
       ])
+      setPoHeaders(headers)
       setRecords(orders)
       setEnquiries(enq)
       setCustomers(custs)
@@ -379,10 +387,14 @@ export default function CustomerOrderScreen() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Customer Orders', 'customer_orders')
   }
 
-  const filteredRecords = records.filter((r) => {
+  const filteredRecords = records.map((r) => ({
+    ...r,
+    customer_name: customers.find((c) => c.customer_id === r.customer_id)?.customer_name ?? r.customer_id ?? '',
+    part_drawing_reference_number: products.find((p) => p.part_serial_number === r.part_serial_number)?.part_drawing_reference_number ?? '',
+  })).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
-    return r.prd_no?.toLowerCase().includes(q) || r.po_number?.toLowerCase().includes(q)
+    return r.prd_no?.toLowerCase().includes(q) || r.po_number?.toLowerCase().includes(q) || r.customer_name?.toLowerCase().includes(q)
   })
 
   const readOnly = mode === 'view'
@@ -417,7 +429,7 @@ export default function CustomerOrderScreen() {
               <Field label="Customer" required>
                 <SearchableSelect
                   value={poHeader.customer_id}
-                  onChange={handlePoHeaderField('customer_id')}
+                  onChange={(e) => setPoHeader((h) => withCustomer(h, e.target.value, customers))}
                   options={customerDropdownOptions(customers)}
                 />
               </Field>
@@ -428,10 +440,18 @@ export default function CustomerOrderScreen() {
                 <TextInput type="date" value={poHeader.po_date} onChange={handlePoHeaderField('po_date')} />
               </Field>
               <Field label="Delivery Terms">
-                <TextInput value={poHeader.delivery_terms} onChange={handlePoHeaderField('delivery_terms')} />
+                <SelectWithAddNew
+                  value={poHeader.delivery_terms ?? ''}
+                  onChange={handlePoHeaderField('delivery_terms')}
+                  options={deliveryTermsOptions(poHeaders)}
+                />
               </Field>
               <Field label="Payment Terms">
-                <TextInput value={poHeader.payment_terms} onChange={handlePoHeaderField('payment_terms')} />
+                <SelectWithAddNew
+                  value={poHeader.payment_terms ?? ''}
+                  onChange={handlePoHeaderField('payment_terms')}
+                  options={paymentTermsOptions(poHeaders)}
+                />
               </Field>
             </FormSection>
 

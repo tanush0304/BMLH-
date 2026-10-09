@@ -5,6 +5,7 @@ import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 import RecordsList from '../../components/RecordsList'
 import {
   listMaintenanceChecklist,
@@ -15,10 +16,10 @@ import {
 import { listMaintenanceSchedules, saveMaintenanceSchedule } from '../../data/queries/maintenanceSchedules'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
+import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
-const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', status: 'Active', remarks: '' }
-const FREQUENCIES = ['Daily', 'Weekly', 'Fortnightly', 'Monthly']
+const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', interval_days: '', status: 'Active', remarks: '' }
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
@@ -35,23 +36,6 @@ const SCHEDULE_COLUMNS = [
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'remarks', label: 'Remarks' },
 ]
-
-function addFrequency(dateString, frequency) {
-  if (!dateString || !frequency) return ''
-  const date = new Date(`${dateString}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return ''
-  if (frequency === 'Daily') date.setDate(date.getDate() + 1)
-  if (frequency === 'Weekly') date.setDate(date.getDate() + 7)
-  if (frequency === 'Fortnightly') date.setDate(date.getDate() + 14)
-  if (frequency === 'Monthly') {
-    const day = date.getDate()
-    date.setDate(1)
-    date.setMonth(date.getMonth() + 1)
-    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-    date.setDate(Math.min(day, lastDay))
-  }
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
 
 export default function MaintenanceMaster() {
   const [records, setRecords] = useState([])
@@ -132,6 +116,7 @@ export default function MaintenanceMaster() {
       maintenance_frequency: row.maintenance_frequency ?? '',
       last_maintenance_date: row.last_maintenance_date ?? '',
       next_maintenance_due: row.next_maintenance_due ?? '',
+      interval_days: parseIntervalDays(row.maintenance_frequency) ?? '',
       status: row.status ?? '',
       remarks: row.remarks ?? '',
     })
@@ -143,14 +128,18 @@ export default function MaintenanceMaster() {
       setScheduleError('Machine, Maintenance Frequency and Last Maintenance Date are required.')
       return
     }
+    if (isCustomFrequency && !(Number(scheduleForm.interval_days) > 0)) {
+      setScheduleError('Enter the interval in days for a custom Maintenance Frequency.')
+      return
+    }
     setScheduleSaving(true)
     setScheduleError(null)
     try {
       await saveMaintenanceSchedule({
         machine_id: scheduleForm.machine_id,
-        maintenance_frequency: scheduleForm.maintenance_frequency,
+        maintenance_frequency: frequencyToSave,
         last_maintenance_date: scheduleForm.last_maintenance_date,
-        next_maintenance_due: addFrequency(scheduleForm.last_maintenance_date, scheduleForm.maintenance_frequency),
+        next_maintenance_due: addFrequency(scheduleForm.last_maintenance_date, frequencyToSave),
         status: scheduleForm.status || null,
         remarks: scheduleForm.remarks.trim() || null,
       })
@@ -158,6 +147,22 @@ export default function MaintenanceMaster() {
       await refresh()
     } catch (e) { setScheduleError(e.message) }
     finally { setScheduleSaving(false) }
+  }
+
+  // A custom (added) frequency carries its interval in its text, e.g.
+  // "Every 45 days" or "Quarterly (90 days)" -- no extra DB column.
+  const isCustomFrequency = Boolean(scheduleForm.maintenance_frequency) && !isBuiltInFrequency(scheduleForm.maintenance_frequency)
+  const frequencyToSave = isCustomFrequency
+    ? withIntervalDays(scheduleForm.maintenance_frequency, scheduleForm.interval_days)
+    : scheduleForm.maintenance_frequency
+
+  function handleFrequencyChange(e) {
+    const maintenance_frequency = e.target.value
+    setScheduleForm((current) => ({
+      ...current,
+      maintenance_frequency,
+      interval_days: parseIntervalDays(maintenance_frequency) ?? (isBuiltInFrequency(maintenance_frequency) ? '' : current.interval_days),
+    }))
   }
 
   const selectedMachine = machines.find((machine) => machine.machine_id === scheduleForm.machine_id)
@@ -193,12 +198,17 @@ export default function MaintenanceMaster() {
           <Field label="Manufacturer Name"><AutoFillBox value={selectedMachine?.manufacturer_name} /></Field>
           <Field label="Model"><AutoFillBox value={selectedMachine?.model} /></Field>
           <Field label="Maintenance Frequency" required>
-            <SelectInput value={scheduleForm.maintenance_frequency} onChange={handleScheduleField('maintenance_frequency')} options={FREQUENCIES} />
+            <SelectWithAddNew value={scheduleForm.maintenance_frequency} onChange={handleFrequencyChange} options={mergeOptions(BUILT_IN_FREQUENCIES, scheduleRecords.map((r) => r.maintenance_frequency))} placeholder="Type new frequency" />
           </Field>
           <Field label="Last Maintenance Date" required>
             <TextInput type="date" value={scheduleForm.last_maintenance_date} onChange={handleScheduleField('last_maintenance_date')} />
           </Field>
-          <Field label="Next Due"><AutoFillBox value={addFrequency(scheduleForm.last_maintenance_date, scheduleForm.maintenance_frequency)} /></Field>
+          {isCustomFrequency && (
+            <Field label="Interval (days)" required>
+              <TextInput type="number" min="1" value={scheduleForm.interval_days} onChange={handleScheduleField('interval_days')} placeholder="e.g. 45" />
+            </Field>
+          )}
+          <Field label="Next Due"><AutoFillBox value={addFrequency(scheduleForm.last_maintenance_date, frequencyToSave)} /></Field>
           <Field label="Status">
             <SelectInput value={scheduleForm.status} onChange={handleScheduleField('status')} options={['Active', 'Inactive']} />
           </Field>

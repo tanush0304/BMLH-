@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ClipboardCheck, PlayCircle, Clock3, CheckCircle2 } from 'lucide-react'
+import { ClipboardCheck, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -20,13 +20,18 @@ import {
   getOpenLogForStage,
   listLogHoursForLogIds,
   closeProductionLog,
+  endProductionLog,
+  listOpenLogsForUser,
 } from '../../data/queries/productionLogs'
+import { getCurrentUserId } from '../../data/queries/currentUser'
+import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
 import {
   computeStageAvailability,
   computeStageUpstreamTargets,
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
+import { stageLabel } from '../../utils/stageLabel'
 import { todayISO } from '../../utils/dates'
 
 /**
@@ -60,10 +65,33 @@ export default function ManualOperationsScreen() {
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
   const [savingHour, setSavingHour] = useState(false)
+  const [endingLog, setEndingLog] = useState(false)
 
   async function loadPendingStages() {
     const allStages = await listAllStages()
-    setPendingStages(allStages.filter((s) => s.type === 'Manual' && s.status === 'Pending'))
+    const pending = allStages.filter((s) => s.type === 'Manual' && s.status === 'Pending')
+    setPendingStages(pending)
+    return pending
+  }
+
+  // Reopening the screen: if this login has an open log on a Manual stage,
+  // load it straight away (PRD / stage then stay locked). Before migration
+  // 024 there is no user_id column -- the query fails and the screen simply
+  // starts empty, as it did before.
+  async function restoreOpenLog(pending) {
+    let openLogs
+    try {
+      openLogs = await listOpenLogsForUser(await getCurrentUserId())
+    } catch {
+      return
+    }
+    const match = pickOpenLogForScreen(openLogs, pending)
+    if (!match) return
+    const { log, stage } = match
+    setPrdNo(log.prd_no)
+    setStageChoiceId(String(stage.id))
+    if (log.employee_id) setEmployeeId(log.employee_id)
+    await resolveStage(log.prd_no, stage)
   }
 
   useEffect(() => {
@@ -74,7 +102,8 @@ export default function ManualOperationsScreen() {
         const [employeeRows, shf] = await Promise.all([listEmployees(), listShifts()])
         setEmployees(employeeRows)
         setShifts(shf)
-        await loadPendingStages()
+        const pending = await loadPendingStages()
+        await restoreOpenLog(pending)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -92,6 +121,7 @@ export default function ManualOperationsScreen() {
   const stageChoicesForPrd = prdNo ? pendingStages.filter((s) => s.prd_no === prdNo) : []
 
   function handlePrdChange(e) {
+    if (activeLog) return // locked while a log is open
     const prd = e.target.value
     setPrdNo(prd)
     setStageChoiceId('')
@@ -110,6 +140,7 @@ export default function ManualOperationsScreen() {
   }
 
   function handleStageChoice(e) {
+    if (activeLog) return // locked while a log is open
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
@@ -244,21 +275,44 @@ export default function ManualOperationsScreen() {
     try {
       await updateStageStatus(resolvedStage.id, 'Completed')
       if (activeLog) await closeProductionLog(activeLog.id)
-      setPrdNo('')
-      setStageChoiceId('')
-      setResolvedStage(null)
-      setPlannedQty(null)
-      setStageTarget(null)
-      setStageOutputSoFar(0)
-      setActiveLog(null)
-      setLogHours([])
-      setTotals(null)
-      await loadPendingStages()
+      await clearSelection()
     } catch (e) {
       setError(e.message)
     } finally {
       setCompleting(false)
     }
+  }
+
+  // Close the open log without completing the stage (switching operation
+  // mid-stage). The stage stays Pending; the log's unused reservation goes
+  // back to the pool (see endProductionLog). Employee and Shift are kept.
+  async function handleEndLog() {
+    if (!activeLog) return
+    if (!window.confirm('End this log without completing the stage? You can start a new log afterwards.')) return
+    setEndingLog(true)
+    setError(null)
+    try {
+      const hours = await listLogHoursForLogIds([activeLog.id])
+      await endProductionLog(activeLog.id, releasedPlannedQty(activeLog.planned_qty, hours))
+      await clearSelection()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setEndingLog(false)
+    }
+  }
+
+  async function clearSelection() {
+    setPrdNo('')
+    setStageChoiceId('')
+    setResolvedStage(null)
+    setPlannedQty(null)
+    setStageTarget(null)
+    setStageOutputSoFar(0)
+    setActiveLog(null)
+    setLogHours([])
+    setTotals(null)
+    await loadPendingStages()
   }
 
   const noEligibleStage = prdNo && !resolving && stageChoicesForPrd.length === 0
@@ -286,6 +340,7 @@ export default function ManualOperationsScreen() {
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
+              disabled={!!activeLog}
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
@@ -295,16 +350,30 @@ export default function ManualOperationsScreen() {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={part.part_drawing_reference_number} />
+          </Field>
           {stageChoicesForPrd.length > 1 && (
             <Field label="Which Stage?" required>
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
-                options={stageChoicesForPrd.map((s) => ({ value: s.id, label: `Seq ${s.seq} - ${s.operation}` }))}
+                disabled={!!activeLog}
+                options={stageChoicesForPrd.map((s) => ({ value: s.id, label: stageLabel(s) }))}
               />
             </Field>
           )}
           {resolving && <div className="flex items-end text-sm text-gray-400">Resolving...</div>}
+          {activeLog && resolvedStage && (
+            <p className="sm:col-span-3 flex items-start gap-2 text-xs text-[#0A4CB0] bg-[#EAF2FD] border border-[#A9C8EE] rounded px-3 py-2">
+              <Lock size={14} className="mt-px shrink-0" aria-hidden="true" />
+              <span>
+                Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · started{' '}
+                {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD and Stage are
+                locked until you End Log or Mark Stage Complete.
+              </span>
+            </p>
+          )}
           {noEligibleStage && (
             <p className="text-sm text-amber-600 sm:col-span-3">
               This order has no reachable Manual stage right now.
@@ -373,12 +442,12 @@ export default function ManualOperationsScreen() {
               />
               {totals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
-                  <span>Total Produced: <strong>{totals.total_produced}</strong></span>
-                  <span>Total Rejected: <strong>{totals.total_rejected ?? 0}</strong></span>
-                  <span>Total Rework: <strong>{totals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong>{totals.efficiency_pct ?? '—'}%</strong></span>
-                  <span>Reject %: <strong>{totals.reject_pct ?? '—'}%</strong></span>
-                  <span>Rework %: <strong>{totals.rework_pct ?? '—'}%</strong></span>
+                  <span>Total Produced: <strong className="num-highlight">{totals.total_produced}</strong></span>
+                  <span>Total Rejected: <strong className="num-highlight">{totals.total_rejected ?? 0}</strong></span>
+                  <span>Total Rework: <strong className="num-highlight">{totals.total_rework ?? 0}</strong></span>
+                  <span>Efficiency: <strong className="num-highlight">{totals.efficiency_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong className="num-highlight">{totals.reject_pct ?? '—'}%</strong></span>
+                  <span>Rework %: <strong className="num-highlight">{totals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
             </div>
@@ -390,6 +459,17 @@ export default function ManualOperationsScreen() {
             <p className="text-sm text-gray-600">
               Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
             </p>
+            <div className="flex items-center gap-2">
+            {activeLog && (
+              <button
+                onClick={handleEndLog}
+                disabled={endingLog || completing}
+                className="inline-flex items-center gap-1.5 bg-gray-600 text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-gray-700"
+              >
+                <StopCircle size={15} />
+                {endingLog ? 'Ending...' : 'End Log'}
+              </button>
+            )}
             {stageOutputSoFar >= stageTarget && stageTarget > 0 && (
               <button
                 onClick={handleMarkComplete}
@@ -400,6 +480,7 @@ export default function ManualOperationsScreen() {
                 {completing ? 'Marking Complete...' : 'Mark Stage Complete'}
               </button>
             )}
+            </div>
           </div>
         )}
       </div>

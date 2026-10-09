@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { isMachineBusyError, machineBusyMessage, SAME_STAGE_MESSAGE } from '../../utils/productionLogConflict'
 
 export async function listLogsForPrd(prdNo) {
   const { data, error } = await supabase.from('production logs').select('*').eq('prd_no', prdNo)
@@ -95,7 +96,8 @@ export async function getOpenLogForStage(prdNo, stageId) {
  * already has one open fails at the database with 23505 -- getOpenLogForStage
  * above is just a courtesy check to resume instead of even attempting a
  * second insert in the common case; this catch handles the race where two
- * inserts both got past that check.
+ * inserts both got past that check. A 23505 on the one-open-log-per-machine
+ * index (migration 024) gets its own message naming the log holding the machine.
  */
 export async function createProductionLog(payload) {
   const { data, error } = await supabase
@@ -104,12 +106,35 @@ export async function createProductionLog(payload) {
     .select()
     .single()
   if (error) {
+    if (isMachineBusyError(error)) {
+      throw new Error(await describeOpenLogOnMachine(payload.machine_id))
+    }
     if (error.code === '23505') {
-      throw new Error('Someone already started this stage. Refresh and resume their session instead.')
+      throw new Error(SAME_STAGE_MESSAGE)
     }
     throw error
   }
   return data
+}
+
+/** Builds the "machine busy" message from whatever open log holds the
+ * machine (migration 024's one-open-log-per-machine index). Lookups that
+ * fail just leave that part out of the message. */
+async function describeOpenLogOnMachine(machineId) {
+  const [{ data: openLog }, { data: machine }] = await Promise.all([
+    supabase.from('production logs').select('prd_no, stage_id').eq('machine_id', machineId).eq('is_open', true).limit(1).maybeSingle(),
+    supabase.from('machines master').select('machine_name').eq('machine_id', machineId).maybeSingle(),
+  ])
+  let stage = null
+  if (openLog?.stage_id) {
+    const { data } = await supabase
+      .from('production route card stages')
+      .select('seq, operation')
+      .eq('id', openLog.stage_id)
+      .maybeSingle()
+    stage = data
+  }
+  return machineBusyMessage({ machine, machineId, openLog, stage })
 }
 
 /** Set explicitly at the point a log is marked complete -- not inferred from
@@ -117,6 +142,39 @@ export async function createProductionLog(payload) {
 export async function closeProductionLog(logId) {
   const { error } = await supabase.from('production logs').update({ is_open: false }).eq('id', logId)
   if (error) throw error
+}
+
+/**
+ * "End Log": close an open log WITHOUT completing its stage, so the operator
+ * can switch to another operation and come back later. planned_qty is what
+ * the log reserved from the upstream pool when it started; it is cut back to
+ * what this log actually produced (usedQty, see releasedPlannedQty) so the
+ * unused part goes back to the pool and a later log for the same stage can
+ * start with it. Stage status is untouched (stays Pending).
+ */
+export async function endProductionLog(logId, usedQty) {
+  const { data, error } = await supabase
+    .from('production logs')
+    .update({ is_open: false, planned_qty: usedQty })
+    .eq('id', logId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+/** Open logs started by this login (user_id, migration 024), newest first --
+ * used to reload the operator's log automatically when the screen reopens. */
+export async function listOpenLogsForUser(userId) {
+  if (!userId) return []
+  const { data, error } = await supabase
+    .from('production logs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_open', true)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
 }
 
 export async function addProductionLogHour(payload) {

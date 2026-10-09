@@ -18,22 +18,30 @@ import {
   generateNextDcNo,
 } from '../../data/queries/jobOrders'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
+import { listVendors } from '../../data/queries/vendors'
 import { computeStageAvailability } from '../../utils/calculations'
+import { stageLabel } from '../../utils/stageLabel'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
   { key: 'prd_no', label: 'PRD No' },
   { key: 'job_work_code', label: 'Job Work' },
-  { key: 'vendor_id', label: 'Vendor' },
+  { key: 'vendor_label', label: 'Vendor' },
   { key: 'qty', label: 'Qty' },
   { key: 'dispatch_date', label: 'Dispatch Date' },
   { key: 'expected_receipt_date', label: 'Expected Receipt' },
 ]
 
+function vendorLabel(vendorId, vendors) {
+  const name = vendors.find((v) => v.vendor_id === vendorId)?.vendor_name
+  return name ? `${vendorId} – ${name}` : vendorId ?? ''
+}
+
 export default function JobOrderDispatchScreen() {
   const [orders, setOrders] = useState([])
   const [jobWorkTypes, setJobWorkTypes] = useState([])
   const [dispatches, setDispatches] = useState([])
+  const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -52,11 +60,13 @@ export default function JobOrderDispatchScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [ords, jwts, disps] = await Promise.all([
+      const [ords, jwts, disps, vends] = await Promise.all([
         listCustomerOrders(),
         listJobWorkTypes(),
         listDispatches(),
+        listVendors(),
       ])
+      setVendors(vends)
       setOrders(ords)
       setJobWorkTypes(jwts)
       setDispatches(disps)
@@ -160,10 +170,10 @@ export default function JobOrderDispatchScreen() {
     }
   }
 
-  const filteredDispatches = dispatches.filter((d) => {
+  const filteredDispatches = dispatches.map((d) => ({ ...d, vendor_label: vendorLabel(d.vendor_id, vendors) })).filter((d) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return d.dc_no?.toLowerCase().includes(q) || d.prd_no?.toLowerCase().includes(q)
+    return d.dc_no?.toLowerCase().includes(q) || d.prd_no?.toLowerCase().includes(q) || d.vendor_label.toLowerCase().includes(q)
   })
 
   return (
@@ -190,12 +200,15 @@ export default function JobOrderDispatchScreen() {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={part.part_drawing_reference_number} />
+          </Field>
           <Field label="Outsourced Stage" required>
             <SearchableSelect
               value={stageId}
               onChange={handleStageChange}
               disabled={!prdNo || eligibleStages.length === 0}
-              options={eligibleStages.map((s) => String(s.id))}
+              options={eligibleStages.map((s) => ({ value: String(s.id), label: stageLabel(s) }))}
             />
           </Field>
           <Field label="Job Work Type">
@@ -211,7 +224,7 @@ export default function JobOrderDispatchScreen() {
               value={form.vendor_id}
               onChange={handleField('vendor_id')}
               disabled={vendorOptions.length === 0}
-              options={vendorOptions}
+              options={vendorOptions.map((id) => ({ value: id, label: vendorLabel(id, vendors) }))}
             />
           </Field>
           <Field label={`Qty${availableQty !== null ? ` (available: ${availableQty})` : ''}`} required>

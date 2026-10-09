@@ -368,10 +368,10 @@ export default function HourlySlotsEntry({
           </table>
           {footer && (
             <div className="px-2 py-1.5 border-t border-gray-200 bg-gray-50 text-xs text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
-              <span>Total Accepted Qty: <strong>{footer.accepted}</strong></span>
-              <span>Total Idle Time: <strong>{footer.idleMin} min</strong></span>
-              <span>Total Production Time: <strong>{footer.productionMin} min</strong></span>
-              <span>Total Setting Time: <strong>{footer.settingMin} min</strong></span>
+              <span>Total Accepted Qty: <strong className="num-highlight">{footer.accepted}</strong></span>
+              <span>Total Idle Time: <strong className="num-highlight">{footer.idleMin} min</strong></span>
+              <span>Total Production Time: <strong className="num-highlight">{footer.productionMin} min</strong></span>
+              <span>Total Setting Time: <strong className="num-highlight">{footer.settingMin} min</strong></span>
             </div>
           )}
           {hasRowErrors && (

@@ -132,8 +132,14 @@ export default function JobOrderReceiptScreen() {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={part.part_drawing_reference_number} />
+          </Field>
           <Field label="Dispatched Qty">
             <TextInput value={selectedDispatch?.qty ?? ''} disabled />
+          </Field>
+          <Field label="Expected Date of Delivery">
+            <AutoFillBox value={selectedDispatch?.expected_receipt_date ?? ''} />
           </Field>
           <Field label="Qty Received" required>
             <TextInput type="number" value={qtyReceived} onChange={(e) => setQtyReceived(e.target.value)} />

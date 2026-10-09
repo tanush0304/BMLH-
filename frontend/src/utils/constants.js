@@ -24,7 +24,6 @@ export const NAV_ITEMS = [
       { key: 'maintenance', label: 'Maintenance Master' },
       { key: 'finished-goods', label: 'Finished Goods Master' },
       { key: 'wip', label: 'WIP Master' },
-      { key: 'rm-stock', label: 'Stores Master – Raw Material' },
       { key: 'route-card', label: 'Route Card' },
     ],
   },
@@ -60,7 +59,7 @@ export const NAV_ITEMS = [
     label: 'Maintenance',
     subItems: [
       { key: 'checklist', label: 'Checklist Entry' },
-      { key: 'plan', label: 'Weekly Plan' },
+      { key: 'plan', label: 'Planning' },
     ],
   },
   {
