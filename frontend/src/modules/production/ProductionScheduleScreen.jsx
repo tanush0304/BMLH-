@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CalendarClock } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import RecordsList from '../../components/RecordsList'
 import { supabase } from '../../lib/supabaseClient'
 
@@ -54,7 +55,8 @@ export default function ProductionScheduleScreen() {
       <PageHeader title="Production Schedule" subtitle="Every Route Card Stage, Across All Orders" />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(COLUMNS, filtered, 'production_schedule.csv')}
+        onExportPdf={() => exportToPdf(COLUMNS, filtered, 'Production Schedule', 'production_schedule')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         <RecordsList

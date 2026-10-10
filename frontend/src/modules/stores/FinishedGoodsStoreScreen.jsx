@@ -24,7 +24,10 @@ import { parsePositiveQuantity, validateDispatchQuantity } from '../../utils/fin
 import { listFinishedGoodsMaster } from '../../data/queries/storeMasters'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
-import { canEditStock, stockEditPatch, validateFgDispatchEdit, validateReceiptEdit } from '../../utils/stockEdit'
+import { canEditStock, stockEditPatch, validateFgDispatchEdit, validateReceiptEdit, validateCeilingEdit } from '../../utils/stockEdit'
+import { getStagesForPrd } from '../../data/queries/routeCards'
+import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
+import { fgReceiptLimits, lastStage, stageAcceptedQty, qtyOverLimitError } from '../../utils/qtyLimits'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -143,11 +146,39 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
   const selectedDispatchStatus = orderStatus.find((s) => s.prd_no === dispatchForm.prd_no)
   const selectedReceiptOrder = orders.find((o) => o.prd_no === receiptForm.prd_no)
   const receiptPart = usePartForPrd(receiptForm.prd_no)
+  const dispatchPart = usePartForPrd(dispatchForm.prd_no)
 
   const qtyInStockForPrd = (prdNo) =>
     balances.find((b) => b.prd_no === prdNo)?.current_stock ?? 0
   const qtyReceivedForPrd = (prdNo) =>
     finishedGoodsMaster.find((row) => row.prd_no === prdNo)?.receipts ?? 0
+
+  // FG Receipt ceiling: the last route-card stage's accepted qty and the
+  // order qty, each minus FG already received for the PRD.
+  const [lastStageAccepted, setLastStageAccepted] = useState(null)
+  useEffect(() => {
+    const prd = receiptForm.prd_no
+    setLastStageAccepted(null)
+    if (!prd) return undefined
+    let cancelled = false
+    Promise.all([getStagesForPrd(prd), getStageAggregatesForPrd(prd)])
+      .then(([stages, aggs]) => {
+        if (cancelled) return
+        const last = lastStage(stages)
+        setLastStageAccepted(last ? stageAcceptedQty(aggs, last.id) : 0)
+      })
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [receiptForm.prd_no])
+  const receiptLimits = receiptForm.prd_no && lastStageAccepted !== null
+    ? fgReceiptLimits({
+        lastStageAccepted,
+        orderQty: selectedReceiptOrder?.order_qty,
+        fgReceived: qtyReceivedForPrd(receiptForm.prd_no),
+      })
+    : null
 
   function handleReset() {
     setDispatchForm(EMPTY_DISPATCH_FORM)
@@ -160,13 +191,26 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
 
   // Re-checks stock with this row taken out first (same rules as a new
   // entry), then saves only qty / date / remarks.
+  // Stores Edit of an FG receipt: same ceiling as a new receipt, for the
+  // edited row's own PRD (it need not be the PRD selected in the form).
+  async function fgReceiptCeilingProblem(row, newQty) {
+    const [stages, aggs] = await Promise.all([getStagesForPrd(row.prd_no), getStageAggregatesForPrd(row.prd_no)])
+    const last = lastStage(stages)
+    const limits = fgReceiptLimits({
+      lastStageAccepted: last ? stageAcceptedQty(aggs, last.id) : 0,
+      orderQty: orders.find((o) => o.prd_no === row.prd_no)?.order_qty,
+      fgReceived: qtyReceivedForPrd(row.prd_no),
+    })
+    return validateCeilingEdit(newQty, row.qty, limits.max, 'the quantity that can be received for this order')
+  }
+
   async function handleSaveEdit(draft) {
     const row = editingRow
     if (!draft.transaction_date) return 'Date is required.'
     const stock = qtyInStockForPrd(row.prd_no)
     const problem = row.transaction_type === 'Dispatch'
       ? validateFgDispatchEdit(draft.qty, row.qty, stock, orderStatus.find((s) => s.prd_no === row.prd_no)?.balance_to_dispatch)
-      : validateReceiptEdit(draft.qty, row.qty, stock)
+      : validateReceiptEdit(draft.qty, row.qty, stock) || (await fgReceiptCeilingProblem(row, draft.qty))
     if (problem) return problem
     await updateFinishedGoodsTransaction(row.id, stockEditPatch(draft))
     setEditingRow(null)
@@ -227,6 +271,15 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     const quantity = parsePositiveQuantity(f.qty)
     if (quantity === null) {
       setError('Quantity received must be a finite number greater than zero.')
+      return
+    }
+    if (!receiptLimits) {
+      setError('Production figures for this order are still loading -- try again in a moment.')
+      return
+    }
+    const overError = qtyOverLimitError(quantity, receiptLimits.max, 'Quantity received', 'the quantity that can be received')
+    if (overError) {
+      setError(`${overError} Can receive up to ${receiptLimits.fromProduction} by production (last stage accepted − FG received) and ${receiptLimits.fromOrder} by order (order qty − FG received).`)
       return
     }
     if (!selectedReceiptOrder?.part_serial_number) {
@@ -409,6 +462,12 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             <Field label="Part Serial Number">
               <AutoFillBox value={selectedDispatchOrder?.part_serial_number} />
             </Field>
+            <Field label="Part Name">
+              <AutoFillBox value={dispatchPart.part_name} />
+            </Field>
+            <Field label="Part Drawing Number">
+              <AutoFillBox value={dispatchPart.part_drawing_reference_number} />
+            </Field>
             <Field label="Order Status">
               <div className="flex items-center h-[38px]">
                 {selectedDispatchStatus?.order_status ? (
@@ -484,6 +543,12 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             </Field>
             <Field label="Quantity in Stock">
               <AutoFillBox value={receiptForm.prd_no ? qtyInStockForPrd(receiptForm.prd_no) : ''} unit="Nos" />
+            </Field>
+            <Field label="Can receive (by production)">
+              <AutoFillBox value={receiptLimits?.fromProduction ?? ''} unit="Nos" />
+            </Field>
+            <Field label="Can receive (by order)">
+              <AutoFillBox value={receiptLimits?.fromOrder ?? ''} unit="Nos" />
             </Field>
           </FormSection>
         )}

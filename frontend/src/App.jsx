@@ -86,8 +86,8 @@ function App() {
   }, [userId])
 
   // A module click (sidebar, Main Menu, Dashboard shortcuts) opens that
-  // module's landing tiles -- no screen selected. Quality has no sub-screens
-  // and opens directly; Reports & Dashboard opens the Dashboard.
+  // module's landing tiles -- no screen selected. Reports & Dashboard opens
+  // the Dashboard.
   function handleSelect(key) {
     setShowMainMenu(false)
     setActiveKey(key)
@@ -133,7 +133,14 @@ function App() {
     themeKey = 'dashboard'
   } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
   else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('production', subKey)} />
-  else if (activeKey === 'quality') content = <QualityModule />
+  else if (activeKey === 'quality') content = (
+      <QualityModule
+        activeTab={activeSubKey}
+        activeMode={activeMode}
+        role={role}
+        onSelect={(subKey, mode) => handleSelectSub('quality', subKey, mode)}
+      />
+    )
   else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
   else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
   else if (activeKey === 'stores') content = (

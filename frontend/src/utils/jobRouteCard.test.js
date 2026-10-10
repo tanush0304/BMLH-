@@ -4,12 +4,14 @@ import { buildJobRouteCardRows, jobRouteCardPrintHtml, shiftsPlanned, templateRo
 const jobWorkTypes = [{ job_work_code: 'HT', lead_time_days: 5 }]
 
 describe('shiftsPlanned', () => {
-  it('is ROUND(batch x cycle / 60 / shift hours) with normal rounding', () => {
+  it('is CEIL(batch x cycle / 60 / shift hours) -- round-up, pending senior confirmation', () => {
     // 100 x 9 / 60 / 8 = 1.875 -> 2
     expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 9, batchQty: 100, shiftHours: 8 })).toBe(2)
-    // 100 x 6 / 60 / 8 = 1.25 -> 1 (not rounded up)
-    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 100, shiftHours: 8 })).toBe(1)
-    // exactly .5 rounds half up: 48 x 5 / 60 / 8 = 0.5 -> 1
+    // 100 x 6 / 60 / 8 = 1.25 -> 2 (rounded up)
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 100, shiftHours: 8 })).toBe(2)
+    // E2E JC-004: 20 x 6 / 60 / 8 = 0.25 -> 1 (ROUND gave 0)
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 20, shiftHours: 8 })).toBe(1)
+    // 48 x 5 / 60 / 8 = 0.5 -> 1
     expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 5, batchQty: 48, shiftHours: 8 })).toBe(1)
   })
 
@@ -49,7 +51,7 @@ describe('buildJobRouteCardRows', () => {
 
   it('orders by seq and fills job order no, date and status from the stage', () => {
     const rows = buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches })
-    expect(rows.map((r) => r.operation)).toEqual(['Turning', 'Heat Treatment', 'Deburr'])
+    expect(rows.map((r) => r.operation)).toEqual(['Stage 10 – Turning', 'Stage 20 – Heat Treatment', 'Stage 30 – Deburr'])
     expect(rows[0]).toMatchObject({ shifts_planned: 2, job_order_no: '', date: '2026-10-02', status: 'Completed' })
     expect(rows[1]).toMatchObject({ shifts_planned: '', lead_time_days: 5, job_order_no: 'DC-004', status: 'Received' })
     expect(rows[2]).toMatchObject({ shifts_planned: '', job_order_no: '', date: '', status: 'Pending' })

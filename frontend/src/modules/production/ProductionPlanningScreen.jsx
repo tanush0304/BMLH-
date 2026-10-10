@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Plus, Save, RotateCcw, X, ListChecks, ClipboardList, Eye, Route } from 'lucide-react'
+import { ClipboardList, Eye, Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
@@ -13,6 +15,7 @@ import { listPoHeaders } from '../../data/queries/customerPoHeaders'
 import { listProducts } from '../../data/queries/products'
 import { generateRouteCard } from '../../data/queries/routeCards'
 import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock'
+import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listOrderMaterialRequirement, listOrderMaterialShortfall } from '../../data/queries/rawMaterialRequisitions'
 
 const LIST_COLUMNS = [
@@ -45,6 +48,7 @@ export default function ProductionPlanningScreen() {
   const [products, setProducts] = useState([])
   const [materialRequirement, setMaterialRequirement] = useState([])
   const [stockBalance, setStockBalance] = useState([])
+  const [rawMaterials, setRawMaterials] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -53,7 +57,7 @@ export default function ProductionPlanningScreen() {
   const [routeCardPrd, setRouteCardPrd] = useState(null)
 
   async function refresh() {
-    const [availableOrders, poHeaderRows, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows] = await Promise.all([
+    const [availableOrders, poHeaderRows, planRows, batchRows, customerRows, productRows, requirementRows, balanceRows, rmRows] = await Promise.all([
       listOrdersAvailableForPlanning(),
       listPoHeaders(),
       listProductionPlans(),
@@ -62,6 +66,7 @@ export default function ProductionPlanningScreen() {
       listProducts(),
       listOrderMaterialRequirement(),
       listRawMaterialStockBalance(),
+      listRawMaterials(),
     ])
     setOrders(availableOrders)
     setPoHeaders(poHeaderRows)
@@ -71,6 +76,7 @@ export default function ProductionPlanningScreen() {
     setProducts(productRows)
     setMaterialRequirement(requirementRows)
     setStockBalance(balanceRows)
+    setRawMaterials(rmRows)
   }
 
   useEffect(() => {
@@ -100,6 +106,10 @@ export default function ProductionPlanningScreen() {
   // the order's real capacity is bottlenecked by whichever material runs
   // out first.
   const unitsProducible = hasBom ? Math.min(...materialAvailability.map((m) => m.units_producible)) : null
+  // RM unit from Raw Material Master (single-material BOM; several -> no unit).
+  const rmUnit = materialAvailability.length === 1
+    ? rawMaterials.find((m) => m.raw_material_code === materialAvailability[0].raw_material_code)?.unit_of_measurement || undefined
+    : undefined
   const availableRmQtyDisplay = hasBom
     ? materialAvailability.length === 1
       ? materialAvailability[0].current_stock
@@ -219,30 +229,25 @@ export default function ProductionPlanningScreen() {
     )
   })
 
-  const btn = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-40'
-
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Production Planning" subtitle="Plan Today | Produce Efficiently | Deliver On Time" />
 
-      <div className="flex flex-wrap items-center gap-2 bg-white border-b border-gray-200 px-4 py-1.5">
-        <button className={`${btn} bg-green-600 text-white hover:bg-green-700`} onClick={handleReset}>
-          <Plus size={16} /> New
-        </button>
-        <button className={`${btn} bg-bmlhblue text-white hover:bg-[#163d70]`} onClick={handleSave} disabled={saving}>
-          <Save size={16} /> {saving ? 'Saving...' : 'Save'}
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <RotateCcw size={16} /> Reset
-        </button>
-        <button className={`${btn} bg-bmlhslate text-white hover:bg-[#767e8c]`} onClick={handleReset}>
-          <X size={16} /> Cancel
-        </button>
-        <div className="w-px self-stretch bg-gray-200 mx-1" />
-        <button className={`${btn} bg-bmlhsky text-bmlhblue hover:bg-[#c9def6] ml-auto`} onClick={handleViewPlanList}>
-          <ListChecks size={16} /> View Plan List
-        </button>
-      </div>
+      {/* Shared toolbar (New / Save / Clear / Print). Plans are never edited or
+          deleted here, so Edit/Delete stay hidden. Clear also closes an open
+          route card and resets the list search (old "View Plan List"). */}
+      <ActionToolbar
+        showEditDelete={false}
+        saving={saving}
+        onNew={handleReset}
+        onSave={handleSave}
+        onClear={() => {
+          handleReset()
+          handleViewPlanList()
+        }}
+        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredPlans, 'production_planning.csv')}
+        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredPlans, 'Production Planning', 'production_planning')}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -278,7 +283,7 @@ export default function ProductionPlanningScreen() {
             <AutoFillBox value={selectedOrder?.expected_delivery ?? ''} />
           </Field>
           <Field label="Available RM Qty Stock">
-            <AutoFillBox value={availableRmQtyDisplay} unit={hasBom ? 'Nos' : undefined} />
+            <AutoFillBox value={availableRmQtyDisplay} unit={rmUnit} />
           </Field>
           <Field label="Total Units Can Be Produced">
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />

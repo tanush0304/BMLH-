@@ -53,7 +53,15 @@ export const NAV_ITEMS = [
       { key: 'receipt', label: 'Receipt' },
     ],
   },
-  { key: 'quality', label: 'Quality' },
+  {
+    key: 'quality',
+    label: 'Quality',
+    subItems: [
+      { key: 'inspection', label: 'Quality Inspection' },
+      { key: 'complaint-registration', label: 'Complaint Registration' },
+      { key: 'complaint-investigation', label: 'Complaint Investigation & Closure' },
+    ],
+  },
   {
     key: 'maintenance',
     label: 'Maintenance',
@@ -124,4 +132,8 @@ export const STATUS_COLORS = {
   Open: 'bg-blue-100 text-blue-800',
   Ordered: 'bg-green-100 text-green-800',
   Superseded: 'bg-gray-100 text-gray-600',
+  'Under Investigation': 'bg-amber-100 text-amber-800',
+  'Action Pending': 'bg-orange-100 text-orange-800',
+  Resolved: 'bg-teal-100 text-teal-800',
+  Closed: 'bg-gray-100 text-gray-700',
 }

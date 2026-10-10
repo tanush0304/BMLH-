@@ -1,4 +1,5 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
+import { withTypedFields } from '../../utils/numericFields'
 import { useEffect, useState } from 'react'
 import { ClipboardList, FileStack, Plus, X } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -74,6 +75,9 @@ const LIST_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
+
+// Typed columns on a "customer orders" row -- blank optional ones go as null.
+const ORDER_LINE_TYPES = { numeric: ['order_qty'], date: ['po_date', 'expected_delivery'] }
 
 export default function CustomerOrderScreen() {
   const [records, setRecords] = useState([])
@@ -256,17 +260,17 @@ export default function CustomerOrderScreen() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = {
+      const payload = withTypedFields({
         qtn_no: form.qtn_no || null,
         customer_id: form.customer_id,
         po_number: form.po_number,
         po_date: form.po_date,
         part_serial_number: form.part_serial_number,
-        order_qty: Number(form.order_qty),
+        order_qty: form.order_qty,
         order_type: form.order_type || null,
-        expected_delivery: form.expected_delivery || null,
+        expected_delivery: form.expected_delivery,
         customer_po_line_no: form.customer_po_line_no || null,
-      }
+      }, ORDER_LINE_TYPES)
       const saved = await updateCustomerOrder(form.prd_no, payload)
       setForm({ ...EMPTY_FORM, ...saved })
       await refresh()
@@ -331,19 +335,19 @@ export default function CustomerOrderScreen() {
         const partSerialNumber = resolved.partSerialNumber
         knownProducts = resolved.knownProducts
         const prdNo = await generateNextPrdNo()
-        await createCustomerOrder({
+        await createCustomerOrder(withTypedFields({
           prd_no: prdNo,
           qtn_no: it.qtnNo || null,
           customer_id: poHeader.customer_id,
           po_number: poHeader.po_number,
           po_date: poHeader.po_date,
           part_serial_number: partSerialNumber,
-          order_qty: Number(it.orderQty),
+          order_qty: it.orderQty,
           order_type: it.orderType || null,
-          expected_delivery: it.expectedDelivery || null,
+          expected_delivery: it.expectedDelivery,
           customer_po_line_no: it.customerPoLineNo || null,
           parent_po_id: header.id,
-        })
+        }, ORDER_LINE_TYPES))
         createdPrds.push(prdNo)
       }
 

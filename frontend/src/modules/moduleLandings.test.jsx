@@ -10,6 +10,9 @@ import MaintenanceModule from './maintenance/MaintenanceModule'
 import StoresModule from './stores/StoresModule'
 import ReportsModule from './ReportsModule'
 import Dashboard from './Dashboard'
+import QualityModule from './quality/QualityModule'
+import QualityInspectionScreen from './quality/QualityInspectionScreen'
+import ComplaintInvestigationScreen from './quality/complaints/ComplaintInvestigationScreen'
 import ProductionScheduleScreen from './production/ProductionScheduleScreen'
 import RawMaterialStoreScreen from './stores/RawMaterialStoreScreen'
 import FinishedGoodsStoreScreen from './stores/FinishedGoodsStoreScreen'
@@ -17,7 +20,7 @@ import FinishedGoodsStoreScreen from './stores/FinishedGoodsStoreScreen'
 const subLabels = (key) => NAV_ITEMS.find((n) => n.key === key).subItems.map((s) => s.label)
 
 describe('module landing tiles', () => {
-  it.each(['production', 'customer-order', 'job-order', 'maintenance'])(
+  it.each(['production', 'customer-order', 'job-order', 'maintenance', 'quality'])(
     '%s shows every sub-screen, labelled from constants.js, in sidebar order',
     (key) => {
       const tiles = landingTiles(key)
@@ -70,6 +73,7 @@ describe('module components', () => {
     ['job-order', JobOrderModule],
     ['maintenance', MaintenanceModule],
     ['stores', StoresModule],
+    ['quality', QualityModule],
   ])('%s renders its landing grid when no screen is selected', (key, Module) => {
     const html = renderToStaticMarkup(createElement(Module, { activeTab: null, onSelect: vi.fn() }))
     expect(html.match(/aria-label="Open /g)).toHaveLength(landingTiles(key).length)
@@ -90,6 +94,26 @@ describe('module components', () => {
     const fg = StoresModule({ activeTab: 'fg', activeMode: null })
     expect(fg.type).toBe(FinishedGoodsStoreScreen)
     expect(fg.props.initialMode).toBeUndefined() // screen keeps its own default tab
+  })
+})
+
+describe('Quality', () => {
+  it('has 3 tiles: inspection + the two complaint screens', () => {
+    expect(landingTiles('quality').map((t) => t.label)).toEqual([
+      'Quality Inspection',
+      'Complaint Registration',
+      'Complaint Investigation & Closure',
+    ])
+  })
+
+  it('opens inspection, and a complaint from the list in Investigation & Closure', () => {
+    expect(QualityModule({ activeTab: 'inspection' }).type).toBe(QualityInspectionScreen)
+    const inv = QualityModule({ activeTab: 'complaint-investigation', activeMode: 'CMP-2026-0001', role: 'operator' })
+    expect(inv.type).toBe(ComplaintInvestigationScreen)
+    expect(inv.props.initialComplaintNo).toBe('CMP-2026-0001')
+    const onSelect = vi.fn()
+    QualityModule({ activeTab: 'complaint-registration', onSelect }).props.onOpenComplaint('CMP-2026-0002')
+    expect(onSelect).toHaveBeenCalledWith('complaint-investigation', 'CMP-2026-0002')
   })
 })
 

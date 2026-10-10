@@ -17,7 +17,9 @@ import { parsePositiveWipQuantity, validateWipReceiptStage } from '../../utils/w
 import { stageLabel } from '../../utils/stageLabel'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
-import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
+import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit, validateCeilingEdit } from '../../utils/stockEdit'
+import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
+import { stageAcceptedQty, wipReceiptAvailable, qtyOverLimitError } from '../../utils/qtyLimits'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -35,6 +37,7 @@ export default function WipReceiptScreen({ role }) {
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [completedStages, setCompletedStages] = useState([])
+  const [stageAggregates, setStageAggregates] = useState({})
   // Every stage of the PRD -- only to label the history list.
   const [allStages, setAllStages] = useState([])
   const [balances, setBalances] = useState([])
@@ -72,18 +75,21 @@ export default function WipReceiptScreen({ role }) {
     setEditingRow(null)
     setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, employee_id: f.employee_id, shift_code: f.shift_code }))
     setCompletedStages([])
+    setStageAggregates({})
     setAllStages([])
     setBalances([])
     setTransactions([])
     setError(null)
     if (!prd) return
     try {
-      const [stages, bal, txns] = await Promise.all([
+      const [stages, bal, txns, aggs] = await Promise.all([
         getStagesForPrd(prd),
         listWipBalanceForPrd(prd),
         listWipTransactionsForPrd(prd),
+        getStageAggregatesForPrd(prd),
       ])
       if (requestId !== prdRequestRef.current) return
+      setStageAggregates(aggs)
       setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
       setAllStages(stages)
       setBalances(
@@ -102,12 +108,14 @@ export default function WipReceiptScreen({ role }) {
 
   async function refreshBalancesAndHistory(prd) {
     const requestId = ++prdRequestRef.current
-    const [stages, bal, txns] = await Promise.all([
+    const [stages, bal, txns, aggs] = await Promise.all([
       getStagesForPrd(prd),
       listWipBalanceForPrd(prd),
       listWipTransactionsForPrd(prd),
+      getStageAggregatesForPrd(prd),
     ])
     if (requestId !== prdRequestRef.current) return
+    setStageAggregates(aggs)
     setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
     setAllStages(stages)
     setBalances(
@@ -124,6 +132,16 @@ export default function WipReceiptScreen({ role }) {
   function handleField(key) {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
+
+  // Available to receive into WIP from a stage: that stage's accepted
+  // output minus what has already been received from it.
+  function availableToReceiveFor(stageId) {
+    const alreadyReceived = transactions
+      .filter((t) => t.transaction_type === 'Receipt' && String(t.nature_of_operation_stage_id) === String(stageId))
+      .reduce((sum, t) => sum + Number(t.qty ?? 0), 0)
+    return wipReceiptAvailable({ stageAccepted: stageAcceptedQty(stageAggregates, stageId), alreadyReceived })
+  }
+  const availableToReceive = form.stage_id ? availableToReceiveFor(form.stage_id) : null
 
   async function handleSave() {
     setError(null)
@@ -143,6 +161,11 @@ export default function WipReceiptScreen({ role }) {
     const quantity = parsePositiveWipQuantity(form.qty)
     if (quantity === null) {
       setError('Qty must be a finite number greater than zero.')
+      return
+    }
+    const overError = qtyOverLimitError(quantity, availableToReceive, 'Qty', 'the quantity available to receive from this stage')
+    if (overError) {
+      setError(`${overError} Available to receive = accepted output of the stage minus what is already in WIP.`)
       return
     }
     if (!form.employee_id || !form.shift_code) {
@@ -197,7 +220,8 @@ export default function WipReceiptScreen({ role }) {
     const poolBalance = pool?.current_stock ?? 0
     const problem = row.transaction_type === 'Issue'
       ? validateWipIssueEdit(draft.qty, row.qty, poolBalance)
-      : validateReceiptEdit(draft.qty, row.qty, poolBalance)
+      : validateReceiptEdit(draft.qty, row.qty, poolBalance) ||
+        validateCeilingEdit(draft.qty, row.qty, availableToReceiveFor(row.nature_of_operation_stage_id), 'the quantity available to receive from this stage')
     if (problem) return problem
     await updateWipTransaction(row.id, stockEditPatch(draft))
     setEditingRow(null)
@@ -267,7 +291,7 @@ export default function WipReceiptScreen({ role }) {
               options={completedStages.map((s) => ({ value: s.id, label: stageLabel(s) }))}
             />
           </Field>
-          <Field label="Qty" required>
+          <Field label={availableToReceive === null ? 'Qty' : `Qty (available to receive: ${availableToReceive})`} required>
             <TextInput type="number" min="0" step="any" value={form.qty} onChange={handleField('qty')} />
           </Field>
           <Field label="Employee" required>

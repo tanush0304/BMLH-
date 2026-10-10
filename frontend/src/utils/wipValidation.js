@@ -40,8 +40,21 @@ export function validateWipIssueStages(prdNo, sourceStageId, targetStageId, stag
   if (!targetStage) {
     return { error: "The destination stage is not a valid stage on this Production Order's Route Card." }
   }
+  if (Number(targetStage.seq) <= Number(sourceStage.seq)) {
+    return { error: 'The destination stage must come after the source WIP stage on the Route Card.' }
+  }
 
   return { sourceStage, targetStage, error: null }
+}
+
+/** Stages a WIP pool can be issued to: non-Manual stages AFTER the source
+ * stage on the route card, in sequence order. */
+export function downstreamStages(stages, sourceStageId) {
+  const source = stages.find((s) => sameId(s.id, sourceStageId))
+  if (!source) return []
+  return stages
+    .filter((s) => s.type !== 'Manual' && Number(s.seq) > Number(source.seq))
+    .sort((a, b) => a.seq - b.seq)
 }
 
 export function validateWipIssueQuantity(value, availableBalance) {

@@ -27,3 +27,13 @@ export async function listRecentMaintenanceLogs() {
   if (error) throw error
   return data
 }
+
+/** Every visit on or after `fromDate` (YYYY-MM-DD) -- for the planning grid. */
+export async function listMaintenanceLogsSince(fromDate) {
+  const { data, error } = await supabase
+    .from('maintenance logs')
+    .select('id, machine_id, log_date')
+    .gte('log_date', fromDate)
+  if (error) throw error
+  return data
+}

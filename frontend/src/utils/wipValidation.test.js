@@ -3,6 +3,7 @@ import {
   parsePositiveWipQuantity,
   validateWipIssueQuantity,
   validateWipIssueStages,
+  downstreamStages,
   validateWipReceiptStage,
 } from './wipValidation'
 
@@ -50,6 +51,25 @@ describe('validateWipIssueStages', () => {
     expect(validateWipIssueStages('PRD-101', 201, 102, routeStages).error).toMatch(/source/i)
     expect(validateWipIssueStages('PRD-101', 101, 201, routeStages).error).toMatch(/destination/i)
     expect(validateWipIssueStages('PRD-101', 101, 103, routeStages).error).toMatch(/destination/i)
+  })
+
+  it('rejects issuing back to the same or an earlier stage', () => {
+    expect(validateWipIssueStages('PRD-101', 102, 101, routeStages).error).toMatch(/after the source/i)
+    expect(validateWipIssueStages('PRD-101', 101, 101, routeStages).error).toMatch(/after the source/i)
+  })
+})
+
+describe('downstreamStages', () => {
+  const stages = [
+    { id: 1, seq: 1, type: 'Internal' },
+    { id: 2, seq: 2, type: 'Internal' },
+    { id: 3, seq: 3, type: 'Outsourced' },
+    { id: 4, seq: 4, type: 'Manual' },
+  ]
+  it('only offers non-Manual stages after the source (E2E: Stage 1/2 were offered from a Stage 2 pool)', () => {
+    expect(downstreamStages(stages, 2).map((s) => s.id)).toEqual([3])
+    expect(downstreamStages(stages, 1).map((s) => s.id)).toEqual([2, 3])
+    expect(downstreamStages(stages, 99)).toEqual([])
   })
 })
 

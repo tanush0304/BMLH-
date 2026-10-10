@@ -52,8 +52,9 @@ const ISSUE_COLUMNS = [
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
-  { key: 'current_stock', label: 'Current Stock (Nos)' },
-  { key: 'qty', label: 'Qty Issued (Nos)' },
+  { key: 'current_stock', label: 'Current Stock' },
+  { key: 'qty', label: 'Qty Issued' },
+  { key: 'uom', label: 'UoM' },
   { key: 'units_producible', label: 'No. of Units Can be Produced' },
 ]
 
@@ -65,8 +66,9 @@ const RECEIPT_COLUMNS = [
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
   { key: 'supplier_id', label: 'Supplier' },
-  { key: 'qty', label: 'Qty Received (Nos)' },
-  { key: 'current_stock', label: 'Current Stock (Nos)' },
+  { key: 'qty', label: 'Qty Received' },
+  { key: 'current_stock', label: 'Current Stock' },
+  { key: 'uom', label: 'UoM' },
 ]
 
 export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) {
@@ -135,6 +137,11 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
 
   function materialName(code) {
     return rawMaterials.find((r) => r.raw_material_code === code)?.raw_material_name ?? code
+  }
+
+  // Unit from Raw Material Master (e.g. Kg), not a fixed "Nos".
+  function uomFor(code) {
+    return rawMaterials.find((r) => r.raw_material_code === code)?.unit_of_measurement || ''
   }
 
   function currentStockFor(code) {
@@ -253,6 +260,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       ...t,
       employee_name: employeeName(t.employee_id),
       material_name: materialName(t.raw_material_code),
+      uom: uomFor(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
       units_producible: unitsProducibleFor(t.part_serial_number, t.raw_material_code),
     }))
@@ -263,6 +271,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       ...t,
       employee_name: employeeName(t.employee_id),
       material_name: materialName(t.raw_material_code),
+      uom: uomFor(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
     }))
 
@@ -346,7 +355,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
               <EmployeeSelect employees={employees} value={issueForm.employee_id} onChange={handleIssueField('employee_id')} />
             </Field>
             <Field label="Current Stock">
-              <AutoFillBox value={currentStockFor(issueForm.raw_material_code)} unit="Nos" />
+              <AutoFillBox value={currentStockFor(issueForm.raw_material_code)} unit={uomFor(issueForm.raw_material_code)} />
             </Field>
 
             <Field label="Employee Name">
@@ -372,7 +381,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                   placeholder="Enter Quantity"
                   className="flex-1 px-3 py-2 text-sm focus:outline-none"
                 />
-                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(issueForm.raw_material_code) || '—'}</span>
               </div>
             </Field>
 
@@ -412,7 +421,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
               <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>
             <Field label="Current Stock">
-              <AutoFillBox value={currentStockFor(receiptForm.raw_material_code)} unit="Nos" />
+              <AutoFillBox value={currentStockFor(receiptForm.raw_material_code)} unit={uomFor(receiptForm.raw_material_code)} />
             </Field>
 
             <Field label="Employee Name">
@@ -442,7 +451,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                   placeholder="Enter Quantity"
                   className="flex-1 px-3 py-2 text-sm focus:outline-none"
                 />
-                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(receiptForm.raw_material_code) || '—'}</span>
               </div>
             </Field>
 

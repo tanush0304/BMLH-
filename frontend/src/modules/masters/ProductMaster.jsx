@@ -7,6 +7,7 @@ import FormSection, { Field, TextInput, SelectInput } from '../../components/For
 import SearchableSelect from '../../components/SearchableSelect'
 import SelectWithAddNew from '../../components/SelectWithAddNew'
 import { uomOptions } from '../../utils/uomOptions'
+import { toNumberOrNull } from '../../utils/numericFields'
 import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -136,7 +137,9 @@ export default function ProductMaster() {
       } else {
         await createProduct(payload)
       }
-      const validBomRows = bomRows.filter((r) => r.raw_material_code && r.consumption_per_unit !== '')
+      const validBomRows = bomRows
+        .map((r) => ({ ...r, consumption_per_unit: toNumberOrNull(r.consumption_per_unit) }))
+        .filter((r) => r.raw_material_code && r.consumption_per_unit !== null)
       await setProductRawMaterials(form.part_serial_number, validBomRows)
       await refresh()
       setMode('view')

@@ -5,7 +5,7 @@ import FormSection, { Field, TextInput, SelectInput } from './FormSection'
 import RecordsList from './RecordsList'
 import TimeInput12 from './TimeInput12'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
-import { toNumberOrNull } from '../utils/numericFields'
+import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
 
 // A section's width reflects how much content it holds, not a fixed column
 // split -- a short section (few fields) can sit narrower next to a taller
@@ -110,11 +110,9 @@ export default function MasterFormScreen({
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { ...form }
-      sections.flatMap((s) => s.fields).forEach((f) => {
-        if (f.type === 'boolean') payload[f.key] = form[f.key] === 'true'
-        if (f.type === 'number') payload[f.key] = toNumberOrNull(payload[f.key])
-      })
+      // Blank optional number / date / true-false fields go to the DB as
+      // null -- "" is rejected for numeric, date and boolean columns.
+      const payload = withTypedFields(form, typedKeysFromFields(sections.flatMap((s) => s.fields)))
       if (mode === 'edit') {
         await api.update(form[pkField], payload)
       } else {

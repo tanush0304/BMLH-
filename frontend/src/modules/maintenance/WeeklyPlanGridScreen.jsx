@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CalendarRange, Search } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { listMachines } from '../../data/queries/machines'
 import {
   listMaintenancePlanStatus,
@@ -9,6 +10,9 @@ import {
   unscheduleMaintenanceWeek,
 } from '../../data/queries/maintenancePlan'
 import { formatLocalISODate, mondayOf } from '../../utils/dates'
+import { listMaintenanceLogsSince } from '../../data/queries/maintenanceLogs'
+import { listMaintenanceSchedules } from '../../data/queries/maintenanceSchedules'
+import { weekCellState } from '../../utils/maintenanceGrid'
 
 const WEEK_COUNT = 14
 
@@ -28,6 +32,8 @@ function toISODate(d) {
 export default function WeeklyPlanGridScreen() {
   const [machines, setMachines] = useState([])
   const [planStatus, setPlanStatus] = useState([])
+  const [logs, setLogs] = useState([])
+  const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyCell, setBusyCell] = useState(null)
@@ -46,9 +52,16 @@ export default function WeeklyPlanGridScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [machs, status] = await Promise.all([listMachines(), listMaintenancePlanStatus()])
+      const [machs, status, visitRows, scheduleRows] = await Promise.all([
+        listMachines(),
+        listMaintenancePlanStatus(),
+        listMaintenanceLogsSince(weeks[0]),
+        listMaintenanceSchedules(),
+      ])
       setMachines(machs)
       setPlanStatus(status)
+      setLogs(visitRows)
+      setSchedules(scheduleRows)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -61,22 +74,23 @@ export default function WeeklyPlanGridScreen() {
   }, [])
 
   function findCell(machineId, week) {
-    return planStatus.find((p) => p.machine_id === machineId && p.planned_week_start_date === week)
+    return weekCellState({ machineId, week, planStatus, logs, schedules })
   }
 
   async function handleCellClick(machineId, week) {
     const cell = findCell(machineId, week)
+    if (cell.status === 'Completed') return
     setBusyCell(`${machineId}-${week}`)
     setError(null)
     try {
-      if (!cell) {
+      if (cell.status === null || cell.status === 'Due') {
         await scheduleMaintenanceWeek(machineId, week)
       } else if (cell.status === 'Planned') {
         if (!confirm('Remove this scheduled maintenance week?')) {
           setBusyCell(null)
           return
         }
-        await unscheduleMaintenanceWeek(cell.plan_id)
+        await unscheduleMaintenanceWeek(cell.planId)
       }
       // Completed cells are derived from real logs -- not editable here.
       await refresh()
@@ -90,6 +104,7 @@ export default function WeeklyPlanGridScreen() {
   function cellClasses(cell) {
     if (cell?.status === 'Completed') return 'bg-green-500'
     if (cell?.status === 'Planned') return 'bg-amber-300 hover:bg-amber-400 cursor-pointer'
+    if (cell?.status === 'Due') return 'bg-white ring-2 ring-inset ring-amber-500 hover:bg-amber-50 cursor-pointer'
     return 'bg-gray-100 hover:bg-gray-200 cursor-pointer'
   }
 
@@ -99,12 +114,20 @@ export default function WeeklyPlanGridScreen() {
     return m.machine_id?.toLowerCase().includes(q) || m.machine_name?.toLowerCase().includes(q)
   })
 
+  // Print: machine × week grid as text (Completed / Planned / Due / blank).
+  const exportColumns = [{ key: 'machine', label: 'Machine' }, ...weeks.map((w) => ({ key: w, label: w }))]
+  const exportRows = filteredMachines.map((m) => ({
+    machine: `${m.machine_id} — ${m.machine_name ?? ''}`,
+    ...Object.fromEntries(weeks.map((w) => [w, findCell(m.machine_id, w).status ?? ''])),
+  }))
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Maintenance Planning" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned" />
+      <PageHeader title="Maintenance Planning" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned, Outline = Next Due" />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(exportColumns, exportRows, 'maintenance_planning.csv')}
+        onExportPdf={() => exportToPdf(exportColumns, exportRows, 'Maintenance Planning', 'maintenance_planning')}
       />
       <div className="flex-1 overflow-auto p-6 bg-[#F5F7FA]">
         {error && (
@@ -130,8 +153,8 @@ export default function WeeklyPlanGridScreen() {
             <table className="text-sm border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky left-0 bg-bmlhsky border-b border-gray-200 px-4 py-2.5 text-left font-semibold text-bmlhnavy flex items-center gap-2">
-                    <CalendarRange size={16} /> Machine
+                  <th className="sticky left-0 z-20 bg-bmlhsky border-b border-r border-gray-200 px-4 py-2.5 text-left font-semibold text-bmlhnavy whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2"><CalendarRange size={16} /> Machine</span>
                   </th>
                   {weeks.map((w) => (
                     <th key={w} className="border-b border-gray-200 px-2 py-2.5 text-xs text-gray-500 whitespace-nowrap">
@@ -143,7 +166,7 @@ export default function WeeklyPlanGridScreen() {
               <tbody>
                 {filteredMachines.map((m) => (
                   <tr key={m.machine_id} className="border-t border-gray-100">
-                    <td className="sticky left-0 bg-white px-4 py-2 font-medium text-gray-700 whitespace-nowrap">
+                    <td className="sticky left-0 z-10 bg-white border-r border-gray-100 px-4 py-2 font-medium text-gray-700 whitespace-nowrap">
                       {m.machine_id} — {m.machine_name}
                     </td>
                     {weeks.map((w) => {
@@ -154,7 +177,7 @@ export default function WeeklyPlanGridScreen() {
                           <button
                             onClick={() => handleCellClick(m.machine_id, w)}
                             disabled={busy || cell?.status === 'Completed'}
-                            title={cell?.status ?? 'Unplanned'}
+                            title={cell.title}
                             className={`w-8 h-8 rounded ${cellClasses(cell)} disabled:opacity-60`}
                           />
                         </td>

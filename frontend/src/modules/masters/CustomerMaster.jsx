@@ -1,4 +1,5 @@
 import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
+import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
 import {
   listCustomers,
@@ -96,7 +97,7 @@ const SECTIONS = [
       { key: 'gstin_number', label: 'GSTIN Number', width: 'tiny' },
       { key: 'pan_number', label: 'PAN Number', width: 'tiny' },
       { key: 'msme_udyam_no', label: 'MSME / Udyam No.', width: 'tiny' },
-      { key: 'gst_registered', label: 'GST Registered', type: 'select', options: ['true', 'false'], width: 'tiny' },
+      { key: 'gst_registered', label: 'GST Registered', type: 'select', options: YES_NO_OPTIONS, width: 'tiny' },
     ],
   },
   {

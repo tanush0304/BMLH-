@@ -1,4 +1,5 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
+import { withTypedFields, YES_NO_OPTIONS } from '../../utils/numericFields'
 import { useEffect, useState } from 'react'
 import { Truck as TruckIcon, Phone, Landmark, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -128,7 +129,7 @@ export default function VendorMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { ...form, tds_applicable: form.tds_applicable === 'true' }
+      const payload = withTypedFields(form, { boolean: ['tds_applicable'] })
       if (mode === 'edit') {
         await updateVendor(form.vendor_id, payload)
       } else {
@@ -291,7 +292,7 @@ export default function VendorMaster() {
                 value={form.tds_applicable}
                 onChange={handleField('tds_applicable')}
                 disabled={readOnly}
-                options={['true', 'false']}
+                options={YES_NO_OPTIONS}
               />
             </Field>
             <Field label="Payment Terms">

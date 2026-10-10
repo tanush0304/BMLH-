@@ -1,4 +1,4 @@
-import { ClipboardPlus, Hand, Route } from 'lucide-react'
+import { ClipboardCheck, ClipboardPlus, Hand, MessageSquareWarning, Route, SearchCheck } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
@@ -23,6 +23,7 @@ const MODULE_TONES = {
   'job-order': { bg: '#FFEDD5', icon: '#EA580C' },
   maintenance: { bg: '#FFE4E6', icon: '#E11D48' },
   stores: { bg: '#CCFBF1', icon: '#0D9488' },
+  quality: { bg: '#D1FAE5', icon: '#059669' },
 }
 
 // Deck picture (cropped to the artwork; bg sampled from it) or icon per
@@ -45,6 +46,11 @@ const TILE_ART = {
   maintenance: {
     checklist: { img: maintenanceChecklistTile, bg: '#FEF3E2' },
     plan: { img: maintenancePlanningTile, bg: '#E0F3FF' },
+  },
+  quality: {
+    inspection: { icon: ClipboardCheck },
+    'complaint-registration': { icon: MessageSquareWarning },
+    'complaint-investigation': { icon: SearchCheck },
   },
   stores: {
     'rm-receipt': { img: rmReceiptTile, bg: '#EBF9EB' },

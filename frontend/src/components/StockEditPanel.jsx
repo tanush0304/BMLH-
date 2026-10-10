@@ -3,6 +3,8 @@ import { Pencil } from 'lucide-react'
 import FormSection, { Field, TextInput, AutoFillBox } from './FormSection'
 import SearchableSelect from './SearchableSelect'
 import { listAppUsers } from '../data/queries/appUsers'
+import { listEmployees } from '../data/queries/employees'
+import { supabase } from '../lib/supabaseClient'
 import { editedLabel } from '../utils/stockEdit'
 
 /**
@@ -105,15 +107,27 @@ function draftFrom(row, qtyKey, dateKey) {
   }
 }
 
-/** App users, for "Edited by <name>". Failure (e.g. RLS) just means the
- * badge falls back to the user id. */
+/** App users with a display name, for "Edited by <name>" / "Verified by
+ * <name>": employee_name from the linked Employee Master row
+ * ("app users".employee_id), and the login email for the signed-in user.
+ * Failure (e.g. RLS) just means the label falls back to a short user id. */
 export function useAppUsers() {
   const [users, setUsers] = useState([])
   useEffect(() => {
     let active = true
-    listAppUsers()
-      .then((rows) => {
-        if (active) setUsers(rows ?? [])
+    Promise.all([
+      listAppUsers().catch(() => []),
+      listEmployees().catch(() => []),
+      supabase.auth.getUser().then((r) => r.data?.user ?? null).catch(() => null),
+    ])
+      .then(([rows, employees, me]) => {
+        const enriched = (rows ?? []).map((u) => ({
+          ...u,
+          employee_name: employees.find((e) => e.employee_id === u.employee_id)?.employee_name ?? '',
+          email: u.email ?? (me && me.id === u.user_id ? me.email : ''),
+        }))
+        if (me && !enriched.some((u) => u.user_id === me.id)) enriched.push({ user_id: me.id, email: me.email })
+        if (active) setUsers(enriched)
       })
       .catch(() => {})
     return () => {

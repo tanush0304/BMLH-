@@ -1,3 +1,5 @@
+import { stageAcceptedQty } from './qtyLimits'
+
 /**
  * Stage-to-stage quantity linkage (§4).
  *
@@ -45,7 +47,9 @@ export function computeStageAvailability(stages, orderQty, stageAggregates, wipA
   function resolveUpstream(index) {
     if (index < 0) return { output: orderQty, stageId: null }
     const stage = sorted[index]
-    return { output: stageAggregates[stage.id]?.output ?? 0, stageId: stage.id }
+    // Only the upstream stage's ACCEPTED pieces (produced − rejected − rework)
+    // are available to this stage.
+    return { output: stageAcceptedQty(stageAggregates, stage.id), stageId: stage.id }
   }
 
   const availability = {}
@@ -73,7 +77,7 @@ export function computeStageUpstreamTargets(stages, orderQty, stageAggregates) {
   function effectiveOutput(index) {
     if (index < 0) return orderQty
     const stage = sorted[index]
-    return stageAggregates[stage.id]?.output ?? 0
+    return stageAcceptedQty(stageAggregates, stage.id)
   }
 
   const targets = {}

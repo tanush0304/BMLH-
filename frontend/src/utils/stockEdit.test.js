@@ -7,6 +7,8 @@ import {
   validateWipIssueEdit,
   validateReceiptEdit,
   editedLabel,
+  userDisplayName,
+  validateCeilingEdit,
 } from './stockEdit'
 
 describe('canEditStock', () => {
@@ -71,5 +73,33 @@ describe('editedLabel', () => {
     )
     expect(label).toMatch(/^Edited by sup@example.com on /)
     expect(label).toMatch(/\(qty was 7\)$/)
+  })
+  it('prefers the linked employee name over email / id', () => {
+    const users = [{ user_id: 'u1', employee_id: 'E1', employee_name: 'Anuj Kumar', email: 'a@x.test' }]
+    expect(editedLabel({ edited_at: '2026-10-09T10:00:00Z', edited_by: 'u1' }, users)).toMatch(/^Edited by Anuj Kumar on /)
+  })
+})
+
+describe('userDisplayName', () => {
+  it('falls back employee name -> email -> short id', () => {
+    expect(userDisplayName('u1', [{ user_id: 'u1', employee_name: 'Anuj Kumar' }])).toBe('Anuj Kumar')
+    expect(userDisplayName('u1', [{ user_id: 'u1', email: 'sup@x.test' }])).toBe('sup@x.test')
+    expect(userDisplayName('b14f1c65-aaaa', [])).toBe('user b14f1c65')
+    expect(userDisplayName(null, [])).toBe('unknown')
+  })
+})
+
+describe('validateCeilingEdit (Stores Edit uses the same qtyLimits ceilings)', () => {
+  it('allows up to available + the row\'s old qty', () => {
+    // WIP: stage accepted 20, received 18 + this row 1 -> available 1; row may go to 2
+    expect(validateCeilingEdit(2, 1, 1, 'available to receive')).toBeNull()
+    expect(validateCeilingEdit(3, 1, 1, 'available to receive')).toBe('Quantity (3) is more than available to receive (2).')
+  })
+  it('lowering is always fine; blanks and zero are not', () => {
+    expect(validateCeilingEdit(1, 25, 0)).toBeNull()
+    expect(validateCeilingEdit('', 5, 10)).toMatch(/greater than zero/)
+  })
+  it('E2E: raising FGR-001 back to 100 with nothing left to receive is blocked', () => {
+    expect(validateCeilingEdit(100, 1, 0, 'the quantity that can be received')).toMatch(/100.*\(1\)/)
   })
 })

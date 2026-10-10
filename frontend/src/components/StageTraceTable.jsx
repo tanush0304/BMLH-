@@ -35,7 +35,7 @@ function buildColumns(card) {
  * so it can be reused (e.g. Production Planning's "View" action) without a picker.
  * `card` (optional): { batch_qty, shift_hours } -- when given, adds a derived
  * "No of Shifts Planned" column per stage. */
-export default function StageTraceTable({ prdNo, title, card }) {
+export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -76,6 +76,12 @@ export default function StageTraceTable({ prdNo, title, card }) {
       cancelled = true
     }
   }, [prdNo])
+
+  // Lets a screen print the table (Order Traceability's Print menu).
+  useEffect(() => {
+    onRowsChange?.(buildColumns(card), rows)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, card])
 
   return (
     <RecordsList

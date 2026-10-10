@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { toDateOrNull } from '../../utils/numericFields'
 import { Truck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
@@ -21,6 +23,7 @@ import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import { listVendors } from '../../data/queries/vendors'
 import { computeStageAvailability } from '../../utils/calculations'
 import { stageLabel } from '../../utils/stageLabel'
+import { qtyOverLimitError } from '../../utils/qtyLimits'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
@@ -143,6 +146,19 @@ export default function JobOrderDispatchScreen() {
       setError('PRD, Stage, Vendor, Qty and Dispatch Date are all required.')
       return
     }
+    const qty = Number(form.qty)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Qty must be a number greater than zero.')
+      return
+    }
+    // Available = accepted pieces reaching this stage (previous stage's good
+    // output, minus what went into WIP, plus WIP issued to this stage) minus
+    // what has already been dispatched for it.
+    const overError = qtyOverLimitError(qty, availableQty ?? 0, 'Dispatch qty', 'the quantity available for this stage')
+    if (overError) {
+      setError(overError)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -154,9 +170,9 @@ export default function JobOrderDispatchScreen() {
         job_work_code: selectedStage.job_work_code,
         vendor_id: form.vendor_id,
         part_serial_number: orders.find((o) => o.prd_no === prdNo)?.part_serial_number,
-        qty: Number(form.qty),
+        qty,
         dispatch_date: form.dispatch_date,
-        expected_receipt_date: expectedReceiptDate() || null,
+        expected_receipt_date: toDateOrNull(expectedReceiptDate()),
       })
       setForm({ vendor_id: '', qty: '', dispatch_date: '' })
       setPrdNo('')
@@ -181,7 +197,8 @@ export default function JobOrderDispatchScreen() {
       <PageHeader title="Job Order Dispatch" subtitle="Send a Batch Out to a Vendor" />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredDispatches, 'jobwork_dispatches.csv')}
+        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredDispatches, 'Job Order Dispatches', 'jobwork_dispatches')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -227,7 +244,7 @@ export default function JobOrderDispatchScreen() {
               options={vendorOptions.map((id) => ({ value: id, label: vendorLabel(id, vendors) }))}
             />
           </Field>
-          <Field label={`Qty${availableQty !== null ? ` (available: ${availableQty})` : ''}`} required>
+          <Field label={`Qty${availableQty !== null ? ` (Available: ${availableQty})` : ''}`} required>
             <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
           </Field>
           <Field label="DC No">

@@ -93,3 +93,33 @@ export function pickCycleTime(cycleRows, { partSerialNumber, seq, machineId }) {
   const row = forProcess.find((r) => r.machine_id === machineId) ?? forProcess[0]
   return row?.cycle_time_min ?? null
 }
+
+function round1(n) {
+  return Math.round(n * 10) / 10
+}
+
+/** Live log footer totals over every saved hour of the log plus the hour
+ * rows typed but not yet saved. Mirrors the "production log totals" view:
+ * blank qty = 0; efficiency = produced / (std qty per hour x hour rows);
+ * reject / rework % of produced; 1 decimal; null when not computable.
+ * Display only -- the view stays the source of truth after save. */
+export function computeLiveLogTotals({ savedHours = [], draftRows = [], standardQtyPerHour }) {
+  const rows = [...savedHours, ...draftRows]
+  let produced = 0
+  let rejected = 0
+  let rework = 0
+  for (const r of rows) {
+    produced += num(r.qty_produced) || 0
+    rejected += num(r.qty_rejected) || 0
+    rework += num(r.qty_rework) || 0
+  }
+  const std = Number(standardQtyPerHour)
+  return {
+    total_produced: produced,
+    total_rejected: rejected,
+    total_rework: rework,
+    efficiency_pct: std > 0 && rows.length > 0 ? round1((100 * produced) / (std * rows.length)) : null,
+    reject_pct: produced > 0 ? round1((100 * rejected) / produced) : null,
+    rework_pct: produced > 0 ? round1((100 * rework) / produced) : null,
+  }
+}

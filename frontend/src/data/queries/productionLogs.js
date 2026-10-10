@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { acceptedFromHour } from '../../utils/qtyLimits'
 import { isMachineBusyError, machineBusyMessage, SAME_STAGE_MESSAGE } from '../../utils/productionLogConflict'
 
 export async function listLogsForPrd(prdNo) {
@@ -44,24 +45,27 @@ export async function getStageAggregatesForPrd(prdNo) {
   const aggregates = {}
 
   for (const log of logs) {
-    const bucket = (aggregates[log.stage_id] ??= { output: 0, consumed: 0 })
+    const bucket = (aggregates[log.stage_id] ??= { output: 0, accepted: 0, consumed: 0 })
     bucket.consumed += Number(log.planned_qty ?? 0)
   }
   for (const hour of logHours) {
     const log = logs.find((l) => l.id === hour.log_id)
     if (!log) continue
-    const bucket = (aggregates[log.stage_id] ??= { output: 0, consumed: 0 })
+    const bucket = (aggregates[log.stage_id] ??= { output: 0, accepted: 0, consumed: 0 })
     bucket.output += Number(hour.qty_produced ?? 0)
+    // Only good pieces move on to the next stage / WIP / FG.
+    bucket.accepted += acceptedFromHour(hour)
   }
   for (const dispatch of dispatches) {
-    const bucket = (aggregates[dispatch.stage_id] ??= { output: 0, consumed: 0 })
+    const bucket = (aggregates[dispatch.stage_id] ??= { output: 0, accepted: 0, consumed: 0 })
     bucket.consumed += Number(dispatch.qty ?? 0)
   }
   for (const receipt of receipts) {
     const dispatch = dispatches.find((d) => d.dc_no === receipt.dc_no)
     if (!dispatch) continue
-    const bucket = (aggregates[dispatch.stage_id] ??= { output: 0, consumed: 0 })
+    const bucket = (aggregates[dispatch.stage_id] ??= { output: 0, accepted: 0, consumed: 0 })
     bucket.output += Number(receipt.qty_received ?? 0)
+    bucket.accepted += Number(receipt.qty_received ?? 0)
   }
 
   return aggregates

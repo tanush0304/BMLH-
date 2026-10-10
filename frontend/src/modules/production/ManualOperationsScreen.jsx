@@ -1,3 +1,4 @@
+import { computeLiveLogTotals } from '../../utils/productionReport'
 import { useEffect, useState } from 'react'
 import { ClipboardCheck, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -64,6 +65,7 @@ export default function ManualOperationsScreen() {
   const [activeLog, setActiveLog] = useState(null)
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
+  const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
   const [endingLog, setEndingLog] = useState(false)
 
@@ -318,6 +320,12 @@ export default function ManualOperationsScreen() {
   const noEligibleStage = prdNo && !resolving && stageChoicesForPrd.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
+  // Footer totals update live while hour rows are typed: every saved hour of
+  // the log + unsaved rows (same rule as the "production log totals" view).
+  const liveTotals = activeLog
+    ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
+    : null
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
@@ -379,7 +387,7 @@ export default function ManualOperationsScreen() {
               This order has no reachable Manual stage right now.
             </p>
           )}
-          {stageChoicesForPrd.length > 1 && (
+          {!activeLog && stageChoicesForPrd.length > 1 && (
             <p className="text-xs text-amber-700 sm:col-span-3">
               This PRD has {stageChoicesForPrd.length} Manual stages pending at once -- pick the one you're
               actually working on.
@@ -398,8 +406,10 @@ export default function ManualOperationsScreen() {
             <Field label="Standard Qty / Hour">
               <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
             </Field>
-            <Field label="Planned Qty (available from upstream)">
-              <TextInput value={plannedQty ?? ''} disabled />
+            {/* While a log is open its stage share is already reserved, so the
+                remaining availability reads 0 -- show the log's own planned qty. */}
+            <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
+              <TextInput value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} disabled />
             </Field>
             <Field label="Shift" required>
               <SelectInput
@@ -439,15 +449,16 @@ export default function ManualOperationsScreen() {
                 onAddExtraHour={handleAddExtraHour}
                 saving={savingHour}
                 resetKey={activeLog.id}
+                onDraftRowsChange={setDraftHourRows}
               />
-              {totals && (
+              {liveTotals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
-                  <span>Total Produced: <strong className="num-highlight">{totals.total_produced}</strong></span>
-                  <span>Total Rejected: <strong className="num-highlight">{totals.total_rejected ?? 0}</strong></span>
-                  <span>Total Rework: <strong className="num-highlight">{totals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong className="num-highlight">{totals.efficiency_pct ?? '—'}%</strong></span>
-                  <span>Reject %: <strong className="num-highlight">{totals.reject_pct ?? '—'}%</strong></span>
-                  <span>Rework %: <strong className="num-highlight">{totals.rework_pct ?? '—'}%</strong></span>
+                  <span>Total Produced: <strong className="num-highlight">{liveTotals.total_produced}</strong></span>
+                  <span>Total Rejected: <strong className="num-highlight">{liveTotals.total_rejected ?? 0}</strong></span>
+                  <span>Total Rework: <strong className="num-highlight">{liveTotals.total_rework ?? 0}</strong></span>
+                  <span>Efficiency: <strong className="num-highlight">{liveTotals.efficiency_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
+                  <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
             </div>

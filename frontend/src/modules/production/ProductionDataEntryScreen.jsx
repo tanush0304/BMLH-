@@ -35,9 +35,11 @@ import {
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
-import { pickCycleTime } from '../../utils/productionReport'
+import { pickCycleTime, computeLiveLogTotals } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 import { stageLabel } from '../../utils/stageLabel'
+import { useAppUsers } from '../../components/StockEditPanel'
+import { userDisplayName } from '../../utils/stockEdit'
 import { subItemLabel } from '../../utils/constants'
 import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
 
@@ -71,8 +73,14 @@ export default function ProductionDataEntryScreen({ role }) {
 
   const [starting, setStarting] = useState(false)
   const [activeLog, setActiveLog] = useState(null)
+  // A verified log is locked for everyone except admin (hours can't be
+  // added or changed); the verifier is shown by name.
+  const appUsers = useAppUsers()
+  const logLocked = Boolean(activeLog?.verified_at) && role !== 'admin'
+  const verifierName = activeLog?.verified_by ? userDisplayName(activeLog.verified_by, appUsers) : ''
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
+  const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
 
   // Hourly Production Report header (migration 017)
@@ -424,6 +432,12 @@ export default function ProductionDataEntryScreen({ role }) {
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
+  // Footer totals update live while hour rows are typed: every saved hour of
+  // the log + unsaved rows (same rule as the "production log totals" view).
+  const liveTotals = activeLog
+    ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
+    : null
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
@@ -494,7 +508,8 @@ export default function ProductionDataEntryScreen({ role }) {
               No machine is currently set up to perform the operation this production order needs next.
             </p>
           )}
-          {stageChoicesForPrd.length > 1 && (
+          {/* Only while choosing a stage -- once a log is open the stage is locked. */}
+          {!activeLog && stageChoicesForPrd.length > 1 && (
             <p className="text-xs text-amber-700 sm:col-span-3">
               This PRD has {stageChoicesForPrd.length} stages open on this machine at once -- pick the one you're
               actually working on.
@@ -513,8 +528,10 @@ export default function ProductionDataEntryScreen({ role }) {
             <Field label="Standard Qty / Hour">
               <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
             </Field>
-            <Field label="Planned Qty (available from upstream)">
-              <TextInput value={plannedQty ?? ''} disabled />
+            {/* While a log is open its stage share is already reserved, so the
+                remaining availability reads 0 -- show the log's own planned qty. */}
+            <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
+              <TextInput value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} disabled />
             </Field>
             <Field label="Setter">
               <EmployeeSelect
@@ -577,24 +594,27 @@ export default function ProductionDataEntryScreen({ role }) {
                 onAddExtraHour={handleAddExtraHour}
                 saving={savingHour}
                 resetKey={activeLog.id}
+                readOnly={logLocked}
+                readOnlyReason={`Verified by ${verifierName || 'shift incharge'} on ${activeLog.verified_at ? new Date(activeLog.verified_at).toLocaleString() : ''} -- this log is locked. Only an admin can change it.`}
+                onDraftRowsChange={setDraftHourRows}
                 showIdle
                 settingTimeMin={activeLog.setting_time_min}
               />
-              {totals && (
+              {liveTotals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
-                  <span>Total Produced: <strong className="num-highlight">{totals.total_produced}</strong></span>
-                  <span>Total Rejected: <strong className="num-highlight">{totals.total_rejected ?? 0}</strong></span>
-                  <span>Total Rework: <strong className="num-highlight">{totals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong className="num-highlight">{totals.efficiency_pct ?? '—'}%</strong></span>
-                  <span>Reject %: <strong className="num-highlight">{totals.reject_pct ?? '—'}%</strong></span>
-                  <span>Rework %: <strong className="num-highlight">{totals.rework_pct ?? '—'}%</strong></span>
+                  <span>Total Produced: <strong className="num-highlight">{liveTotals.total_produced}</strong></span>
+                  <span>Total Rejected: <strong className="num-highlight">{liveTotals.total_rejected ?? 0}</strong></span>
+                  <span>Total Rework: <strong className="num-highlight">{liveTotals.total_rework ?? 0}</strong></span>
+                  <span>Efficiency: <strong className="num-highlight">{liveTotals.efficiency_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
+                  <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
               <div className="flex items-center gap-3 pt-2 mt-2 border-t border-gray-100 text-sm">
                 <ShieldCheck size={16} className={activeLog.verified_at ? 'text-green-600' : 'text-gray-400'} />
                 {activeLog.verified_at ? (
                   <span className="text-green-700">
-                    Verified by shift incharge on {new Date(activeLog.verified_at).toLocaleString()}
+                    Verified by {verifierName || 'shift incharge'} on {new Date(activeLog.verified_at).toLocaleString()}
                   </span>
                 ) : canVerify ? (
                   <button

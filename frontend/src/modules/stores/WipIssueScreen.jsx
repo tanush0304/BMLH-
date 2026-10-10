@@ -13,7 +13,7 @@ import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipIssue, updateWipTransaction, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
-import { validateWipIssueQuantity, validateWipIssueStages } from '../../utils/wipValidation'
+import { validateWipIssueQuantity, validateWipIssueStages, downstreamStages } from '../../utils/wipValidation'
 import { stageLabel } from '../../utils/stageLabel'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
@@ -247,6 +247,12 @@ export default function WipIssueScreen({ role }) {
           <Field label="Part Serial Number">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={part.part_name} />
+          </Field>
+          <Field label="Part Drawing Number">
+            <AutoFillBox value={part.part_drawing_reference_number} />
+          </Field>
           <Field label="WIP Pool (Completion Point)" required>
             <SearchableSelect
               value={form.pool_stage_id}
@@ -266,17 +272,14 @@ export default function WipIssueScreen({ role }) {
           <Field label="Available Balance">
             <AutoFillBox value={selectedPoolBalance?.current_stock ?? ''} />
           </Field>
-          {/* Target stage is deliberately ANY stage on this PRD's route card, not
-              just "the next one" -- WIP is meant to feed whichever stage needs it. */}
+          {/* Target stage: any non-Manual stage AFTER the source pool's stage
+              (not just the next one -- WIP can feed whichever later stage needs it). */}
           <Field label="Target Stage" required>
             <SearchableSelect
               value={form.target_stage_id}
               onChange={handleField('target_stage_id')}
-              disabled={!form.prd_no}
-              options={stages
-                .filter((s) => s.type !== 'Manual')
-                .sort((a, b) => a.seq - b.seq)
-                .map((s) => ({ value: s.id, label: stageLabel(s) }))}
+              disabled={!form.pool_stage_id}
+              options={downstreamStages(stages, form.pool_stage_id).map((s) => ({ value: s.id, label: stageLabel(s) }))}
             />
           </Field>
           <Field label="Qty" required>

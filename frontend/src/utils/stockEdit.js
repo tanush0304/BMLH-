@@ -43,6 +43,18 @@ export function validateWipIssueEdit(newQty, oldQty, poolBalance) {
   return validateWipIssueQuantity(String(newQty), Number(poolBalance ?? 0) + Number(oldQty ?? 0)).error
 }
 
+/** Receipt edit against an upstream ceiling (WIP Receipt: stage accepted −
+ * already received; FG Receipt: min(last-stage accepted, order qty) − FG
+ * received). `availableNow` already counts this row's old qty as used, so
+ * the edit may go up to availableNow + oldQty. */
+export function validateCeilingEdit(newQty, oldQty, availableNow, what = 'the available quantity') {
+  const qty = positive(newQty)
+  if (qty === null) return 'Quantity must be a number greater than zero.'
+  const max = Math.max(0, Number(availableNow ?? 0)) + Number(oldQty ?? 0)
+  if (qty > max) return `Quantity (${qty}) is more than ${what} (${max}).`
+  return null
+}
+
 /** Any receipt (RM, FG, WIP): qty > 0, and lowering it must not take the
  * balance it fed (material closing stock / FG PRD stock / WIP stage pool)
  * below zero: balance - old + new >= 0. */
@@ -57,10 +69,19 @@ export function validateReceiptEdit(newQty, oldQty, currentBalance) {
 }
 
 /** "Edited by <name> on <date/time>" for the list badge; '' if never edited. */
+/** Display name for an auth user id: the linked employee's name
+ * ("app users".employee_id -> Employee Master), else the login email (known
+ * for the signed-in user), else a short id as a last resort. `appUsers` rows
+ * come from useAppUsers, which adds employee_name / email. */
+export function userDisplayName(userId, appUsers = []) {
+  if (!userId) return 'unknown'
+  const user = appUsers.find((u) => u.user_id === userId)
+  return user?.employee_name || user?.full_name || user?.name || user?.email || `user ${String(userId).slice(0, 8)}`
+}
+
 export function editedLabel(row, appUsers = []) {
   if (!row?.edited_at) return ''
-  const user = appUsers.find((u) => u.user_id === row.edited_by)
-  const who = user?.full_name || user?.name || user?.email || (row.edited_by ? String(row.edited_by).slice(0, 8) : 'unknown')
+  const who = userDisplayName(row.edited_by, appUsers)
   const when = new Date(row.edited_at).toLocaleString()
   const prev = row.previous_qty !== null && row.previous_qty !== undefined ? ` (qty was ${row.previous_qty})` : ''
   return `Edited by ${who} on ${when}${prev}`

@@ -2,9 +2,13 @@
 // Card) and the per-part template (Masters > Route Card), kept outside the
 // components so it's independently testable.
 
+import { stageLabel } from './stageLabel'
+
 /**
- * No. of Shifts Planned = ROUND(batch_qty x cycle_time_min / 60 / shift_hours),
- * normal rounding (half up). Computed on screen, never stored. Blank ('') for
+ * No. of Shifts Planned = CEIL(batch_qty x cycle_time_min / 60 / shift_hours)
+ * -- rounded UP, so any part-shift of work counts as a shift (ROUND showed 0
+ * for short batches). PENDING SENIOR CONFIRMATION: round vs round-up.
+ * Computed on screen, never stored. Blank ('') for
  * Outsourced stages and for any stage without a cycle time (e.g. Manual), or
  * when the card has no batch qty / shift hours.
  */
@@ -14,7 +18,7 @@ export function shiftsPlanned({ type, cycleTimeMin, batchQty, shiftHours }) {
   const batch = Number(batchQty)
   const hours = Number(shiftHours)
   if (!cycle || !batch || !hours) return ''
-  return Math.round((batch * cycle) / 60 / hours)
+  return Math.ceil((batch * cycle) / 60 / hours)
 }
 
 /** Job work lead time (days) for an Outsourced stage; '' otherwise. */
@@ -34,7 +38,9 @@ export function machineName(machineId, machines = []) {
 export function templateRow(stage, jobWorkTypes, machines = []) {
   const outsourced = stage.type === 'Outsourced'
   return {
-    operation: stage.operation ?? '',
+    // "Stage N – operation" when the row has a sequence (route card stages
+    // and Cycle Time Master rows both do), plain operation otherwise.
+    operation: stage.seq != null && stage.seq !== '' ? stageLabel(stage) : (stage.operation ?? ''),
     machine: outsourced ? '' : machineName(stage.machine_id, machines),
     type: stage.type ?? '',
     // Cycle time is blank on job-work rows -- the lead time column applies instead.

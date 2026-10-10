@@ -1,4 +1,5 @@
 import { Truck as TruckIcon, Phone, Landmark } from 'lucide-react'
+import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
 import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from '../../data/queries/suppliers'
 
@@ -65,7 +66,7 @@ const SECTIONS = [
         type: 'select',
         options: ['Registered', 'Unregistered', 'Composition'],
       },
-      { key: 'tds_applicable', label: 'TDS Applicable', type: 'select', options: ['true', 'false'] },
+      { key: 'tds_applicable', label: 'TDS Applicable', type: 'select', options: YES_NO_OPTIONS },
       { key: 'payment_terms', label: 'Payment Terms', type: 'select', options: ['30 Days', '60 Days', '90 Days'] },
       { key: 'credit_period', label: 'Credit Period' },
       { key: 'bank_account_no', label: 'Bank Account No' },

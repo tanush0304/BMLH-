@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import PageHeader from '../../components/PageHeader'
 import RecordsList from '../../components/RecordsList'
 
@@ -34,6 +35,7 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
     }
   }, [loadRows])
 
+  const fileBase = String(title).toLowerCase().replace(/[^a-z0-9]+/g, '_')
   const visibleRecords = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return records
@@ -56,7 +58,8 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
       <PageHeader eyebrow="Masters" title={title} subtitle={subtitle} />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(columns, visibleRecords, `${fileBase}.csv`)}
+        onExportPdf={() => exportToPdf(columns, visibleRecords, title, fileBase)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         <RecordsList

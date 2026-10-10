@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Wrench, ClipboardCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
@@ -151,7 +152,8 @@ export default function ChecklistEntryScreen() {
       <PageHeader title="Maintenance Checklist Entry" subtitle="One Visit, Several Checklist Items" />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(logColumns, filteredRecentLogs, 'maintenance_visits.csv')}
+        onExportPdf={() => exportToPdf(logColumns, filteredRecentLogs, 'Recent Maintenance Visits', 'maintenance_visits')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (

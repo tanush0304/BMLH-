@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PackageCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
@@ -101,7 +102,8 @@ export default function JobOrderReceiptScreen() {
       <PageHeader title="Job Order Receipt" subtitle="Batch Coming Back From a Vendor" />
       <ActionToolbar
         showCrudButtons={false}
-        showExport={false}
+        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredStatusRows, 'jobwork_receipts.csv')}
+        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredStatusRows, 'Job Order Status', 'jobwork_receipts')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (

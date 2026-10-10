@@ -48,6 +48,12 @@ import {
  * saving any row whose idle exceeds 60 min (or a short slot's own length),
  * and shows live footer totals -- accepted qty, idle, production time,
  * setting time (`settingTimeMin`) -- over today's saved + entered rows.
+ *
+ * `onDraftRowsChange(rows)` reports the typed-but-unsaved hour rows so the
+ * screen can show live log totals (display only).
+ *
+ * `readOnly` (a verified log, for non-admins) disables every input and the
+ * Save Hours / Add Hour buttons; `readOnlyReason` is shown above the grid.
  */
 export default function HourlySlotsEntry({
   startTime,
@@ -61,6 +67,9 @@ export default function HourlySlotsEntry({
   resetKey,
   showIdle = false,
   settingTimeMin,
+  onDraftRowsChange,
+  readOnly = false,
+  readOnlyReason = '',
 }) {
   const [drafts, setDrafts] = useState({}) // slot -> { qty_produced, qty_rejected, qty_rework }
   const [committedTimes, setCommittedTimes] = useState({ startTime, endTime })
@@ -145,11 +154,18 @@ export default function HourlySlotsEntry({
   }
   const hasRowErrors = Object.keys(rowErrors).length > 0
 
+  const draftRows = pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ ...drafts[s.slot], hour_slot: s.slot }))
+  const draftRowsKey = JSON.stringify(draftRows)
+  useEffect(() => {
+    onDraftRowsChange?.(draftRows)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftRowsKey])
+
   const footer = showIdle
     ? computeReportTotals({
         rows: [
           ...savedToday,
-          ...pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ ...drafts[s.slot], hour_slot: s.slot })),
+          ...draftRows,
         ],
         durations,
         settingTimeMin,
@@ -206,7 +222,10 @@ export default function HourlySlotsEntry({
     'w-16 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30'
 
   return (
-    <div className="space-y-2">
+    <fieldset disabled={readOnly} className="space-y-2 min-w-0">
+      {readOnly && readOnlyReason && (
+        <div className="rounded border border-green-200 bg-green-50 px-3 py-1.5 text-xs text-green-800">{readOnlyReason}</div>
+      )}
       {historyList.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
           <div className="bg-gray-50 text-gray-600 text-xs font-medium px-2 py-1.5 border-b border-gray-200">
@@ -424,6 +443,6 @@ export default function HourlySlotsEntry({
           Add Hour {nextExtraSlot <= 12 ? nextExtraSlot : ''}
         </button>
       </div>
-    </div>
+    </fieldset>
   )
 }
