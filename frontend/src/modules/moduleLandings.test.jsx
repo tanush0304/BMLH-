@@ -9,7 +9,7 @@ import JobOrderModule from './jobOrder/JobOrderModule'
 import MaintenanceModule from './maintenance/MaintenanceModule'
 import StoresModule from './stores/StoresModule'
 import ReportsModule from './ReportsModule'
-import ModuleLanding from '../components/ModuleLanding'
+import ReportLanding from '../components/reports/ReportLanding'
 import QualityModule from './quality/QualityModule'
 import QualityInspectionScreen from './quality/QualityInspectionScreen'
 import CustomerComplaintScreen from './quality/complaints/CustomerComplaintScreen'
@@ -130,13 +130,14 @@ describe('Quality', () => {
 })
 
 describe('Reports & Dashboard', () => {
-  const REPORTS = ['Daily Machine', 'Production Status', 'Downtime', 'Quality Status', 'WIP Status', 'FG Inventory', 'Raw Material Status', 'Customer Order Status', 'Job Order Status']
+  const REPORTS = ['Customer Order Status', 'Job Order Status', 'Production Status', 'Daily Machine Status', 'Machine Downtime', 'Quality Status', 'WIP Status', 'Raw Material Status', 'Finished Goods Status']
 
-  it('opens a landing with the 9 report tiles in mockup order', () => {
+  it('opens a landing with the 9 report cards in deck order', () => {
     const el = ReportsModule({ activeTab: null, role: 'operator' })
-    expect(el.type).toBe(ModuleLanding)
+    expect(el.type).toBe(ReportLanding)
     expect(el.props.tiles.map((t) => t.label)).toEqual(REPORTS)
-    expect(el.props.tiles.every((t) => t.icon && t.bg)).toBe(true)
+    expect(el.props.tiles.every((t) => t.img && t.bg && t.accent && t.description)).toBe(true)
+    expect(el.props.tiles.map((t) => t.label).join(' ')).not.toMatch(/Downtine|despatch/i)
   })
   it('keeps the moved reports sidebar-only, after the 9', () => {
     expect(subLabels('dashboard')).toEqual([...REPORTS, 'PO Summary', 'Production Schedule', 'Order Traceability'])

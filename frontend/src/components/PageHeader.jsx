@@ -32,9 +32,13 @@ function BandHeader({ title, subtitle, breadcrumb }) {
             {title}
           </h1>
           {tags.length > 0 && (
-            <div className="hidden max-w-full flex-wrap justify-center gap-1.5 overflow-hidden sm:flex sm:max-h-[24px]">
+            // One row. Several short tags ("Right Material | ...") show only from
+            // 1280px (xl) -- below that they'd be cut mid-word, so they're hidden.
+            // A single subtitle shows from sm and ends in an ellipsis (full text
+            // on hover) when it doesn't fit.
+            <div className={`hidden min-w-0 max-w-full justify-center gap-1.5 ${tags.length > 1 ? 'xl:flex' : 'sm:flex'}`}>
               {tags.map((tag) => (
-                <span key={tag} className="whitespace-nowrap rounded-sm bg-[#0D52A7] px-2 py-0.5 text-[12.5px] leading-tight text-white">
+                <span key={tag} title={tag} className="min-w-0 truncate rounded-sm bg-[#0D52A7] px-2 py-0.5 text-[12.5px] leading-tight text-white">
                   {tag}
                 </span>
               ))}

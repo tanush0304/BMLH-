@@ -85,19 +85,21 @@ export const NAV_ITEMS = [
   {
     key: 'dashboard',
     label: 'Reports & Dashboard',
-    // The module opens a landing with the 9 report tiles (mockup order).
-    // PO Summary / Production Schedule / Order Traceability (moved here from
-    // Customer Orders and Production) stay in the sidebar only (landing: false).
+    // The module opens a landing with the 9 report cards -- order, names and
+    // descriptions from the client deck (Main UI Interface.pptx, slide 18;
+    // "Downtine" typo fixed, "despatch" -> "dispatch"). PO Summary /
+    // Production Schedule / Order Traceability (moved here from Customer
+    // Orders and Production) stay in the sidebar only (landing: false).
     subItems: [
-      { key: 'daily-machine', label: 'Daily Machine' },
-      { key: 'production-status', label: 'Production Status' },
-      { key: 'downtime', label: 'Downtime' },
-      { key: 'quality-status', label: 'Quality Status' },
-      { key: 'wip-status', label: 'WIP Status' },
-      { key: 'fg-inventory', label: 'FG Inventory' },
-      { key: 'rm-status', label: 'Raw Material Status' },
-      { key: 'customer-order-status', label: 'Customer Order Status' },
-      { key: 'job-order-status', label: 'Job Order Status' },
+      { key: 'customer-order-status', label: 'Customer Order Status', description: 'Track customer orders, PO quantities and dispatch status.' },
+      { key: 'job-order-status', label: 'Job Order Status', description: 'Monitor job orders, progress and completion status.' },
+      { key: 'production-status', label: 'Production Status', description: 'View production plan vs actual, output and efficiency.' },
+      { key: 'daily-machine', label: 'Daily Machine Status', description: 'Check real-time machine running, idle and setup status.' },
+      { key: 'downtime', label: 'Machine Downtime', description: 'Analyze downtime reasons, duration and trends.' },
+      { key: 'quality-status', label: 'Quality Status', description: 'Track inspection results, rejections and quality trends.' },
+      { key: 'wip-status', label: 'WIP Status', description: 'Monitor work-in-progress inventory across stages.' },
+      { key: 'rm-status', label: 'Raw Material Status', description: 'View raw material stock levels, consumption and reorder status.' },
+      { key: 'fg-inventory', label: 'Finished Goods Status', description: 'Track finished goods inventory and dispatch status.' },
       { key: 'po-summary', label: 'PO Summary', landing: false },
       { key: 'schedule', label: 'Production Schedule', landing: false },
       { key: 'traceability', label: 'Order Traceability', landing: false },

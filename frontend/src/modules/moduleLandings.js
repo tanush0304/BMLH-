@@ -1,4 +1,4 @@
-import { ClipboardPlus, Hand, Route, ShieldCheck, Gauge, Factory, Timer, Layers, PackageCheck, Boxes, ClipboardList, Truck } from 'lucide-react'
+import { ClipboardPlus, Hand, Route, ShieldCheck } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES, canSeeSubItem } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
@@ -16,6 +16,15 @@ import fgReceiptTile from '../assets/tiles/fg_receipt.webp'
 import fgDespatchTile from '../assets/tiles/fg_despatch.webp'
 import qualityInspectionTile from '../assets/tiles/quality_inspection.webp'
 import customerComplaintTile from '../assets/tiles/customer_complaint.webp'
+import reportCustomerOrderTile from '../assets/tiles/report_customer_order_status.webp'
+import reportJobOrderTile from '../assets/tiles/report_job_order_status.webp'
+import reportProductionTile from '../assets/tiles/report_production_status.webp'
+import reportDailyMachineTile from '../assets/tiles/report_daily_machine_status.webp'
+import reportDowntimeTile from '../assets/tiles/report_machine_downtime.webp'
+import reportQualityTile from '../assets/tiles/report_quality_status.webp'
+import reportWipTile from '../assets/tiles/report_wip_status.webp'
+import reportRawMaterialTile from '../assets/tiles/report_raw_material_status.webp'
+import reportFinishedGoodsTile from '../assets/tiles/report_finished_goods_status.webp'
 
 // Pastel card + icon colour per module (matches the sidebar's module icon
 // colours) for screens that have no deck picture.
@@ -25,7 +34,6 @@ const MODULE_TONES = {
   'job-order': { bg: '#FFEDD5', icon: '#EA580C' },
   maintenance: { bg: '#FFE4E6', icon: '#E11D48' },
   stores: { bg: '#CCFBF1', icon: '#0D9488' },
-  dashboard: { bg: '#E0E7FF', icon: '#4F46E5' },
 }
 
 // Deck picture (cropped to the artwork; bg sampled from it) or icon per
@@ -63,17 +71,18 @@ const TILE_ART = {
     'fg-despatch': { img: fgDespatchTile, bg: '#E2FAFD' },
     'rm-requisition': { icon: ClipboardPlus },
   },
-  // Reports: no deck pictures -- icons on the module's pastel colour.
+  // Reports (deck slide 18): illustration cropped from each card, the card's
+  // pastel bg, and its accent (title / pill colour).
   dashboard: {
-    'daily-machine': { icon: Gauge },
-    'production-status': { icon: Factory },
-    downtime: { icon: Timer },
-    'quality-status': { icon: ShieldCheck },
-    'wip-status': { icon: Layers },
-    'fg-inventory': { icon: PackageCheck },
-    'rm-status': { icon: Boxes },
-    'customer-order-status': { icon: ClipboardList },
-    'job-order-status': { icon: Truck },
+    'customer-order-status': { img: reportCustomerOrderTile, bg: '#E3F2FD', accent: '#0D3B8E' },
+    'job-order-status': { img: reportJobOrderTile, bg: '#E8FDEA', accent: '#1E7A34' },
+    'production-status': { img: reportProductionTile, bg: '#FEF0E2', accent: '#B4410C' },
+    'daily-machine': { img: reportDailyMachineTile, bg: '#F4EAFD', accent: '#5B2BB5' },
+    downtime: { img: reportDowntimeTile, bg: '#FEEAEF', accent: '#C81E2E' },
+    'quality-status': { img: reportQualityTile, bg: '#DEFDED', accent: '#167A3E' },
+    'wip-status': { img: reportWipTile, bg: '#FDF6D9', accent: '#8A5300' },
+    'rm-status': { img: reportRawMaterialTile, bg: '#DCEFFE', accent: '#1E3A8A' },
+    'fg-inventory': { img: reportFinishedGoodsTile, bg: '#F3E8FD', accent: '#6D28D9' },
   },
 }
 
@@ -81,7 +90,7 @@ function withArt(moduleKey, tile) {
   const art = TILE_ART[moduleKey]?.[tile.key] ?? {}
   const tone = MODULE_TONES[moduleKey]
   return art.img
-    ? { ...tile, img: art.img, bg: art.bg }
+    ? { ...tile, img: art.img, bg: art.bg, accent: art.accent }
     : { ...tile, icon: art.icon, bg: tone.bg, iconColor: tone.icon }
 }
 

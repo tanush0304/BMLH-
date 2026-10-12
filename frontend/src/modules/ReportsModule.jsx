@@ -1,4 +1,4 @@
-import ModuleLanding from '../components/ModuleLanding'
+import ReportLanding from '../components/reports/ReportLanding'
 import { landingTiles } from './moduleLandings'
 import { moduleLabel } from '../utils/constants'
 import CustomerPoSummaryScreen from './customerOrder/CustomerPoSummaryScreen'
@@ -14,8 +14,8 @@ import CustomerOrderStatusScreen from './reports/CustomerOrderStatusScreen'
 import JobOrderStatusScreen from './reports/JobOrderStatusScreen'
 import QualityStatusScreen from './reports/QualityStatusScreen'
 
-// Reports & Dashboard: the module opens a landing with the 9 report tiles
-// (./reports); PO Summary / Production Schedule / Order Traceability (moved
+// Reports & Dashboard: the module opens a landing with the 9 report cards
+// (deck slide 18, ReportLanding); PO Summary / Production Schedule / Order Traceability (moved
 // here from Customer Orders and Production, files in their original folders)
 // are sidebar-only -- see NAV_ITEMS 'dashboard' subItems. App lazy-loads this
 // module, so Recharts stays out of the main bundle.
@@ -40,7 +40,7 @@ export default function ReportsModule({ activeTab, activeMode, role, onOpenScree
   const tab = TABS.find((t) => t.key === activeTab)
   if (!tab) {
     return (
-      <ModuleLanding
+      <ReportLanding
         title={moduleLabel('dashboard')}
         tiles={landingTiles('dashboard', role)}
         onSelect={(t) => onOpenScreen?.(t.subKey, t.mode)}
