@@ -10,8 +10,10 @@ import { listProductionHours, listProductionSetup } from '../../data/queries/rep
 import { listMachines } from '../../data/queries/machines'
 import { listShifts } from '../../data/queries/shifts'
 import { machineOptionLabel } from '../../utils/machineLabel'
-import { DEFAULT_PERIOD, periodRange, daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
-import { machineRows, downtimeSummary, downtimeTrend, DOWNTIME_TYPES, round1 } from '../../utils/reportAggregates'
+import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
+import { monthLabel } from '../../utils/reportOrders'
+import useReportPeriod from '../../components/reports/useReportPeriod'
+import { machineRows, downtimeSummary, downtimeTrend, DOWNTIME_TYPES, round1, trendBuckets } from '../../utils/reportAggregates'
 
 const EMPTY_FILTERS = { machineId: '', shiftCode: '' }
 
@@ -31,12 +33,8 @@ const fmtPct = (v) => (v == null ? '—' : `${v.toFixed(1)} %`)
  * date + shift. Manual Operations logs (no machine) are left out.
  */
 export default function DowntimeScreen() {
-  const initialRange = periodRange(DEFAULT_PERIOD)
-  const [period, setPeriod] = useState(DEFAULT_PERIOD)
-  const [from, setFrom] = useState(initialRange.from)
-  const [to, setTo] = useState(initialRange.to)
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
-  const [applied, setApplied] = useState({ ...initialRange, ...EMPTY_FILTERS })
+  const r = useReportPeriod(EMPTY_FILTERS)
+  const { applied, filters } = r
 
   const [hourRows, setHourRows] = useState([])
   const [setupRows, setSetupRows] = useState([])
@@ -67,27 +65,9 @@ export default function DowntimeScreen() {
     }
   }, [applied])
 
-  function handlePeriod(value) {
-    setPeriod(value)
-    const range = periodRange(value)
-    if (range) {
-      setFrom(range.from)
-      setTo(range.to)
-    }
-  }
-
-  function handleReset() {
-    const range = periodRange(DEFAULT_PERIOD)
-    setPeriod(DEFAULT_PERIOD)
-    setFrom(range.from)
-    setTo(range.to)
-    setFilters(EMPTY_FILTERS)
-    setApplied({ ...range, ...EMPTY_FILTERS })
-  }
-
   const summary = useMemo(() => downtimeSummary(hourRows, setupRows), [hourRows, setupRows])
   const trend = useMemo(
-    () => downtimeTrend(hourRows, setupRows, daysBetween(applied.from, applied.to)).map((d) => ({ ...d, label: shortDate(d.date) })),
+    () => trendBuckets(downtimeTrend(hourRows, setupRows, daysBetween(applied.from, applied.to)), { sum: DOWNTIME_TYPES.map((t) => t.key), dayLabel: shortDate, monthLabel }),
     [hourRows, setupRows, applied.from, applied.to]
   )
   const typeData = summary.byType.map((t, i) => ({ ...t, hours: hrs(t.lostMin), color: TYPE_COLORS[i] }))
@@ -112,18 +92,11 @@ export default function DowntimeScreen() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         <ReportFilterBar
-          period={period}
-          from={from}
-          to={to}
-          onPeriodChange={handlePeriod}
-          onFromChange={(v) => { setFrom(v); setPeriod('custom') }}
-          onToChange={(v) => { setTo(v); setPeriod('custom') }}
+          {...r.barProps}
           loading={loading}
-          onSearch={() => setApplied({ from, to, ...filters })}
-          onReset={handleReset}
           filters={[
-            { key: 'machine', label: 'Machine', value: filters.machineId, onChange: (v) => setFilters((f) => ({ ...f, machineId: v })), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
-            { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: (v) => setFilters((f) => ({ ...f, shiftCode: v })), options: options.shifts.map((s) => s.shift_code) },
+            { key: 'machine', label: 'Machine', value: filters.machineId, onChange: r.setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+            { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: r.setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
           ]}
         />
 

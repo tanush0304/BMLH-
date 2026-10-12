@@ -22,7 +22,7 @@ import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesB
 const RESULT_TONES = { OK: 'green', NG: 'red', Accepted: 'green', Rejected: 'red', 'No readings': 'amber' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(1)}%)`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 3 }))
-const SELECT = 'input-dropdown rounded border px-2 py-1 text-[12px] focus:outline-none'
+const SELECT = 'input-dropdown min-w-0 max-w-[140px] rounded border px-2 py-1 text-[12px] focus:outline-none'
 
 /**
  * Quality Status Report from "report quality inspections" (029). KPIs count

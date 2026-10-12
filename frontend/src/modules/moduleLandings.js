@@ -1,4 +1,4 @@
-import { ClipboardPlus, Hand, Route, ShieldCheck } from 'lucide-react'
+import { ClipboardPlus, Hand, Route, ShieldCheck, Gauge, Factory, Timer, Layers, PackageCheck, Boxes, ClipboardList, Truck } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES, canSeeSubItem } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
@@ -25,6 +25,7 @@ const MODULE_TONES = {
   'job-order': { bg: '#FFEDD5', icon: '#EA580C' },
   maintenance: { bg: '#FFE4E6', icon: '#E11D48' },
   stores: { bg: '#CCFBF1', icon: '#0D9488' },
+  dashboard: { bg: '#E0E7FF', icon: '#4F46E5' },
 }
 
 // Deck picture (cropped to the artwork; bg sampled from it) or icon per
@@ -62,6 +63,18 @@ const TILE_ART = {
     'fg-despatch': { img: fgDespatchTile, bg: '#E2FAFD' },
     'rm-requisition': { icon: ClipboardPlus },
   },
+  // Reports: no deck pictures -- icons on the module's pastel colour.
+  dashboard: {
+    'daily-machine': { icon: Gauge },
+    'production-status': { icon: Factory },
+    downtime: { icon: Timer },
+    'quality-status': { icon: ShieldCheck },
+    'wip-status': { icon: Layers },
+    'fg-inventory': { icon: PackageCheck },
+    'rm-status': { icon: Boxes },
+    'customer-order-status': { icon: ClipboardList },
+    'job-order-status': { icon: Truck },
+  },
 }
 
 function withArt(moduleKey, tile) {
@@ -74,14 +87,15 @@ function withArt(moduleKey, tile) {
 
 /** Landing tiles for a module: { key, label, subKey, mode?, img|icon, bg }.
  * Every sub-screen in NAV_ITEMS order that `role` may open (sub-items with
- * `roles`, e.g. Shift Verification, are hidden from other roles); Stores uses
+ * `roles`, e.g. Shift Verification, are hidden from other roles; sub-items with
+ * `landing: false` are sidebar-only); Stores uses
  * STORES_LANDING_TILES. */
 export function landingTiles(moduleKey, role) {
   const base =
     moduleKey === 'stores'
       ? STORES_LANDING_TILES
       : (NAV_ITEMS.find((n) => n.key === moduleKey)?.subItems ?? [])
-          .filter((s) => canSeeSubItem(s, role))
+          .filter((s) => canSeeSubItem(s, role) && s.landing !== false)
           .map((s) => ({ ...s, subKey: s.key }))
   return base.map((tile) => withArt(moduleKey, tile))
 }

@@ -31,10 +31,11 @@ export function LandingTile({ tile, onSelect }) {
 
 // 4 tiles -> 2x2 square; anything else keeps the auto-fit row(s). Tile
 // width range (280-380px) is the same either way.
+// 9 tiles (Reports) -> 3x3, slightly smaller tiles so 3 fit at 1280px.
 function gridColumns(count) {
-  return count === 4
-    ? '[grid-template-columns:minmax(280px,380px)] sm:[grid-template-columns:repeat(2,minmax(280px,380px))]'
-    : '[grid-template-columns:repeat(auto-fit,minmax(280px,380px))]'
+  if (count === 4) return '[grid-template-columns:minmax(280px,380px)] sm:[grid-template-columns:repeat(2,minmax(280px,380px))]'
+  if (count === 9) return '[grid-template-columns:minmax(240px,340px)] md:[grid-template-columns:repeat(2,minmax(240px,340px))] lg:[grid-template-columns:repeat(3,minmax(240px,340px))]'
+  return '[grid-template-columns:repeat(auto-fit,minmax(280px,380px))]'
 }
 
 // Module landing page: every sub-screen as a tile. Tiles keep a fixed

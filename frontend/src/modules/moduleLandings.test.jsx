@@ -9,7 +9,7 @@ import JobOrderModule from './jobOrder/JobOrderModule'
 import MaintenanceModule from './maintenance/MaintenanceModule'
 import StoresModule from './stores/StoresModule'
 import ReportsModule from './ReportsModule'
-import Dashboard from './Dashboard'
+import ModuleLanding from '../components/ModuleLanding'
 import QualityModule from './quality/QualityModule'
 import QualityInspectionScreen from './quality/QualityInspectionScreen'
 import CustomerComplaintScreen from './quality/complaints/CustomerComplaintScreen'
@@ -130,9 +130,16 @@ describe('Quality', () => {
 })
 
 describe('Reports & Dashboard', () => {
-  it('opens the Dashboard by default and the moved reports by key', () => {
-    expect(ReportsModule({ activeTab: null }).type).toBe(Dashboard)
+  const REPORTS = ['Daily Machine', 'Production Status', 'Downtime', 'Quality Status', 'WIP Status', 'FG Inventory', 'Raw Material Status', 'Customer Order Status', 'Job Order Status']
+
+  it('opens a landing with the 9 report tiles in mockup order', () => {
+    const el = ReportsModule({ activeTab: null, role: 'operator' })
+    expect(el.type).toBe(ModuleLanding)
+    expect(el.props.tiles.map((t) => t.label)).toEqual(REPORTS)
+    expect(el.props.tiles.every((t) => t.icon && t.bg)).toBe(true)
+  })
+  it('keeps the moved reports sidebar-only, after the 9', () => {
+    expect(subLabels('dashboard')).toEqual([...REPORTS, 'PO Summary', 'Production Schedule', 'Order Traceability'])
     expect(ReportsModule({ activeTab: 'schedule' }).type).toBe(ProductionScheduleScreen)
-    expect(subLabels('dashboard')).toEqual(['PO Summary', 'Production Schedule', 'Order Traceability', 'Production Status', 'Daily Machine', 'Downtime', 'WIP Status', 'FG Inventory', 'Raw Material Status', 'Customer Order Status', 'Job Order Status', 'Quality Status'])
   })
 })

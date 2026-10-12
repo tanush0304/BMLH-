@@ -85,21 +85,22 @@ export const NAV_ITEMS = [
   {
     key: 'dashboard',
     label: 'Reports & Dashboard',
-    // The module itself opens the Dashboard; these reports moved here from
-    // Customer Orders (PO Summary) and Production (Schedule, Traceability).
+    // The module opens a landing with the 9 report tiles (mockup order).
+    // PO Summary / Production Schedule / Order Traceability (moved here from
+    // Customer Orders and Production) stay in the sidebar only (landing: false).
     subItems: [
-      { key: 'po-summary', label: 'PO Summary' },
-      { key: 'schedule', label: 'Production Schedule' },
-      { key: 'traceability', label: 'Order Traceability' },
-      { key: 'production-status', label: 'Production Status' },
       { key: 'daily-machine', label: 'Daily Machine' },
+      { key: 'production-status', label: 'Production Status' },
       { key: 'downtime', label: 'Downtime' },
+      { key: 'quality-status', label: 'Quality Status' },
       { key: 'wip-status', label: 'WIP Status' },
       { key: 'fg-inventory', label: 'FG Inventory' },
       { key: 'rm-status', label: 'Raw Material Status' },
       { key: 'customer-order-status', label: 'Customer Order Status' },
       { key: 'job-order-status', label: 'Job Order Status' },
-      { key: 'quality-status', label: 'Quality Status' },
+      { key: 'po-summary', label: 'PO Summary', landing: false },
+      { key: 'schedule', label: 'Production Schedule', landing: false },
+      { key: 'traceability', label: 'Order Traceability', landing: false },
     ],
   },
 ]

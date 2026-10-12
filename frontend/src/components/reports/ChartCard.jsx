@@ -100,14 +100,14 @@ export default function ChartCard({ title, icon: Icon, headerColor, actions, loa
           {actions && <div className="ml-auto">{actions}</div>}
         </div>
       ) : (
-        <div className="flex items-center gap-2.5 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
           {Icon && (
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white">
               <Icon size={17} strokeWidth={2.2} />
             </span>
           )}
           <h2 className="text-[16px] font-bold text-[#0B2A5B]">{title}</h2>
-          {actions && <div className="ml-auto">{actions}</div>}
+          {actions && <div className="ml-auto min-w-0 max-w-full">{actions}</div>}
         </div>
       )}
       <div className="px-2 py-3" style={{ height }}>

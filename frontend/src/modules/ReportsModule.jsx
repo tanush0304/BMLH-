@@ -1,4 +1,6 @@
-import Dashboard from './Dashboard'
+import ModuleLanding from '../components/ModuleLanding'
+import { landingTiles } from './moduleLandings'
+import { moduleLabel } from '../utils/constants'
 import CustomerPoSummaryScreen from './customerOrder/CustomerPoSummaryScreen'
 import ProductionScheduleScreen from './production/ProductionScheduleScreen'
 import OrderTraceabilityScreen from './production/OrderTraceabilityScreen'
@@ -12,10 +14,10 @@ import CustomerOrderStatusScreen from './reports/CustomerOrderStatusScreen'
 import JobOrderStatusScreen from './reports/JobOrderStatusScreen'
 import QualityStatusScreen from './reports/QualityStatusScreen'
 
-// Reports & Dashboard: the module opens the Dashboard; its sub-screens are
-// read-only reports moved here from Customer Orders and Production (files
-// stay in their original folders -- see NAV_ITEMS 'dashboard' subItems)
-// plus the Reports & Dashboard reports in ./reports. App lazy-loads this
+// Reports & Dashboard: the module opens a landing with the 9 report tiles
+// (./reports); PO Summary / Production Schedule / Order Traceability (moved
+// here from Customer Orders and Production, files in their original folders)
+// are sidebar-only -- see NAV_ITEMS 'dashboard' subItems. App lazy-loads this
 // module, so Recharts stays out of the main bundle.
 const TABS = [
   { key: 'po-summary', component: CustomerPoSummaryScreen },
@@ -34,9 +36,17 @@ const TABS = [
 
 // activeMode carries a PRD into Order Traceability (Customer Order Status's
 // View action); `key` remounts the screen so a new PRD is picked up.
-export default function ReportsModule({ activeTab, activeMode, onNavigate, onOpenScreen }) {
+export default function ReportsModule({ activeTab, activeMode, role, onOpenScreen }) {
   const tab = TABS.find((t) => t.key === activeTab)
-  if (!tab) return <Dashboard onNavigate={onNavigate} />
+  if (!tab) {
+    return (
+      <ModuleLanding
+        title={moduleLabel('dashboard')}
+        tiles={landingTiles('dashboard', role)}
+        onSelect={(t) => onOpenScreen?.(t.subKey, t.mode)}
+      />
+    )
+  }
   const Screen = tab.component
   return (
     <Screen

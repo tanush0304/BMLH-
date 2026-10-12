@@ -13,8 +13,10 @@ import { listEmployees } from '../../data/queries/employees'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { sortedEmployeeOptions } from '../../utils/employeeLabel'
 import { stageLabel } from '../../utils/stageLabel'
-import { DEFAULT_PERIOD, periodRange, daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
-import { MANUAL_LABEL, productionStatusRows, productionStatusKpis, dailyTrend, byMachine } from '../../utils/reportAggregates'
+import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
+import { monthLabel } from '../../utils/reportOrders'
+import useReportPeriod from '../../components/reports/useReportPeriod'
+import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine } from '../../utils/reportAggregates'
 
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
@@ -48,13 +50,8 @@ const SEARCH_KEYS = ['prd_no', 'operation', 'machine_name', 'machine_id']
  * "report production hours" (029). Filters apply on Search.
  */
 export default function ProductionStatusScreen() {
-  const initialRange = periodRange(DEFAULT_PERIOD)
-  const [period, setPeriod] = useState(DEFAULT_PERIOD)
-  const [from, setFrom] = useState(initialRange.from)
-  const [to, setTo] = useState(initialRange.to)
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
-
-  const [applied, setApplied] = useState({ ...initialRange, ...EMPTY_FILTERS })
+  const r = useReportPeriod(EMPTY_FILTERS)
+  const applied = r.applied
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -79,30 +76,18 @@ export default function ProductionStatusScreen() {
     }
   }, [applied])
 
-  function handlePeriod(value) {
-    setPeriod(value)
-    const range = periodRange(value)
-    if (range) {
-      setFrom(range.from)
-      setTo(range.to)
-    }
-  }
-
-  function handleReset() {
-    const range = periodRange(DEFAULT_PERIOD)
-    setPeriod(DEFAULT_PERIOD)
-    setFrom(range.from)
-    setTo(range.to)
-    setFilters(EMPTY_FILTERS)
-    setApplied({ ...range, ...EMPTY_FILTERS })
-  }
-
-  const setFilter = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }))
+  const filters = r.filters
+  const setFilter = r.setFilter
 
   const kpis = useMemo(() => productionStatusKpis(rows), [rows])
   const detail = useMemo(() => productionStatusRows(rows), [rows])
+  // Daily, or monthly above 62 days (efficiency recomputed from the month's sums).
   const trend = useMemo(
-    () => dailyTrend(rows, daysBetween(applied.from, applied.to)).map((d) => ({ ...d, label: shortDate(d.date) })),
+    () =>
+      trendBuckets(dailyTrend(rows, daysBetween(applied.from, applied.to)), { sum: ['produced', 'standard'], dayLabel: shortDate, monthLabel }).map((d) => ({
+        ...d,
+        efficiency_pct: pct(d.produced, d.standard),
+      })),
     [rows, applied.from, applied.to]
   )
   const machines = useMemo(() => byMachine(rows), [rows])
@@ -120,15 +105,8 @@ export default function ProductionStatusScreen() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         <ReportFilterBar
-          period={period}
-          from={from}
-          to={to}
-          onPeriodChange={handlePeriod}
-          onFromChange={(v) => { setFrom(v); setPeriod('custom') }}
-          onToChange={(v) => { setTo(v); setPeriod('custom') }}
+          {...r.barProps}
           loading={loading}
-          onSearch={() => setApplied({ from, to, ...filters })}
-          onReset={handleReset}
           filters={[
             { key: 'prd', label: 'PRD No', value: filters.prdNo, onChange: setFilter('prdNo'), options: options.prds },
             { key: 'machine', label: 'Machine', value: filters.machineId, onChange: setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
@@ -149,7 +127,7 @@ export default function ProductionStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Produced vs Standard (Daily)" icon={TrendingUp} loading={loading} empty={empty}>
+          <ChartCard title={`Produced vs Standard (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
             <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />

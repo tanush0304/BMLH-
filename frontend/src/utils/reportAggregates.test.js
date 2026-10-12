@@ -16,6 +16,7 @@ import {
   downtimeTrend,
   availableMinutes,
   DOWNTIME_TYPES,
+  trendBuckets,
 } from './reportAggregates'
 
 // Log 1 spans two shifts (two hour groups); log 2 is one group.
@@ -139,5 +140,24 @@ describe('Downtime', () => {
     const t = downtimeTrend(hours, setup, ['2026-10-01', '2026-10-02'])
     expect(t[0]).toMatchObject({ setting_time_min: 0.3, breakdown: 0.3, opr_issue: 0.2 })
     expect(t[1]).toMatchObject({ mc_clean: 0.2, setting_time_min: 0 })
+  })
+})
+
+describe('trendBuckets', () => {
+  const daily = Array.from({ length: 70 }, (_, k) => {
+    const d = new Date(2026, 7, 1 + k)
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { date, qty: 1, balance: k }
+  })
+  it('keeps daily points up to 62 days', () => {
+    expect(trendBuckets(daily.slice(0, 62), { sum: ['qty'] })).toHaveLength(62)
+  })
+  it('rolls up to months: sums and last-day balances', () => {
+    const m = trendBuckets(daily, { sum: ['qty'], last: ['balance'], monthLabel: (x) => `M${x}` })
+    expect(m.map((x) => [x.date, x.qty, x.balance, x.label])).toEqual([
+      ['2026-08', 31, 30, 'M2026-08'],
+      ['2026-09', 30, 60, 'M2026-09'],
+      ['2026-10', 9, 69, 'M2026-10'],
+    ])
   })
 })

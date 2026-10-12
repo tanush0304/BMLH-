@@ -25,7 +25,7 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
           <TextInput type="date" value={to} min={from} onChange={(e) => onToChange(e.target.value)} />
         </Field>
         {filters.map((f) => (
-          <Field key={f.key} label={f.label} width="short">
+          <Field key={f.key} label={f.label} width="short" className="max-w-[260px]">
             <SearchableSelect
               value={f.value}
               onChange={(e) => f.onChange(e.target.value)}

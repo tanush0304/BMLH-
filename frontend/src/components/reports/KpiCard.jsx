@@ -36,13 +36,14 @@ function Delta({ delta }) {
 export function KpiCard({ label, value, unit, sub, delta, side, icon: Icon, tone = 'blue', loading }) {
   const t = TONES[tone] ?? TONES.blue
   return (
-    <div className={`flex min-h-[96px] items-center gap-3 rounded-xl border px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)] ${t.card}`}>
+    <div className={`flex min-h-[96px] flex-wrap items-center gap-3 rounded-xl border px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)] ${t.card}`}>
       {Icon && (
         <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-md ${t.icon}`}>
           <Icon size={28} strokeWidth={2.2} />
         </div>
       )}
-      <div className="min-w-0 flex-1">
+      {/* min width so a `side` block wraps under the label instead of overlapping it */}
+      <div className={`min-w-0 flex-1 ${side ? 'min-w-[130px]' : ''}`}>
         <div className="text-[14px] font-bold leading-tight text-[#0B2A5B]">{label}</div>
         {/* Value + unit, with the delta pushed right; wraps under when the card is narrow. */}
         <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
@@ -54,13 +55,14 @@ export function KpiCard({ label, value, unit, sub, delta, side, icon: Icon, tone
         </div>
         {sub && !loading && <div className="mt-0.5 text-[13px] text-slate-700">{sub}</div>}
       </div>
-      {side && !loading && <div className="ml-auto pl-2">{side}</div>}
+      {side && !loading && <div className="ml-auto shrink-0 pl-2">{side}</div>}
     </div>
   )
 }
 
-/** Responsive row of KpiCards (2 per row on small screens, all in one row on wide). */
+/** Responsive row of KpiCards (1-2 per row on small screens, all in one row on wide). */
 export function KpiCardRow({ children, columns = 6 }) {
-  const xl = { 4: 'xl:grid-cols-4', 5: 'xl:grid-cols-5' }[columns] ?? 'xl:grid-cols-6'
-  return <div className={`grid grid-cols-2 gap-2 md:grid-cols-3 ${xl}`}>{children}</div>
+  // One row on wide screens; 6 cards need 2xl (>= 1536px) -- at 1280px they wrap 3 + 3.
+  const wide = { 4: 'md:grid-cols-2 xl:grid-cols-4', 5: 'md:grid-cols-3 xl:grid-cols-5' }[columns] ?? 'md:grid-cols-3 2xl:grid-cols-6'
+  return <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${wide}`}>{children}</div>
 }

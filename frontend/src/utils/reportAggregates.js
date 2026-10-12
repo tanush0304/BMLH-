@@ -229,3 +229,22 @@ export function downtimeTrend(hourRows, setupRows, days) {
     return { date, ...Object.fromEntries(s.byType.map((t) => [t.key, round1(t.lostMin / 60)])) }
   })
 }
+
+// ---------------------------------------------------------------- trend buckets
+
+export const MAX_DAILY_POINTS = 62
+
+/** A daily series ([{ date, ... }]) as-is with `label = dayLabel(date)`, or,
+ * when longer than MAX_DAILY_POINTS days, rolled up to one point per month:
+ * `sum` keys added, `last` keys = the month's last day (balances). */
+export function trendBuckets(daily, { sum = [], last = [], dayLabel = (d) => d, monthLabel = (m) => m } = {}) {
+  if (daily.length <= MAX_DAILY_POINTS) return daily.map((d) => ({ ...d, label: dayLabel(d.date) }))
+  const out = []
+  for (const [month, points] of groupBy(daily, (d) => d.date.slice(0, 7))) {
+    const p = { date: month, label: monthLabel(month) }
+    for (const k of sum) p[k] = round1(points.reduce((a, x) => a + num(x[k]), 0))
+    for (const k of last) p[k] = points[points.length - 1][k]
+    out.push(p)
+  }
+  return out
+}

@@ -9,7 +9,8 @@ import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/Cha
 import ReportTable from '../../components/reports/ReportTable'
 import { listFgTransactionsUpTo, listFgMasterRows, listPartDrawingRefs } from '../../data/queries/reports'
 import { daysBetween, previousRange, shortDate, displayDate } from '../../utils/reportPeriods'
-import { changePct } from '../../utils/reportAggregates'
+import { changePct, trendBuckets } from '../../utils/reportAggregates'
+import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, dailyMovement, topN } from '../../utils/reportStock'
 
 const IN = 'Production Receipt'
@@ -102,7 +103,13 @@ export default function FgInventoryScreen() {
 
   const scopedTxns = useMemo(() => txns.filter((t) => prdsInScope.has(t.prd_no)), [txns, prdsInScope])
   const trend = useMemo(
-    () => dailyMovement(scopedTxns, { days: daysBetween(r.applied.from, r.applied.to), inType: IN, outType: OUT }).map((d) => ({ ...d, label: shortDate(d.date) })),
+    () =>
+      trendBuckets(dailyMovement(scopedTxns, { days: daysBetween(r.applied.from, r.applied.to), inType: IN, outType: OUT }), {
+        sum: ['receipts', 'issues'],
+        last: ['balance'],
+        dayLabel: shortDate,
+        monthLabel,
+      }),
     [scopedTxns, r.applied]
   )
   const byCustomer = useMemo(() => {
