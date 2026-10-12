@@ -1,9 +1,9 @@
 -- =====================================================================
--- Cleanup: E2E browser test data (run of 2026-10-09/10)
+-- Cleanup: E2E browser test data (runs of 2026-10-09/10 and 2026-10-12)
 -- NOT a migration -- review, then run manually in the Supabase SQL editor.
 --
 -- Everything is scoped to the TEST- master records, or to rows hanging off
--- the TEST customer's orders (PRD-004, PRD-005), so no real data matches.
+-- the TEST customer's orders (PRD-004 .. PRD-008), so no real data matches.
 -- Step 1 previews what will be deleted; step 2 deletes in one transaction
 -- (children before parents). Check the preview counts first.
 -- =====================================================================
@@ -16,6 +16,8 @@ union all select 'customer enquiries', count(*) from "customer enquiries" where 
 union all select 'production route cards', count(*) from "production route cards" where prd_no in (select prd_no from prd)
 union all select 'production route card stages', count(*) from "production route card stages" where prd_no in (select prd_no from prd)
 union all select 'production logs', count(*) from "production logs" where stage_id in (select id from "production route card stages" where prd_no in (select prd_no from prd))
+-- Shift verifications (028) of those logs.
+union all select 'production shift verifications', count(*) from "production shift verifications" where log_id in (select id from "production logs" where stage_id in (select id from "production route card stages" where prd_no in (select prd_no from prd)))
 union all select 'wip transactions', count(*) from "wip transactions" where prd_no in (select prd_no from prd)
 union all select 'finished goods transactions', count(*) from "finished goods transactions" where prd_no in (select prd_no from prd)
 union all select 'raw material transactions', count(*) from "raw material transactions" where raw_material_code = 'TEST-RM01'
@@ -24,15 +26,15 @@ union all select 'quality logs', count(*) from "quality logs" where prd_no in (s
 union all select 'maintenance logs', count(*) from "maintenance logs" where machine_id = 'TEST-MC01'
 -- Customer complaints (027) raised against a TEST customer or TEST part.
 union all select 'customer complaints', count(*) from "customer complaints"
-  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03')
+  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04')
 union all select 'customer complaint attachments', count(*) from "customer complaint attachments"
   where complaint_id in (select id from "customer complaints"
-    where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03'));
+    where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04'));
 
 -- Storage files of those complaints (list only -- see the note in Step 2):
 --   select a.file_path from "customer complaint attachments" a
 --   join "customer complaints" c on c.id = a.complaint_id
---   where c.customer_id in ('TEST-CUST01', 'TEST-CUST02') or c.part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
+--   where c.customer_id in ('TEST-CUST01', 'TEST-CUST02') or c.part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
 
 -- Expected (from the test runs): customer orders 3 (PRD-004, PRD-005, PRD-006),
 -- po headers 2 (TEST-PO01, TEST-PO02), enquiries 1 (QTN-006), route cards 3 (JC-004,
@@ -40,6 +42,10 @@ union all select 'customer complaint attachments', count(*) from "customer compl
 -- FGR-003, FGD-001), RM 2 (GRN-002, RMI-002), dispatch 2 (DC-002, DC-003), quality logs 2,
 -- maintenance logs 1, customer complaints 2 (CMP-2026-0001 TEST-CUST01/TEST-PART01,
 -- CMP-2026-0002 TEST-CUST02/TEST-PART02), complaint attachments 2.
+-- Added 2026-10-12 (Shift Verification test): order PRD-008 (TEST-PART04, PO
+-- TEST-PO03), route card JC-007 (Stage 1 – TEST-Deburr, Manual), product
+-- TEST-PART04 + its cycle time row, production logs on PRD-005 / PRD-008 and
+-- their hours, and their "production shift verifications" rows (028).
 -- Storage (complaint-attachments bucket), folder CMP-2026-0001/ -- 2 files:
 --   CMP-2026-0001/1791636050127_TEST-defect-photo.png
 --   CMP-2026-0001/1791636050939_TEST-inspection-report.pdf
@@ -61,9 +67,9 @@ create temporary table e2e_log on commit drop as
 -- file list from Step 1.
 delete from "customer complaint attachments" where complaint_id in (
   select id from "customer complaints"
-  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03'));
+  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04'));
 delete from "customer complaints"
-  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
+  where customer_id in ('TEST-CUST01', 'TEST-CUST02') or part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
 
 -- Reset the complaint counters to the highest remaining real CMP number per
 -- year, so real numbering continues straight after it; a year with no real
@@ -84,7 +90,7 @@ where not exists (select 1 from "customer complaints" where complaint_no like 'C
 -- Quality (readings first)
 delete from "quality log readings" where quality_log_id in (select id from "quality logs" where prd_no in (select prd_no from e2e_prd));
 delete from "quality logs" where prd_no in (select prd_no from e2e_prd);
-delete from "quality master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
+delete from "quality master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
 
 -- Jobwork
 delete from "job order receipt" where dc_no in (select dc_no from "job order dispatch" where prd_no in (select prd_no from e2e_prd));
@@ -96,7 +102,8 @@ delete from "wip transactions" where prd_no in (select prd_no from e2e_prd);
 delete from "raw material transactions" where raw_material_code = 'TEST-RM01';
 delete from "raw material requisitions" where prd_no in (select prd_no from e2e_prd);
 
--- Production
+-- Production (shift verifications cascade with their logs; deleted first anyway)
+delete from "production shift verifications" where log_id in (select id from e2e_log);
 delete from "production log hours" where log_id in (select id from e2e_log);
 delete from "production logs" where id in (select id from e2e_log);
 delete from "production route card stages" where id in (select id from e2e_stage);
@@ -115,14 +122,14 @@ delete from "maintenance schedule" where machine_id = 'TEST-MC01';
 delete from "maintenance master" where machine_id = 'TEST-MC01';
 
 -- Masters (link tables first)
-delete from "cycle time master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
-delete from "production batch master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
-delete from "product raw materials" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
+delete from "cycle time master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
+delete from "production batch master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
+delete from "product raw materials" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
 delete from "rm suppliers" where raw_material_code = 'TEST-RM01';
 delete from "vendor job work types" where vendor_id = 'TEST-VEN01';
 delete from "machine operations" where machine_id = 'TEST-MC01';
 
-delete from "products master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03');
+delete from "products master" where part_serial_number in ('TEST-PART01', 'TEST-PART02', 'TEST-PART03', 'TEST-PART04');
 delete from "raw materials master" where raw_material_code = 'TEST-RM01';
 delete from "vendors master" where vendor_id = 'TEST-VEN01';
 delete from "job work master" where job_work_code = 'TEST-JW01';
@@ -138,6 +145,11 @@ delete from "employees master" where employee_id in ('TEST-EMP01', 'TEST-EMP02')
 -- (if no real complaints exist yet, "customer complaint counters" is now
 -- empty and the first real complaint gets CMP-2026-0001)
 commit;   -- or ROLLBACK; if anything looks wrong
+
+-- TEST operator login (2026-10-12 Shift Verification test): delete it in
+-- Dashboard > Authentication > Users (the address in frontend/.env.test,
+-- TEST_OPERATOR_EMAIL), then its role row:
+--   delete from "app users" where user_id = '987b500d-149e-47ef-9923-8e372913e8fe';  -- operator.test@bmlh.test
 
 -- Note: 022 doc numbers are max()+1 per prefix, so after this cleanup each
 -- prefix restarts after the highest REMAINING real number -- TEST numbers

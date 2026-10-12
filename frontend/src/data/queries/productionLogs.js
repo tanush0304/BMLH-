@@ -206,20 +206,15 @@ export async function getLogTotals(logId) {
   return data
 }
 
-/** Shift-incharge verification (migration 017). The DB trigger rejects this
- * unless the caller is a supervisor/admin, and stamps verified_by
- * (auth.uid()) / verified_at (now()) itself -- the values sent here are
- * placeholders it overwrites, so they can't be spoofed. */
-export async function verifyProductionLog(logId, userId) {
-  const { data, error } = await supabase
-    .from('production logs')
-    .update({ verified_by: userId, verified_at: new Date().toISOString() })
-    .eq('id', logId)
-    .select()
-    .single()
-  if (error) {
-    if (error.code === '42501') throw new Error('Only a supervisor or admin can verify a production log.')
-    throw error
-  }
-  return data
+/** Corrects already-saved hour rows (a shift that is not Approved -- the DB
+ * lock from migration 028 refuses rows of an approved shift). One request
+ * per row; only the changed fields are sent. */
+export async function updateProductionLogHours(changes) {
+  return Promise.all(
+    changes.map(async ({ id, ...fields }) => {
+      const { data, error } = await supabase.from('production log hours').update(fields).eq('id', id).select().single()
+      if (error) throw error
+      return data
+    })
+  )
 }

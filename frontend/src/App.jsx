@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
 import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
 import LoginScreen from './components/LoginScreen'
 import Dashboard from './modules/Dashboard'
-import ReportsModule from './modules/ReportsModule'
 import MainMenu from './modules/MainMenu'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
@@ -18,6 +17,9 @@ import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS } from './utils/constants'
 import { authTransition } from './utils/authTransition'
+
+// Lazy: Reports pulls in Recharts, which the other modules don't need.
+const ReportsModule = lazy(() => import('./modules/ReportsModule'))
 
 const TITLES = {}
 
@@ -166,7 +168,9 @@ function App() {
         role={role}
       />
       <ModuleThemeProvider module={themeKey}>
-        <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey)}>{content}</PageHeaderBandProvider>
+        <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey)}>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}>{content}</Suspense>
+        </PageHeaderBandProvider>
       </ModuleThemeProvider>
     </div>
   )

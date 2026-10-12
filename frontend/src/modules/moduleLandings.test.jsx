@@ -12,7 +12,7 @@ import ReportsModule from './ReportsModule'
 import Dashboard from './Dashboard'
 import QualityModule from './quality/QualityModule'
 import QualityInspectionScreen from './quality/QualityInspectionScreen'
-import ComplaintInvestigationScreen from './quality/complaints/ComplaintInvestigationScreen'
+import CustomerComplaintScreen from './quality/complaints/CustomerComplaintScreen'
 import ProductionScheduleScreen from './production/ProductionScheduleScreen'
 import RawMaterialStoreScreen from './stores/RawMaterialStoreScreen'
 import FinishedGoodsStoreScreen from './stores/FinishedGoodsStoreScreen'
@@ -21,9 +21,9 @@ const subLabels = (key) => NAV_ITEMS.find((n) => n.key === key).subItems.map((s)
 
 describe('module landing tiles', () => {
   it.each(['production', 'customer-order', 'job-order', 'maintenance', 'quality'])(
-    '%s shows every sub-screen, labelled from constants.js, in sidebar order',
+    '%s shows every sub-screen (admin), labelled from constants.js, in sidebar order',
     (key) => {
-      const tiles = landingTiles(key)
+      const tiles = landingTiles(key, 'admin')
       expect(tiles.map((t) => t.label)).toEqual(subLabels(key))
       expect(tiles.every((t) => Boolean(t.img) || Boolean(t.icon))).toBe(true)
       expect(tiles.every((t) => Boolean(t.bg))).toBe(true)
@@ -33,6 +33,7 @@ describe('module landing tiles', () => {
   it('uses deck pictures where they exist and icons otherwise', () => {
     const art = (key) => Object.fromEntries(landingTiles(key).map((t) => [t.key, t.img ? 'img' : 'icon']))
     expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'icon', planning: 'img', 'route-card': 'icon' })
+    expect(landingTiles('production', 'supervisor').find((t) => t.key === 'shift-verification').icon).toBeTruthy()
     expect(art('customer-order')).toEqual({ enquiry: 'img', order: 'img' })
     expect(Object.values(art('job-order'))).toEqual(['img', 'img'])
     expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])
@@ -53,6 +54,14 @@ describe('module landing tiles', () => {
       'rm-requisition': ['rm-requisition', null],
     })
     expect(tiles.filter((t) => t.img)).toHaveLength(6)
+  })
+
+  it('Shift Verification is a supervisor/admin-only Production tile', () => {
+    const keys = (role) => landingTiles('production', role).map((t) => t.key)
+    expect(keys('supervisor')).toContain('shift-verification')
+    expect(keys('admin')).toContain('shift-verification')
+    expect(keys('operator')).not.toContain('shift-verification')
+    expect(subItemLabel('production', 'shift-verification')).toBe('Shift Verification')
   })
 
   it('the production-data-entry screen is labelled "Production Data Entry"', () => {
@@ -98,22 +107,25 @@ describe('module components', () => {
 })
 
 describe('Quality', () => {
-  it('has 3 tiles: inspection + the two complaint screens', () => {
-    expect(landingTiles('quality').map((t) => t.label)).toEqual([
-      'Quality Inspection',
-      'Complaint Registration',
-      'Complaint Investigation & Closure',
-    ])
+  it('has 2 deck-picture tiles: Quality Inspection + Customer Complaint', () => {
+    const tiles = landingTiles('quality')
+    expect(tiles.map((t) => t.label)).toEqual(['Quality Inspection', 'Customer Complaint'])
+    expect(tiles.every((t) => Boolean(t.img))).toBe(true)
   })
 
-  it('opens inspection, and a complaint from the list in Investigation & Closure', () => {
+  it('opens inspection, and Customer Complaint as one tabbed screen', () => {
     expect(QualityModule({ activeTab: 'inspection' }).type).toBe(QualityInspectionScreen)
-    const inv = QualityModule({ activeTab: 'complaint-investigation', activeMode: 'CMP-2026-0001', role: 'operator' })
-    expect(inv.type).toBe(ComplaintInvestigationScreen)
-    expect(inv.props.initialComplaintNo).toBe('CMP-2026-0001')
-    const onSelect = vi.fn()
-    QualityModule({ activeTab: 'complaint-registration', onSelect }).props.onOpenComplaint('CMP-2026-0002')
-    expect(onSelect).toHaveBeenCalledWith('complaint-investigation', 'CMP-2026-0002')
+    const cc = QualityModule({ activeTab: 'complaint', activeMode: null, role: 'operator' })
+    expect(cc.type).toBe(CustomerComplaintScreen)
+    expect(cc.props.initialMode).toBeUndefined() // screen opens on Registration
+    expect(cc.props.role).toBe('operator')
+  })
+
+  it('Customer Complaint shows both tabs and starts on Registration', () => {
+    const html = renderToStaticMarkup(createElement(CustomerComplaintScreen, { role: 'supervisor' }))
+    expect(html).toContain('>Registration<')
+    expect(html).toContain('>Investigation &amp; Closure<')
+    expect(html).toContain('(auto-generated on save)')
   })
 })
 
@@ -121,6 +133,6 @@ describe('Reports & Dashboard', () => {
   it('opens the Dashboard by default and the moved reports by key', () => {
     expect(ReportsModule({ activeTab: null }).type).toBe(Dashboard)
     expect(ReportsModule({ activeTab: 'schedule' }).type).toBe(ProductionScheduleScreen)
-    expect(subLabels('dashboard')).toEqual(['PO Summary', 'Production Schedule', 'Order Traceability'])
+    expect(subLabels('dashboard')).toEqual(['PO Summary', 'Production Schedule', 'Order Traceability', 'Production Status', 'Daily Machine', 'Downtime'])
   })
 })

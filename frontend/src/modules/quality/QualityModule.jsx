@@ -1,13 +1,12 @@
 import QualityInspectionScreen from './QualityInspectionScreen'
-import ComplaintRegistrationScreen from './complaints/ComplaintRegistrationScreen'
-import ComplaintInvestigationScreen from './complaints/ComplaintInvestigationScreen'
+import CustomerComplaintScreen from './complaints/CustomerComplaintScreen'
 import ModuleLanding from '../../components/ModuleLanding'
 import { landingTiles } from '../moduleLandings'
 import { moduleLabel } from '../../utils/constants'
 
 // Sub-screen selection lives in the Sidebar's accordion (NAV_ITEMS 'quality'
-// subItems). `activeMode` carries a complaint_no when a Complaint List row
-// opens it in Investigation & Closure.
+// subItems). Customer Complaint is one screen with Registration /
+// Investigation & Closure tabs; `activeMode` pre-selects a tab.
 export default function QualityModule({ activeTab, activeMode, role, onSelect }) {
   if (!activeTab) {
     return (
@@ -18,11 +17,8 @@ export default function QualityModule({ activeTab, activeMode, role, onSelect })
       />
     )
   }
-  if (activeTab === 'complaint-registration') {
-    return <ComplaintRegistrationScreen onOpenComplaint={(complaintNo) => onSelect('complaint-investigation', complaintNo)} />
-  }
-  if (activeTab === 'complaint-investigation') {
-    return <ComplaintInvestigationScreen role={role} initialComplaintNo={activeMode} />
+  if (activeTab === 'complaint') {
+    return <CustomerComplaintScreen key={activeMode ?? ''} initialMode={activeMode || undefined} role={role} />
   }
   return <QualityInspectionScreen />
 }

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import PageHeader from '../../../components/PageHeader'
 import ActionToolbar from '../../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../../utils/exportUtils'
 import { createComplaint, uploadComplaintAttachments } from '../../../data/queries/customerComplaints'
@@ -8,8 +7,9 @@ import ComplaintRegistrationSections from './ComplaintRegistrationSections'
 import ComplaintList, { COMPLAINT_EXPORT_COLUMNS } from './ComplaintList'
 import useComplaintData from './useComplaintData'
 
-/** Screen 1 -- registers a complaint (sections 1-3); it is saved as 'Open'.
- * Investigation and closure happen on Screen 2 (onOpenComplaint). */
+/** Registration tab of Customer Complaint -- registers a complaint
+ * (sections 1-3); it is saved as 'Open'. Investigation and closure happen on
+ * the Investigation & Closure tab (onOpenComplaint). */
 export default function ComplaintRegistrationScreen({ onOpenComplaint }) {
   const data = useComplaintData()
   const [form, setForm] = useState(() => emptyComplaintForm())
@@ -62,7 +62,6 @@ export default function ComplaintRegistrationScreen({ onOpenComplaint }) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Complaint Registration" subtitle="Capture  |  Classify  |  Register" />
       <ActionToolbar
         showEditDelete={false}
         saving={saving}

@@ -1,7 +1,17 @@
+/** One CSV field: always quoted, embedded quotes doubled, so commas, quotes
+ * and line breaks inside a value never shift columns. */
+export function csvField(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`
+}
+
+export function buildCsv(columns, rows) {
+  const header = columns.map((c) => csvField(c.label)).join(',')
+  const body = rows.map((r) => columns.map((c) => csvField(r[c.key])).join(','))
+  return [header, ...body].join('\n')
+}
+
 export function exportToCsv(columns, rows, filename) {
-  const header = columns.map((c) => c.label).join(',')
-  const body = rows.map((r) => columns.map((c) => r[c.key] ?? '').join(','))
-  const csv = [header, ...body].join('\n')
+  const csv = buildCsv(columns, rows)
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

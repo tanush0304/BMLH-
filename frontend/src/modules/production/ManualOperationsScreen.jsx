@@ -23,6 +23,7 @@ import {
   closeProductionLog,
   endProductionLog,
   listOpenLogsForUser,
+  updateProductionLogHours,
 } from '../../data/queries/productionLogs'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
@@ -34,6 +35,10 @@ import {
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
 import { stageLabel } from '../../utils/stageLabel'
 import { todayISO } from '../../utils/dates'
+import { useAppUsers } from '../../components/StockEditPanel'
+import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
+import { decisionText } from '../../utils/shiftVerification'
+import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -41,7 +46,7 @@ import { todayISO } from '../../utils/dates'
  * production_logs / production_log_hours tables and is_open lock Machine
  * Entry uses for Internal stages, just without a machine-selection step.
  */
-export default function ManualOperationsScreen() {
+export default function ManualOperationsScreen({ role }) {
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Manual stage, any PRD
@@ -68,6 +73,13 @@ export default function ManualOperationsScreen() {
   const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
   const [endingLog, setEndingLog] = useState(false)
+
+  // Shift verification (migration 028), same rules as Production Data Entry:
+  // an Approved shift is locked (except admin), a Rejected one shows its
+  // reason and stays editable; entryDate moves back only to correct one.
+  const appUsers = useAppUsers()
+  const [entryDate, setEntryDate] = useState(todayISO())
+  const shiftCheck = useLogShiftVerifications({ logId: activeLog?.id, entryDate, shiftCode, role, appUsers })
 
   async function loadPendingStages() {
     const allStages = await listAllStages()
@@ -227,7 +239,9 @@ export default function ManualOperationsScreen() {
   // since they're what makes multi-shift/multi-day logging on one log
   // attributable per hour instead of all defaulting to the log header's
   // original creation-time values.
-  async function handleSaveHours(rows) {
+  // `changes`: edits to already-saved rows of the grid's shift (only the
+  // changed ones) -- updated in place, keeping their original employee.
+  async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
     setSavingHour(true)
     setError(null)
@@ -235,13 +249,14 @@ export default function ManualOperationsScreen() {
       const stamped = rows.map((r) => ({
         ...r,
         log_id: activeLog.id,
-        log_date: todayISO(),
+        log_date: entryDate,
         shift_code: shiftCode,
         employee_id: employeeId,
       }))
-      const saved = await addProductionLogHours(stamped)
-      setLogHours((h) => [...h, ...saved])
-      await refreshAfterHourSave()
+      const [saved, updated] = await Promise.all([addProductionLogHours(stamped), updateProductionLogHours(changes)])
+      const updatedById = new Map(updated.map((u) => [u.id, u]))
+      setLogHours((h) => [...h.map((x) => updatedById.get(x.id) ?? x), ...saved])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -257,12 +272,12 @@ export default function ManualOperationsScreen() {
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
-        log_date: todayISO(),
+        log_date: entryDate,
         shift_code: shiftCode,
         employee_id: employeeId,
       })
       setLogHours((h) => [...h, saved])
-      await refreshAfterHourSave()
+      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -305,6 +320,7 @@ export default function ManualOperationsScreen() {
   }
 
   async function clearSelection() {
+    setEntryDate(todayISO())
     setPrdNo('')
     setStageChoiceId('')
     setResolvedStage(null)
@@ -438,7 +454,9 @@ export default function ManualOperationsScreen() {
 
         {activeLog && (
           <FormSection icon={Clock3} title="3. Hourly Entry" subtitle="One row per hour of the selected shift">
-            <div className="w-full">
+            <div className="w-full space-y-2">
+              <CorrectingShiftBanner entryDate={entryDate} shiftCode={shiftCode} onBack={() => setEntryDate(todayISO())} />
+              <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="top" />
               <HourlySlotsEntry
                 startTime={entryShift.start_time}
                 endTime={entryShift.end_time}
@@ -448,7 +466,15 @@ export default function ManualOperationsScreen() {
                 onSaveHours={handleSaveHours}
                 onAddExtraHour={handleAddExtraHour}
                 saving={savingHour}
-                resetKey={activeLog.id}
+                resetKey={`${activeLog.id}|${entryDate}`}
+                entryDate={entryDate}
+                readOnly={shiftCheck.locked}
+                readOnlyReason={`${decisionText(shiftCheck.current, appUsers)} -- this shift is locked. Only an admin can change it.`}
+                shiftStatuses={shiftCheck.statuses}
+                onCorrectShift={(date, shift) => {
+                  setEntryDate(date)
+                  setShiftCode(shift)
+                }}
                 onDraftRowsChange={setDraftHourRows}
               />
               {liveTotals && (
@@ -461,6 +487,7 @@ export default function ManualOperationsScreen() {
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
+              <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="bottom" />
             </div>
           </FormSection>
         )}

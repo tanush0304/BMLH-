@@ -13,7 +13,7 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { NAV_ITEMS } from '../utils/constants'
+import { NAV_ITEMS, canSeeSubItem } from '../utils/constants'
 
 function initialsFor(email) {
   const name = email?.split('@')[0] ?? ''
@@ -127,7 +127,7 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
 
                 {expanded && (
                   <div className="ml-[30px] mt-1 space-y-0.5 border-l border-white/25 pl-2" role="group" aria-label={`${presentation.label} screens`}>
-                    {module.subItems.map((screen) => {
+                    {module.subItems.filter((screen) => canSeeSubItem(screen, role)).map((screen) => {
                       const isActiveScreen = selected && activeSubKey === screen.key
                       return (
                         <button

@@ -104,7 +104,9 @@ function round1(n) {
  * reject / rework % of produced; 1 decimal; null when not computable.
  * Display only -- the view stays the source of truth after save. */
 export function computeLiveLogTotals({ savedHours = [], draftRows = [], standardQtyPerHour }) {
-  const rows = [...savedHours, ...draftRows]
+  // A draft row carrying an id is an edit of that saved row -- it replaces it.
+  const editedIds = new Set(draftRows.filter((r) => r.id != null).map((r) => r.id))
+  const rows = [...savedHours.filter((h) => !editedIds.has(h.id)), ...draftRows]
   let produced = 0
   let rejected = 0
   let rework = 0

@@ -52,8 +52,22 @@ import {
  * `onDraftRowsChange(rows)` reports the typed-but-unsaved hour rows so the
  * screen can show live log totals (display only).
  *
- * `readOnly` (a verified log, for non-admins) disables every input and the
- * Save Hours / Add Hour buttons; `readOnlyReason` is shown above the grid.
+ * `readOnly` (the grid's shift is Approved -- migration 028 -- for
+ * non-admins) disables every input and the Save Hours / Add Hour buttons;
+ * `readOnlyReason` ("Approved by X ...") is shown above the grid.
+ *
+ * `entryDate` (default today) is the date the grid is for -- the screen
+ * moves it to an earlier date only to correct a Rejected shift.
+ *
+ * Saved rows of the grid's shift stay editable while it isn't approved
+ * (that's how a Rejected shift gets fixed). "Save Hours" calls
+ * `onSaveHours(newRows, changedRows)`: new slots to insert, and only the
+ * saved rows whose values changed ({ id, ...fields }) to update -- never
+ * rows of any other shift, so an approved shift elsewhere on the log
+ * can't make the save fail.
+ *
+ * `shiftStatuses` ({ "date|shift": { status, text } }) labels the history
+ * table; a Rejected shift there gets a "Correct" button (`onCorrectShift`).
  */
 export default function HourlySlotsEntry({
   startTime,
@@ -70,6 +84,9 @@ export default function HourlySlotsEntry({
   onDraftRowsChange,
   readOnly = false,
   readOnlyReason = '',
+  entryDate,
+  shiftStatuses = {},
+  onCorrectShift,
 }) {
   const [drafts, setDrafts] = useState({}) // slot -> { qty_produced, qty_rejected, qty_rework }
   const [committedTimes, setCommittedTimes] = useState({ startTime, endTime })
@@ -116,10 +133,10 @@ export default function HourlySlotsEntry({
     end_time: committedTimes.endTime,
   })
 
-  const today = todayISO()
-  // Only rows for THIS log, TODAY, THIS shift count as "saved" slots in the
-  // live grid -- everything else is history (a different day and/or a
-  // different shift this same log was worked under). See
+  const today = entryDate || todayISO()
+  // Only rows for THIS log, the grid's date, THIS shift count as "saved"
+  // slots in the live grid -- everything else is history (a different day
+  // and/or a different shift this same log was worked under). See
   // utils/hourlySlots.js's splitHourHistory for why that's the right split.
   const { savedToday, historyList } = splitHourHistory({ logHours, today, shiftCode })
   const savedSlotNumbersToday = new Set(savedToday.map((h) => h.hour_slot))
@@ -133,6 +150,17 @@ export default function HourlySlotsEntry({
   ]
   const durations = slotDurations({ start_time: committedTimes.startTime, end_time: committedTimes.endTime })
 
+  // Input value: what was typed, else the saved value (saved rows stay
+  // editable while the shift isn't approved).
+  function cellValue(slot, field, saved) {
+    const typed = drafts[slot]?.[field]
+    if (typed !== undefined) return typed
+    return saved ? saved[field] ?? '' : ''
+  }
+  function rowValues(slot, saved) {
+    return saved ? { ...saved, ...drafts[slot] } : drafts[slot]
+  }
+
   function updateDraft(slot, field, value) {
     setDrafts((d) => ({ ...d, [slot]: { ...d[slot], [field]: value } }))
   }
@@ -142,8 +170,33 @@ export default function HourlySlotsEntry({
     return !!d && draftKeys.some((k) => d[k] !== undefined && d[k] !== '')
   }
 
+  // Blank qty / idle -> 0, remarks trimmed / null (same as a new row).
+  function normalizeRow(d) {
+    const out = {}
+    for (const k of draftKeys) {
+      if (k === 'remarks') out.remarks = typeof d.remarks === 'string' && d.remarks.trim() ? d.remarks.trim() : null
+      else out[k] = d[k] === '' || d[k] === undefined || d[k] === null ? 0 : Number(d[k])
+    }
+    return out
+  }
+  function pickKeys(row) {
+    return Object.fromEntries(draftKeys.map((k) => [k, row[k] ?? '']))
+  }
+  // Saved row as edited on screen (typed values over the saved ones).
+  function mergedSaved(saved) {
+    return { ...saved, ...normalizeRow({ ...pickKeys(saved), ...drafts[saved.hour_slot] }) }
+  }
+  // Fields of a saved row the user actually changed (normalized compare).
+  function changedFields(saved) {
+    if (!drafts[saved.hour_slot]) return {}
+    const merged = normalizeRow({ ...pickKeys(saved), ...drafts[saved.hour_slot] })
+    const before = normalizeRow(pickKeys(saved))
+    return Object.fromEntries(Object.entries(merged).filter(([k, v]) => v !== before[k]))
+  }
+
   const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot))
-  const anyEntered = pendingSlots.some((s) => isEntered(s.slot))
+  const changedSaved = readOnly ? [] : savedToday.filter((h) => Object.keys(changedFields(h)).length > 0)
+  const anyEntered = pendingSlots.some((s) => isEntered(s.slot)) || changedSaved.length > 0
   const rowErrors = {}
   if (showIdle) {
     for (const s of pendingSlots) {
@@ -151,10 +204,19 @@ export default function HourlySlotsEntry({
       const err = validateIdle(drafts[s.slot], durations[s.slot])
       if (err) rowErrors[s.slot] = err
     }
+    for (const h of changedSaved) {
+      const err = validateIdle(mergedSaved(h), durations[h.hour_slot])
+      if (err) rowErrors[h.hour_slot] = err
+    }
   }
   const hasRowErrors = Object.keys(rowErrors).length > 0
 
-  const draftRows = pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ ...drafts[s.slot], hour_slot: s.slot }))
+  // New rows + edited saved rows (with id, replacing the saved values) --
+  // reported for the screen's live totals.
+  const draftRows = [
+    ...pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ ...drafts[s.slot], hour_slot: s.slot })),
+    ...changedSaved.map(mergedSaved),
+  ]
   const draftRowsKey = JSON.stringify(draftRows)
   useEffect(() => {
     onDraftRowsChange?.(draftRows)
@@ -163,10 +225,7 @@ export default function HourlySlotsEntry({
 
   const footer = showIdle
     ? computeReportTotals({
-        rows: [
-          ...savedToday,
-          ...draftRows,
-        ],
+        rows: [...savedToday.filter((h) => !changedSaved.includes(h)), ...draftRows],
         durations,
         settingTimeMin,
       })
@@ -186,11 +245,13 @@ export default function HourlySlotsEntry({
           ...(showIdle ? idlePayload(d) : {}),
         }
       })
-    if (rows.length === 0) return
-    await onSaveHours(rows)
+    const changes = changedSaved.map((h) => ({ id: h.id, ...changedFields(h) }))
+    if (rows.length === 0 && changes.length === 0) return
+    await onSaveHours(rows, changes)
     setDrafts((d) => {
       const next = { ...d }
       for (const row of rows) delete next[row.hour_slot]
+      for (const h of changedSaved) delete next[h.hour_slot]
       return next
     })
   }
@@ -239,6 +300,7 @@ export default function HourlySlotsEntry({
                 <th className="px-2 py-1 font-medium">Employee(s)</th>
                 <th className="px-2 py-1 font-medium">Hours</th>
                 <th className="px-2 py-1 font-medium">Qty Produced</th>
+                <th className="px-2 py-1 font-medium">Verification</th>
               </tr>
             </thead>
             <tbody>
@@ -249,6 +311,12 @@ export default function HourlySlotsEntry({
                   <td className="px-2 py-1">{g.employees.map((id) => employeeLabelForId(id, employees)).join(', ')}</td>
                   <td className="px-2 py-1">{g.hours}</td>
                   <td className="px-2 py-1">{g.qty}</td>
+                  <td className="px-2 py-1">
+                    <HistoryStatus
+                      info={shiftStatuses[`${g.log_date}|${g.shift_code}`]}
+                      onCorrect={onCorrectShift ? () => onCorrectShift(g.log_date, g.shift_code) : null}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -306,8 +374,13 @@ export default function HourlySlotsEntry({
                   <tr key={s.slot} className={`border-t border-gray-100 ${rowError ? 'bg-red-50' : ''}`} title={rowError}>
                     <td className="px-2 py-1 text-gray-700">
                       {s.slot}. {s.label}
+                      {saved && (
+                        <span className={`block text-[10px] ${changedSaved.includes(saved) ? 'text-bmlhblue font-medium' : 'text-gray-400'}`}>
+                          {changedSaved.includes(saved) ? 'edited – not saved' : 'saved'}
+                        </span>
+                      )}
                     </td>
-                    {saved ? (
+                    {saved && readOnly ? (
                       <>
                         <td className="px-2 py-1 text-gray-500">{saved.qty_produced}</td>
                         <td className="px-2 py-1 text-gray-500">{saved.qty_rejected}</td>
@@ -328,7 +401,7 @@ export default function HourlySlotsEntry({
                           <input
                             type="number"
                             className={inputClass}
-                            value={drafts[s.slot]?.qty_produced ?? ''}
+                            value={cellValue(s.slot, 'qty_produced', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_produced', e.target.value)}
                           />
                         </td>
@@ -336,7 +409,7 @@ export default function HourlySlotsEntry({
                           <input
                             type="number"
                             className={inputClass}
-                            value={drafts[s.slot]?.qty_rejected ?? ''}
+                            value={cellValue(s.slot, 'qty_rejected', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rejected', e.target.value)}
                           />
                         </td>
@@ -344,7 +417,7 @@ export default function HourlySlotsEntry({
                           <input
                             type="number"
                             className={inputClass}
-                            value={drafts[s.slot]?.qty_rework ?? ''}
+                            value={cellValue(s.slot, 'qty_rework', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rework', e.target.value)}
                           />
                         </td>
@@ -358,21 +431,21 @@ export default function HourlySlotsEntry({
                                   step="1"
                                   aria-label={`${c.label} slot ${s.slot}`}
                                   className={idleInputClass}
-                                  value={drafts[s.slot]?.[c.key] ?? ''}
+                                  value={cellValue(s.slot, c.key, saved)}
                                   placeholder="0"
                                   onChange={(e) => updateDraft(s.slot, c.key, e.target.value)}
                                 />
                               </td>
                             ))}
                             <td className={`px-2 py-1 font-medium ${rowError ? 'text-red-600' : 'text-gray-700'}`}>
-                              {Number.isFinite(totalIdle(drafts[s.slot])) ? totalIdle(drafts[s.slot]) : '—'}
+                              {Number.isFinite(totalIdle(rowValues(s.slot, saved))) ? totalIdle(rowValues(s.slot, saved)) : '—'}
                             </td>
                             <td className="px-2 py-1">
                               <input
                                 type="text"
                                 aria-label={`Remarks slot ${s.slot}`}
                                 className="w-32 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
-                                value={drafts[s.slot]?.remarks ?? ''}
+                                value={cellValue(s.slot, 'remarks', saved)}
                                 onChange={(e) => updateDraft(s.slot, 'remarks', e.target.value)}
                               />
                             </td>
@@ -445,4 +518,25 @@ export default function HourlySlotsEntry({
       </div>
     </fieldset>
   )
+}
+
+function HistoryStatus({ info, onCorrect }) {
+  if (!info) return <span className="text-gray-500">Pending</span>
+  if (info.status === 'Rejected') {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2 text-red-700">
+        {info.text}
+        {onCorrect && (
+          <button
+            type="button"
+            onClick={onCorrect}
+            className="rounded bg-red-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-red-700"
+          >
+            Correct
+          </button>
+        )}
+      </span>
+    )
+  }
+  return <span className={info.status === 'Approved' ? 'text-green-700' : 'text-gray-500'}>{info.text || info.status}</span>
 }

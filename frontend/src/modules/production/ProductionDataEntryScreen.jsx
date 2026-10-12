@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, PlayCircle, Clock3, CheckCircle2, ShieldCheck, Lock, StopCircle } from 'lucide-react'
+import { Factory, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -23,8 +23,8 @@ import {
   getOpenLogForStage,
   listLogHoursForLogIds,
   closeProductionLog,
-  verifyProductionLog,
   endProductionLog,
+  updateProductionLogHours,
   listOpenLogsForUser,
 } from '../../data/queries/productionLogs'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
@@ -39,14 +39,13 @@ import { pickCycleTime, computeLiveLogTotals } from '../../utils/productionRepor
 import { todayISO } from '../../utils/dates'
 import { stageLabel } from '../../utils/stageLabel'
 import { useAppUsers } from '../../components/StockEditPanel'
-import { userDisplayName } from '../../utils/stockEdit'
 import { subItemLabel } from '../../utils/constants'
 import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
+import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
+import { decisionText } from '../../utils/shiftVerification'
+import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 
 export default function ProductionDataEntryScreen({ role }) {
-  // Shift-incharge verification is supervisor/admin only -- hidden here,
-  // and enforced by migration 017's trigger regardless of the UI.
-  const canVerify = role === 'supervisor' || role === 'admin'
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [machineLabels, setMachineLabels] = useState({}) // machine_id -> "Name (ID)", for dropdown display only
@@ -73,11 +72,14 @@ export default function ProductionDataEntryScreen({ role }) {
 
   const [starting, setStarting] = useState(false)
   const [activeLog, setActiveLog] = useState(null)
-  // A verified log is locked for everyone except admin (hours can't be
-  // added or changed); the verifier is shown by name.
+  // Shift verification (migration 028) is per log + date + shift and is
+  // done on the Shift Verification screen. The grid's shift is locked once
+  // Approved (except for admin); a Rejected shift shows its reason and stays
+  // editable. entryDate is today, or an earlier date while correcting a
+  // Rejected shift.
   const appUsers = useAppUsers()
-  const logLocked = Boolean(activeLog?.verified_at) && role !== 'admin'
-  const verifierName = activeLog?.verified_by ? userDisplayName(activeLog.verified_by, appUsers) : ''
+  const [entryDate, setEntryDate] = useState(todayISO())
+  const shiftCheck = useLogShiftVerifications({ logId: activeLog?.id, entryDate, shiftCode, role, appUsers })
   const [logHours, setLogHours] = useState([])
   const [totals, setTotals] = useState(null)
   const [draftHourRows, setDraftHourRows] = useState([])
@@ -87,7 +89,6 @@ export default function ProductionDataEntryScreen({ role }) {
   const [setterId, setSetterId] = useState('')
   const [settingTimeMin, setSettingTimeMin] = useState('')
   const [masterCycleTime, setMasterCycleTime] = useState(null) // Cycle Time Master, part + seq (+ machine)
-  const [verifying, setVerifying] = useState(false)
   const [endingLog, setEndingLog] = useState(false)
 
   async function loadPendingStages() {
@@ -320,7 +321,9 @@ export default function ProductionDataEntryScreen({ role }) {
   // since they're what makes multi-shift/multi-day logging on one log
   // attributable per hour instead of all defaulting to the log header's
   // original creation-time values.
-  async function handleSaveHours(rows) {
+  // `changes`: edits to already-saved rows of the grid's shift (only the
+  // changed ones) -- updated in place, keeping their original employee.
+  async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
     setSavingHour(true)
     setError(null)
@@ -328,13 +331,14 @@ export default function ProductionDataEntryScreen({ role }) {
       const stamped = rows.map((r) => ({
         ...r,
         log_id: activeLog.id,
-        log_date: todayISO(),
+        log_date: entryDate,
         shift_code: shiftCode,
         employee_id: employeeId,
       }))
-      const saved = await addProductionLogHours(stamped)
-      setLogHours((h) => [...h, ...saved])
-      await refreshAfterHourSave()
+      const [saved, updated] = await Promise.all([addProductionLogHours(stamped), updateProductionLogHours(changes)])
+      const updatedById = new Map(updated.map((u) => [u.id, u]))
+      setLogHours((h) => [...h.map((x) => updatedById.get(x.id) ?? x), ...saved])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -350,29 +354,16 @@ export default function ProductionDataEntryScreen({ role }) {
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
-        log_date: todayISO(),
+        log_date: entryDate,
         shift_code: shiftCode,
         employee_id: employeeId,
       })
       setLogHours((h) => [...h, saved])
-      await refreshAfterHourSave()
+      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
     } catch (e) {
       setError(e.message)
     } finally {
       setSavingHour(false)
-    }
-  }
-
-  async function handleVerify() {
-    if (!activeLog) return
-    setVerifying(true)
-    setError(null)
-    try {
-      setActiveLog(await verifyProductionLog(activeLog.id, await getCurrentUserId()))
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setVerifying(false)
     }
   }
 
@@ -413,6 +404,7 @@ export default function ProductionDataEntryScreen({ role }) {
   }
 
   async function clearSelection() {
+    setEntryDate(todayISO())
     setPrdNo('')
     setMachineId('')
     setStageChoiceId('')
@@ -583,7 +575,9 @@ export default function ProductionDataEntryScreen({ role }) {
 
         {activeLog && (
           <FormSection icon={Clock3} title="3. Hourly Entry" subtitle="One row per hour of the selected shift">
-            <div className="w-full">
+            <div className="w-full space-y-2">
+              <CorrectingShiftBanner entryDate={entryDate} shiftCode={shiftCode} onBack={() => setEntryDate(todayISO())} />
+              <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="top" />
               <HourlySlotsEntry
                 startTime={entryShift.start_time}
                 endTime={entryShift.end_time}
@@ -593,9 +587,15 @@ export default function ProductionDataEntryScreen({ role }) {
                 onSaveHours={handleSaveHours}
                 onAddExtraHour={handleAddExtraHour}
                 saving={savingHour}
-                resetKey={activeLog.id}
-                readOnly={logLocked}
-                readOnlyReason={`Verified by ${verifierName || 'shift incharge'} on ${activeLog.verified_at ? new Date(activeLog.verified_at).toLocaleString() : ''} -- this log is locked. Only an admin can change it.`}
+                resetKey={`${activeLog.id}|${entryDate}`}
+                entryDate={entryDate}
+                readOnly={shiftCheck.locked}
+                readOnlyReason={`${decisionText(shiftCheck.current, appUsers)} -- this shift is locked. Only an admin can change it.`}
+                shiftStatuses={shiftCheck.statuses}
+                onCorrectShift={(date, shift) => {
+                  setEntryDate(date)
+                  setShiftCode(shift)
+                }}
                 onDraftRowsChange={setDraftHourRows}
                 showIdle
                 settingTimeMin={activeLog.setting_time_min}
@@ -610,24 +610,7 @@ export default function ProductionDataEntryScreen({ role }) {
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>
               )}
-              <div className="flex items-center gap-3 pt-2 mt-2 border-t border-gray-100 text-sm">
-                <ShieldCheck size={16} className={activeLog.verified_at ? 'text-green-600' : 'text-gray-400'} />
-                {activeLog.verified_at ? (
-                  <span className="text-green-700">
-                    Verified by {verifierName || 'shift incharge'} on {new Date(activeLog.verified_at).toLocaleString()}
-                  </span>
-                ) : canVerify ? (
-                  <button
-                    onClick={handleVerify}
-                    disabled={verifying}
-                    className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-                  >
-                    {verifying ? 'Verifying...' : 'Mark Verified (Shift Incharge)'}
-                  </button>
-                ) : (
-                  <span className="text-gray-500">Awaiting shift-incharge verification</span>
-                )}
-              </div>
+              <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="bottom" />
             </div>
           </FormSection>
         )}

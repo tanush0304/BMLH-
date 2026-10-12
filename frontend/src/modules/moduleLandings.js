@@ -1,5 +1,5 @@
-import { ClipboardCheck, ClipboardPlus, Hand, MessageSquareWarning, Route, SearchCheck } from 'lucide-react'
-import { NAV_ITEMS, STORES_LANDING_TILES } from '../utils/constants'
+import { ClipboardPlus, Hand, Route, ShieldCheck } from 'lucide-react'
+import { NAV_ITEMS, STORES_LANDING_TILES, canSeeSubItem } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
 import customerEnquiryTile from '../assets/tiles/customer_enquiry.webp'
@@ -14,6 +14,8 @@ import wipReceiptTile from '../assets/tiles/wip_receipt.webp'
 import wipIssueTile from '../assets/tiles/wip_issue.webp'
 import fgReceiptTile from '../assets/tiles/fg_receipt.webp'
 import fgDespatchTile from '../assets/tiles/fg_despatch.webp'
+import qualityInspectionTile from '../assets/tiles/quality_inspection.webp'
+import customerComplaintTile from '../assets/tiles/customer_complaint.webp'
 
 // Pastel card + icon colour per module (matches the sidebar's module icon
 // colours) for screens that have no deck picture.
@@ -23,7 +25,6 @@ const MODULE_TONES = {
   'job-order': { bg: '#FFEDD5', icon: '#EA580C' },
   maintenance: { bg: '#FFE4E6', icon: '#E11D48' },
   stores: { bg: '#CCFBF1', icon: '#0D9488' },
-  quality: { bg: '#D1FAE5', icon: '#059669' },
 }
 
 // Deck picture (cropped to the artwork; bg sampled from it) or icon per
@@ -34,6 +35,7 @@ const TILE_ART = {
     'manual-operations': { icon: Hand },
     planning: { img: productionPlanningTile, bg: '#CFECFE' },
     'route-card': { icon: Route },
+    'shift-verification': { icon: ShieldCheck },
   },
   'customer-order': {
     enquiry: { img: customerEnquiryTile, bg: '#E4F1FF' },
@@ -48,9 +50,8 @@ const TILE_ART = {
     plan: { img: maintenancePlanningTile, bg: '#E0F3FF' },
   },
   quality: {
-    inspection: { icon: ClipboardCheck },
-    'complaint-registration': { icon: MessageSquareWarning },
-    'complaint-investigation': { icon: SearchCheck },
+    inspection: { img: qualityInspectionTile, bg: '#DEFDDF' },
+    complaint: { img: customerComplaintTile, bg: '#FEE9EA' },
   },
   stores: {
     'rm-receipt': { img: rmReceiptTile, bg: '#EBF9EB' },
@@ -72,11 +73,15 @@ function withArt(moduleKey, tile) {
 }
 
 /** Landing tiles for a module: { key, label, subKey, mode?, img|icon, bg }.
- * Every sub-screen in NAV_ITEMS order; Stores uses STORES_LANDING_TILES. */
-export function landingTiles(moduleKey) {
+ * Every sub-screen in NAV_ITEMS order that `role` may open (sub-items with
+ * `roles`, e.g. Shift Verification, are hidden from other roles); Stores uses
+ * STORES_LANDING_TILES. */
+export function landingTiles(moduleKey, role) {
   const base =
     moduleKey === 'stores'
       ? STORES_LANDING_TILES
-      : (NAV_ITEMS.find((n) => n.key === moduleKey)?.subItems ?? []).map((s) => ({ ...s, subKey: s.key }))
+      : (NAV_ITEMS.find((n) => n.key === moduleKey)?.subItems ?? [])
+          .filter((s) => canSeeSubItem(s, role))
+          .map((s) => ({ ...s, subKey: s.key }))
   return base.map((tile) => withArt(moduleKey, tile))
 }

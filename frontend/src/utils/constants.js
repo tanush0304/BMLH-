@@ -43,6 +43,8 @@ export const NAV_ITEMS = [
       { key: 'production-data-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'route-card', label: 'Production Route Card' },
+      // Shift in-charge sign-off (migration 028) -- supervisor/admin only.
+      { key: 'shift-verification', label: 'Shift Verification', roles: ['supervisor', 'admin'] },
     ],
   },
   {
@@ -58,8 +60,7 @@ export const NAV_ITEMS = [
     label: 'Quality',
     subItems: [
       { key: 'inspection', label: 'Quality Inspection' },
-      { key: 'complaint-registration', label: 'Complaint Registration' },
-      { key: 'complaint-investigation', label: 'Complaint Investigation & Closure' },
+      { key: 'complaint', label: 'Customer Complaint' },
     ],
   },
   {
@@ -90,6 +91,9 @@ export const NAV_ITEMS = [
       { key: 'po-summary', label: 'PO Summary' },
       { key: 'schedule', label: 'Production Schedule' },
       { key: 'traceability', label: 'Order Traceability' },
+      { key: 'production-status', label: 'Production Status' },
+      { key: 'daily-machine', label: 'Daily Machine' },
+      { key: 'downtime', label: 'Downtime' },
     ],
   },
 ]
@@ -136,4 +140,12 @@ export const STATUS_COLORS = {
   'Action Pending': 'bg-orange-100 text-orange-800',
   Resolved: 'bg-teal-100 text-teal-800',
   Closed: 'bg-gray-100 text-gray-700',
+  Approved: 'bg-green-100 text-green-800',
+  Rejected: 'bg-red-100 text-red-800',
+  'No entry': 'bg-gray-100 text-gray-600',
+}
+
+/** A sub-screen is visible to `role` unless it lists `roles` without it. */
+export function canSeeSubItem(subItem, role) {
+  return !subItem.roles || subItem.roles.includes(role)
 }

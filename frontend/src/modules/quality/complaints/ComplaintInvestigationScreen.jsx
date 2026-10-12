@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { CircleCheck, Microscope, SearchCheck, Wrench } from 'lucide-react'
-import PageHeader from '../../../components/PageHeader'
 import ActionToolbar from '../../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../../components/FormSection'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -34,7 +33,7 @@ const RESOLUTION_FLAGS = [
   ['credit_debit_note_required', 'Credit / Debit Note Required'],
 ]
 
-/** Screen 2 -- picks a non-closed complaint (or one opened from a list),
+/** Investigation & Closure tab of Customer Complaint -- picks a non-closed complaint (or one opened from a list),
  * shows sections 1-3 read-only and records sections 4-7. Setting Closed is
  * supervisor/admin only (also enforced in the DB, 027). */
 export default function ComplaintInvestigationScreen({ role, initialComplaintNo }) {
@@ -125,7 +124,6 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <PageHeader title="Complaint Investigation & Closure" subtitle="Investigate  |  Resolve  |  Close" />
       <ActionToolbar
         showEditDelete={false}
         saving={saving}
