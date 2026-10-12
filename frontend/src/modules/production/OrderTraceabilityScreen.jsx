@@ -8,9 +8,10 @@ import SearchableSelect from '../../components/SearchableSelect'
 import StageTraceTable from '../../components/StageTraceTable'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 
-export default function OrderTraceabilityScreen() {
+/** initialPrdNo: pre-selects a PRD (Reports -> Customer Order Status -> View). */
+export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
   const [orders, setOrders] = useState([])
-  const [prdNo, setPrdNo] = useState('')
+  const [prdNo, setPrdNo] = useState(initialPrdNo)
   const [error, setError] = useState(null)
   const [trace, setTrace] = useState({ columns: [], rows: [] })
 

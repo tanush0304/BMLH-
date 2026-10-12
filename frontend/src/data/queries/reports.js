@@ -58,3 +58,30 @@ export function listProductionSetup({ from, to, prdNo, machineId, shiftCode }) {
     return q
   })
 }
+
+/** Every ledger row up to `to` (opening needs everything before the period). */
+function ledgerUpTo(table, to) {
+  return fetchAll(() => supabase.from(table).select('*').lte('transaction_date', to).order('id'))
+}
+
+export const listWipTransactionsUpTo = (to) => ledgerUpTo('wip transactions', to)
+export const listFgTransactionsUpTo = (to) => ledgerUpTo('finished goods transactions', to)
+export const listRmTransactionsUpTo = (to) => ledgerUpTo('raw material transactions', to)
+
+/** "finished goods master" (015): one row per PRD with customer, part, UoM, order qty. */
+export const listFgMasterRows = () => fetchAll(() => supabase.from('finished goods master').select('*').order('prd_no'))
+
+/** "raw material stock master" (023): RM x BOM part, with consumption per unit. */
+export const listRmStockMasterRows = () => fetchAll(() => supabase.from('raw material stock master').select('*').order('raw_material_code'))
+
+/** Drawing ref per part (FG Inventory). */
+export const listPartDrawingRefs = () =>
+  fetchAll(() => supabase.from('products master').select('part_serial_number, part_drawing_reference_number').order('part_serial_number'))
+
+/** "job order status" (dispatch + receipt) for dispatch_date from..to. */
+export const listJobOrderStatusRows = ({ from, to }) =>
+  fetchAll(() => supabase.from('job order status').select('*').gte('dispatch_date', from).lte('dispatch_date', to).order('dispatch_date').order('dc_no'))
+
+/** Customer order lines with PO date from..to. */
+export const listOrdersByPoDate = ({ from, to }) =>
+  fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('prd_no'))

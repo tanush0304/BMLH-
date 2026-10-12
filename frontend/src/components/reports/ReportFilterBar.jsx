@@ -10,9 +10,11 @@ import { PERIOD_PRESETS } from '../../utils/reportPeriods'
  */
 export default function ReportFilterBar({ period, from, to, onPeriodChange, onFromChange, onToChange, filters = [], onSearch, onReset, loading }) {
   return (
-    <section className="rounded-2xl border border-[#CFE2F8] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(16,60,120,0.06)]">
-      <div className="flex flex-wrap items-end gap-3">
-        <CalendarDays size={28} className="mb-1 text-[#1669E0]" aria-hidden="true" />
+    <section className="rounded-xl border border-[#D6E4F5] bg-[#F4F8FE] px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+      <div className="flex flex-wrap items-end gap-3 [&_label>span:first-child]:text-[13px] [&_label>span:first-child]:font-bold [&_label>span:first-child]:text-[#0B2A5B]">
+        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white" aria-hidden="true">
+          <CalendarDays size={22} />
+        </span>
         <Field label="Period" width="short">
           <SelectInput value={period} onChange={(e) => onPeriodChange(e.target.value)} options={PERIOD_PRESETS} />
         </Field>
@@ -38,16 +40,16 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
             type="button"
             onClick={onSearch}
             disabled={loading || !from || !to || from > to}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1669E0] px-4 text-[13px] font-semibold text-white hover:bg-[#0F57C2] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1E6FE8] px-6 text-[14px] font-semibold text-white shadow-sm hover:bg-[#165BC4] disabled:opacity-50"
           >
-            <Search size={15} /> Search
+            <Search size={17} /> Search
           </button>
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A9C8EE] bg-white px-4 text-[13px] font-semibold text-[#0A4CB0] hover:bg-[#E3F0FD]"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#1E5FD0] bg-white px-6 text-[14px] font-semibold text-[#0B2A5B] hover:bg-[#E3F0FD]"
           >
-            <RotateCcw size={15} /> Reset
+            <RotateCcw size={17} /> Reset
           </button>
         </div>
       </div>

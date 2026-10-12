@@ -1,0 +1,181 @@
+import { useEffect, useMemo, useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { FileText, Settings, Hourglass, Truck, BarChart3, PieChart as PieIcon, Users } from 'lucide-react'
+import PageHeader from '../../components/PageHeader'
+import ReportFilterBar from '../../components/reports/ReportFilterBar'
+import useReportPeriod from '../../components/reports/useReportPeriod'
+import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
+import { listJobOrderStatusRows } from '../../data/queries/reports'
+import { listVendors } from '../../data/queries/vendors'
+import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
+import { todayISO } from '../../utils/dates'
+import { displayDate } from '../../utils/reportPeriods'
+import { jobOrderRows, jobOrderCounts } from '../../utils/reportOrders'
+import { topN } from '../../utils/reportStock'
+
+const STATUS_TONES = { Closed: 'green', Open: 'amber', Overdue: 'red' }
+const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
+
+/**
+ * Job Order Status Report from "job order status" (dispatch + receipt), for
+ * DCs dispatched in the period. Status: Closed = received; Overdue = not
+ * received and expected receipt date < today; else Open. Pending qty = qty
+ * not yet received (a Closed DC shows any shortfall). Standard lead time from
+ * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type).
+ */
+export default function JobOrderStatusScreen() {
+  const r = useReportPeriod({ prdNo: '', vendorId: '', jobWorkCode: '' })
+  const [raw, setRaw] = useState([])
+  const [vendors, setVendors] = useState([])
+  const [jobWorkTypes, setJobWorkTypes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    Promise.all([listVendors(), listJobWorkTypes()])
+      .then(([v, j]) => { setVendors(v); setJobWorkTypes(j) })
+      .catch((e) => setError(e.message))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    listJobOrderStatusRows(r.applied)
+      .then((data) => !cancelled && setRaw(data))
+      .catch((e) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoading(false))
+    return () => { cancelled = true }
+  }, [r.applied])
+
+  const vendorName = useMemo(() => new Map(vendors.map((v) => [v.vendor_id, v.vendor_name])), [vendors])
+  const jobWork = useMemo(() => new Map(jobWorkTypes.map((j) => [j.job_work_code, j])), [jobWorkTypes])
+
+  const rows = useMemo(() => {
+    const { prdNo, vendorId, jobWorkCode } = r.applied
+    const scoped = raw.filter((x) => (!prdNo || x.prd_no === prdNo) && (!vendorId || x.vendor_id === vendorId) && (!jobWorkCode || x.job_work_code === jobWorkCode))
+    return jobOrderRows(scoped, todayISO()).map((x) => ({
+      ...x,
+      vendor_name: vendorName.get(x.vendor_id) ?? x.vendor_id,
+      operation: jobWork.get(x.job_work_code)?.type_of_job_work ?? x.job_work_code,
+      std_lead: jobWork.get(x.job_work_code)?.lead_time_days ?? null,
+    }))
+  }, [raw, r.applied, vendorName, jobWork])
+
+  const counts = jobOrderCounts(rows)
+
+  const byOperation = useMemo(() => {
+    const m = new Map()
+    for (const x of rows) {
+      const t = m.get(x.operation) ?? { label: x.operation, dispatched: 0, pending: 0 }
+      t.dispatched += x.qty
+      t.pending += x.pending
+      m.set(x.operation, t)
+    }
+    return [...m.values()].sort((a, b) => b.dispatched - a.dispatched)
+  }, [rows])
+
+  const byVendor = useMemo(() => {
+    const m = new Map()
+    for (const x of rows) m.set(x.vendor_name, (m.get(x.vendor_name) ?? 0) + x.pending)
+    return topN([...m].map(([label, value]) => ({ label, value })), 5).filter((x) => x.label !== 'Others')
+  }, [rows])
+
+  const donut = [
+    { key: 'Closed', label: 'Closed', value: counts.closed, color: CHART_COLORS.green },
+    { key: 'Open', label: 'Open', value: counts.open, color: CHART_COLORS.amber },
+    { key: 'Overdue', label: 'Overdue', value: counts.overdue, color: CHART_COLORS.red },
+  ]
+
+  const prdOptions = [...new Set(raw.map((x) => x.prd_no))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const dateText = (v) => (v ? displayDate(v) : '—')
+
+  const columns = [
+    { key: 'prd_no', label: 'PRD No' },
+    { key: 'dc_no', label: 'Job Order No (DC No)' },
+    { key: 'operation', label: 'Type of Operation' },
+    { key: 'vendor_name', label: 'Vendor Name' },
+    { key: 'qty', label: 'Quantity (Nos)', align: 'right', format: formatQty },
+    { key: 'dispatch_date', label: 'Date of Dispatch', format: dateText },
+    { key: 'std_lead', label: 'Standard Lead Time (Days)', align: 'right', format: formatQty },
+    { key: 'expected_receipt_date', label: 'Expected Receipt', format: dateText },
+    { key: 'receipt_date', label: 'Date of Receipt', format: dateText },
+    { key: 'actual_lead_time_days', label: 'Actual Lead Time (Days)', align: 'right', format: formatQty },
+    { key: 'pending', label: 'Quantity Pending (Nos)', align: 'right', format: formatQty },
+    { key: 'status', label: 'Status', render: (row) => <ReportBadge status={row.status} tones={STATUS_TONES} /> },
+  ]
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      <PageHeader title="Job Order Status Report" subtitle="Right Material | Right Quantity | Right Production" />
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+        <ReportFilterBar
+          {...r.barProps}
+          loading={loading}
+          filters={[
+            { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+            { key: 'vendor', label: 'Vendor', value: r.filters.vendorId, onChange: r.setFilter('vendorId'), options: vendors.map((v) => ({ value: v.vendor_id, label: v.vendor_name ?? v.vendor_id })) },
+            { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
+          ]}
+        />
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+
+        <KpiCardRow columns={4}>
+          <KpiCard label="Total Job Orders" value={formatQty(counts.total)} icon={FileText} tone="blue" loading={loading} />
+          <KpiCard label="Received (Closed)" value={formatQty(counts.closed)} unit={pctText(counts.closedPct)} icon={Settings} tone="green" loading={loading} />
+          <KpiCard label="Pending" value={formatQty(counts.pending)} unit={pctText(counts.pendingPct)} icon={Hourglass} tone="orange" loading={loading} />
+          <KpiCard label="Overdue" value={formatQty(counts.overdue)} unit={pctText(counts.overduePct)} icon={Truck} tone="red" loading={loading} />
+        </KpiCardRow>
+
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
+          <ChartCard title="Job Orders - Dispatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
+            <BarChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
+              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
+              <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="dispatched" name="Quantity Dispatched" fill={CHART_COLORS.green}>
+                <LabelList dataKey="dispatched" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
+              </Bar>
+              <Bar dataKey="pending" name="Quantity Pending" fill={CHART_COLORS.blue}>
+                <LabelList dataKey="pending" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
+              </Bar>
+            </BarChart>
+          </ChartCard>
+
+          <ChartCard title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={rows.length === 0} height={260} raw>
+            <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(counts.total), unit: 'Job Orders' }} legendValue={(d) => formatQty(d.value)} tooltip={(d) => `${d.value} job orders`} />
+          </ChartCard>
+
+          <ChartCard title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>
+            <BarChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
+              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
+              <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
+              <Bar dataKey="value" name="Pending Quantity (Nos)" fill={CHART_COLORS.orange}>
+                <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />
+              </Bar>
+            </BarChart>
+          </ChartCard>
+        </div>
+
+        <ReportTable
+          title="Job Order Status Details"
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          error={null}
+          rowKey="dc_no"
+          searchKeys={['prd_no', 'dc_no', 'vendor_name', 'operation', 'status']}
+          searchPlaceholder="Search by PRD No / Job Order No / Vendor / Operation..."
+          exportTitle={`Job Order Status Report – dispatched ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
+          exportName="job_order_status_report"
+        />
+      </div>
+    </div>
+  )
+}

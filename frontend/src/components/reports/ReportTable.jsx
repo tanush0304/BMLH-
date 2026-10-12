@@ -1,19 +1,36 @@
 import { useMemo, useState } from 'react'
-import { List, Search, Printer, ChevronDown } from 'lucide-react'
+import { List, Search, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { searchRows } from '../../utils/reportAggregates'
 
 /**
  * Report detail table: S.No, all rows (no collapse), one search box, optional
- * totals row, per-cell colour, Print ▾ (Excel / PDF) of the filtered rows.
+ * totals row, per-cell colour, Export ▾ (Excel / PDF) of the filtered rows.
  *   columns: [{ key, label, align?: 'right', format?(value, row) -> string,
- *               cellClass?(value, row) -> className }]
+ *               cellClass?(value, row) -> className,
+ *               bar?(row) -> colour: draws a 0-100 progress bar before the value,
+ *               render?(row) -> node: on-screen cell only (exports use format / value),
+ *               noExport?: true -> left out of Excel / PDF (e.g. an action button) }]
  *   searchKeys: row keys the search box matches.
  *   groupHeaders: optional [{ label, span }] row above the column labels
  *     (spans cover the columns after S.No, in order).
  *   showSerial: false hides S.No (e.g. when the first column is a date).
  * Exports use the same formatted text the table shows.
  */
+/** Progress bar (0-100 %) + coloured value, e.g. Downtime %. Scaled x4 so
+ * small percentages stay visible; capped at full width. */
+function BarCell({ value, color, text }) {
+  const width = Math.min(100, Math.max(0, Number(value) || 0) * 4)
+  return (
+    <span className="flex items-center gap-3">
+      <span className="h-4 flex-1 overflow-hidden rounded-sm" style={{ backgroundColor: `${color}26` }}>
+        <span className="block h-full" style={{ width: `${width}%`, backgroundColor: color }} />
+      </span>
+      <span className="w-16 text-right font-bold" style={{ color }}>{text}</span>
+    </span>
+  )
+}
+
 export default function ReportTable({ title, columns, rows, totalsRow, groupHeaders, showSerial = true, loading, error, rowKey, searchKeys = [], searchPlaceholder, exportTitle, exportName }) {
   const [search, setSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
@@ -39,28 +56,32 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
   // Group headers are folded into the export labels ("CNC – Production").
   const groupOf = []
   for (const g of groupHeaders ?? []) for (let k = 0; k < g.span; k++) groupOf.push(g.label)
-  const dataCols = columns.map((c, i) => ({ key: c.key, label: groupOf[i] ? `${groupOf[i]} – ${c.label}` : c.label }))
+  const dataCols = columns
+    .map((c, i) => ({ key: c.key, label: groupOf[i] ? `${groupOf[i]} – ${c.label}` : c.label, noExport: c.noExport }))
+    .filter((c) => !c.noExport)
   const exportCols = showSerial ? [{ key: 'sno', label: 'S.No' }, ...dataCols] : dataCols
 
   const alignClass = (col) => (col.align === 'right' ? 'text-right' : 'text-left')
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#CFE2F8] bg-white shadow-[0_2px_8px_rgba(16,60,120,0.06)]">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#CFE2F8] bg-[#E3F0FD] px-4 py-2">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-[#0A4CB0]">
-          <List size={17} strokeWidth={2.2} className="text-[#1669E0]" />
+    <section className="overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+        <h2 className="flex items-center gap-2.5 text-[17px] font-bold text-[#0B2A5B]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white">
+            <List size={20} strokeWidth={2.4} />
+          </span>
           {title}
         </h2>
-        <span className="ml-auto text-[12px] text-slate-500">
+        <span className="text-[12px] text-slate-500">
           {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
         </span>
-        <div className="relative w-full sm:w-72">
+        <div className="relative ml-auto w-full sm:w-80">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder ?? 'Search in list...'}
-            className="h-8 w-full rounded-lg border border-[#CBDAEE] bg-white pl-9 pr-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-[#1669E0] focus:outline-none focus:ring-2 focus:ring-[#1669E0]/20"
+            className="h-9 w-full rounded-lg border border-[#CBDAEE] bg-white pl-9 pr-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-[#1669E0] focus:outline-none focus:ring-2 focus:ring-[#1669E0]/20"
           />
         </div>
         <div className="relative" onMouseLeave={() => setPrintOpen(false)}>
@@ -68,9 +89,9 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             type="button"
             onClick={() => setPrintOpen((v) => !v)}
             disabled={loading || filtered.length === 0}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#16A34A] px-3 text-[13px] font-semibold text-white hover:bg-[#12893E] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F8A3B] px-4 text-[14px] font-semibold text-white shadow-sm hover:bg-[#18742F] disabled:opacity-50"
           >
-            <Printer size={15} /> Print <ChevronDown size={14} />
+            <FileSpreadsheet size={18} /> Export <ChevronDown size={15} />
           </button>
           {printOpen && (
             <div className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
@@ -89,7 +110,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
         <table className="w-full text-[13px]">
           <thead className="sticky top-0 z-10">
             {groupHeaders && (
-              <tr className="bg-[#12305F] text-white">
+              <tr className="bg-[#1450B4] text-white">
                 {showSerial && <th className="border-b border-white/20" />}
                 {groupHeaders.map((g, i) => (
                   <th key={i} colSpan={g.span} className="whitespace-nowrap border-b border-l border-white/20 px-3 py-1.5 text-center font-semibold">
@@ -98,10 +119,10 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
                 ))}
               </tr>
             )}
-            <tr className="bg-[#12305F] text-white">
-              {showSerial && <th className="w-12 whitespace-nowrap px-3 py-2 text-left font-semibold">S.No</th>}
+            <tr className="bg-[#1450B4] text-white">
+              {showSerial && <th className="w-14 whitespace-nowrap px-3 py-2 text-center font-semibold">Sl No</th>}
               {columns.map((col) => (
-                <th key={col.key} className={`whitespace-nowrap px-3 py-2 font-semibold ${alignClass(col)}`}>
+                <th key={col.key} className="whitespace-nowrap border-l border-white/15 px-3 py-2 text-center font-semibold">
                   {col.label}
                 </th>
               ))}
@@ -117,10 +138,10 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             ) : (
               filtered.map((row, i) => (
                 <tr key={rowKey ? row[rowKey] : i} className="border-b border-[#E4EEFA] even:bg-[#F7FAFE] hover:bg-sky-50">
-                  {showSerial && <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>}
+                  {showSerial && <td className="px-3 py-1.5 text-center text-slate-600">{i + 1}</td>}
                   {columns.map((col) => (
                     <td key={col.key} className={`whitespace-nowrap px-3 py-1.5 text-slate-800 ${alignClass(col)} ${col.cellClass?.(row[col.key], row) ?? ''}`}>
-                      {show(col, row)}
+                      {col.render ? col.render(row) : col.bar ? <BarCell value={row[col.key]} color={col.bar(row)} text={show(col, row)} /> : show(col, row)}
                     </td>
                   ))}
                 </tr>
@@ -129,11 +150,11 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
           </tbody>
           {totalsRow && !loading && !error && filtered.length > 0 && (
             <tfoot>
-              <tr className="bg-[#E3F0FD] font-semibold text-[#0A4CB0]">
+              <tr className="bg-[#DCEBFD] font-bold text-[#0B2A5B]">
                 {showSerial && <td className="px-3 py-2" />}
                 {columns.map((col, i) => (
                   <td key={col.key} className={`whitespace-nowrap px-3 py-2 ${alignClass(col)}`}>
-                    {i === 0 ? 'Total' : totalsRow[col.key] == null ? '' : show(col, totalsRow)}
+                    {i === 0 ? 'Total' : totalsRow[col.key] == null ? '' : col.bar ? <BarCell value={totalsRow[col.key]} color={col.bar(totalsRow)} text={show(col, totalsRow)} /> : show(col, totalsRow)}
                   </td>
                 ))}
               </tr>
@@ -143,4 +164,15 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
       </div>
     </section>
   )
+}
+
+const BADGE = {
+  green: 'bg-green-100 text-green-800 border-green-300',
+  amber: 'bg-amber-100 text-amber-800 border-amber-300',
+  red: 'bg-red-100 text-red-700 border-red-300',
+}
+
+/** Status badge for report tables; `tones` maps status -> green / amber / red. */
+export function ReportBadge({ status, tones }) {
+  return <span className={`inline-block min-w-[78px] rounded border px-2 py-0.5 text-center text-[12px] font-semibold ${BADGE[tones[status]] ?? BADGE.amber}`}>{status}</span>
 }

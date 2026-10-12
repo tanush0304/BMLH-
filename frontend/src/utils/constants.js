@@ -94,6 +94,11 @@ export const NAV_ITEMS = [
       { key: 'production-status', label: 'Production Status' },
       { key: 'daily-machine', label: 'Daily Machine' },
       { key: 'downtime', label: 'Downtime' },
+      { key: 'wip-status', label: 'WIP Status' },
+      { key: 'fg-inventory', label: 'FG Inventory' },
+      { key: 'rm-status', label: 'Raw Material Status' },
+      { key: 'customer-order-status', label: 'Customer Order Status' },
+      { key: 'job-order-status', label: 'Job Order Status' },
     ],
   },
 ]

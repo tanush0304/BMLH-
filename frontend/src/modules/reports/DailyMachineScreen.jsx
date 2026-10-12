@@ -4,7 +4,7 @@ import { BarChart3, Target, ShieldX, Cog } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportDayBar from '../../components/reports/ReportDayBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
-import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
+import ChartCard, { CHART_COLORS, AXIS_TICK, categoryColor } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -13,16 +13,6 @@ import { addDays, shortDate, displayDate } from '../../utils/reportPeriods'
 import { machineRows, totals, dailyCategoryMatrix, machineCategories, changePct, changePoints } from '../../utils/reportAggregates'
 
 const DAYS_SHOWN = 5
-
-// One colour per category chart, in order; the efficiency line uses a contrasting one.
-const SERIES = [
-  { bar: CHART_COLORS.blue, line: CHART_COLORS.green },
-  { bar: CHART_COLORS.green, line: CHART_COLORS.orange },
-  { bar: CHART_COLORS.amber, line: CHART_COLORS.blue },
-  { bar: CHART_COLORS.purple, line: CHART_COLORS.red },
-  { bar: CHART_COLORS.orange, line: CHART_COLORS.purple },
-  { bar: CHART_COLORS.red, line: CHART_COLORS.blue },
-]
 
 const fmtPct = (v) => (v == null ? '—' : v.toFixed(1))
 // Display-only thresholds, same as Production Status -- confirm with senior.
@@ -170,10 +160,12 @@ export default function DailyMachineScreen() {
 
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
           {categories.map((c, i) => {
-            const colours = SERIES[i % SERIES.length]
+            const colour = categoryColor(c, i)
+            // Efficiency line in a contrasting colour (green on the green VMC bars -> orange).
+            const lineColour = colour === CHART_COLORS.green ? CHART_COLORS.orange : colour === CHART_COLORS.blue ? CHART_COLORS.green : colour === CHART_COLORS.orange ? CHART_COLORS.blue : CHART_COLORS.red
             const data = matrix.map((d) => ({ label: shortDate(d.date), produced: d.byCategory[c].produced, efficiency: d.byCategory[c].efficiency_pct }))
             return (
-              <ChartCard key={c} title={c} icon={BarChart3} loading={loading} empty={data.every((d) => d.produced === 0)} height={230}>
+              <ChartCard key={c} title={c} headerColor={colour} loading={loading} empty={data.every((d) => d.produced === 0)} height={230}>
                 <ComposedChart data={data} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="label" tick={AXIS_TICK} />
@@ -181,10 +173,10 @@ export default function DailyMachineScreen() {
                   <YAxis yAxisId="eff" orientation="right" tick={AXIS_TICK} width={40} unit="%" />
                   <Tooltip formatter={(v, name) => (name === 'Efficiency %' ? (v == null ? '—' : `${v}%`) : formatQty(v))} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar yAxisId="qty" dataKey="produced" name="Production (Nos)" fill={colours.bar}>
+                  <Bar yAxisId="qty" dataKey="produced" name="Production (Nos)" fill={colour}>
                     <LabelList dataKey="produced" position="top" style={{ fontSize: 11 }} formatter={(v) => (v ? v : '')} />
                   </Bar>
-                  <Line yAxisId="eff" dataKey="efficiency" name="Efficiency %" stroke={colours.line} strokeWidth={2} dot={{ r: 3 }} />
+                  <Line yAxisId="eff" dataKey="efficiency" name="Efficiency %" stroke={lineColour} strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
               </ChartCard>
             )

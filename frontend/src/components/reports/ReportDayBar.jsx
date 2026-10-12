@@ -3,23 +3,25 @@ import { Field, TextInput } from '../FormSection'
 import { addDays } from '../../utils/reportPeriods'
 import { todayISO } from '../../utils/dates'
 
-const BTN = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A9C8EE] bg-white px-4 text-[13px] font-semibold text-[#0A4CB0] hover:bg-[#E3F0FD] disabled:opacity-50'
+const BTN = 'inline-flex h-9 items-center gap-2 rounded-lg border border-[#1E5FD0] bg-white px-5 text-[14px] font-semibold text-[#0B2A5B] hover:bg-[#E3F0FD] disabled:opacity-50'
 
 /** Single-date filter (Daily reports): date, Today, Previous / Next Day, Refresh.
  * Next Day stops at today. */
 export default function ReportDayBar({ date, onDateChange, onRefresh, loading }) {
   const today = todayISO()
   return (
-    <section className="rounded-2xl border border-[#CFE2F8] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(16,60,120,0.06)]">
-      <div className="flex flex-wrap items-end gap-3">
-        <CalendarDays size={28} className="mb-1 text-[#1669E0]" aria-hidden="true" />
+    <section className="rounded-xl border border-[#D6E4F5] bg-[#F4F8FE] px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+      <div className="flex flex-wrap items-end gap-3 [&_label>span:first-child]:text-[13px] [&_label>span:first-child]:font-bold [&_label>span:first-child]:text-[#0B2A5B]">
+        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white" aria-hidden="true">
+          <CalendarDays size={22} />
+        </span>
         <Field label="Date" width="short" className="max-w-[200px]">
           <TextInput type="date" value={date} max={today} onChange={(e) => e.target.value && onDateChange(e.target.value)} />
         </Field>
         <button
           type="button"
           onClick={() => onDateChange(today)}
-          className="inline-flex h-8 items-center rounded-lg bg-[#1669E0] px-5 text-[13px] font-semibold text-white hover:bg-[#0F57C2]"
+          className="inline-flex h-9 items-center rounded-lg bg-[#1E5FD0] px-8 text-[14px] font-semibold text-white shadow-sm hover:bg-[#164CB0]"
         >
           Today
         </button>

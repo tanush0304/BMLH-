@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
 import { Settings, Hourglass, PieChart as PieIcon, BarChart3, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
-import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
+import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listProductionSetup } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -91,17 +91,16 @@ export default function DowntimeScreen() {
     [hourRows, setupRows, applied.from, applied.to]
   )
   const typeData = summary.byType.map((t, i) => ({ ...t, hours: hrs(t.lostMin), color: TYPE_COLORS[i] }))
-  const pieData = typeData.filter((t) => t.lostMin > 0)
 
   const availableHrs = hrs(summary.availableMin)
-  const tableRows = typeData.map((t) => ({ key: t.key, label: t.label, available: availableHrs, lost: t.hours, pct: t.pct}))
+  const tableRows = typeData.map((t) => ({ key: t.key, label: t.label, available: availableHrs, lost: t.hours, pct: t.pct, color: t.color }))
   const totalsRow = { label: 'Total', available: availableHrs, lost: hrs(summary.lostMin), pct: summary.downtime_pct }
 
   const columns = [
     { key: 'label', label: 'Type of Downtime' },
     { key: 'available', label: 'Total Hours Available (Hrs)', align: 'right', format: fmtHrs },
     { key: 'lost', label: 'Total Hours Lost (Hrs)', align: 'right', format: fmtHrs },
-    { key: 'pct', label: 'Downtime %', align: 'right', format: fmtPct },
+    { key: 'pct', label: 'Downtime %', format: fmtPct, bar: (r) => r.color ?? CHART_COLORS.red },
   ]
 
   const empty = hourRows.length === 0 && setupRows.length === 0
@@ -151,14 +150,12 @@ export default function DowntimeScreen() {
             </BarChart>
           </ChartCard>
 
-          <ChartCard title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
-            <PieChart>
-              <Pie data={pieData} dataKey="lostMin" nameKey="label" cx="35%" innerRadius="50%" outerRadius="80%" paddingAngle={1}>
-                {pieData.map((t) => <Cell key={t.key} fill={t.color} />)}
-              </Pie>
-              <Tooltip formatter={(v, name, item) => [`${fmtHrs(hrs(v))} Hrs (${item.payload.share}% of lost)`, name]} />
-              <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 12 }} formatter={(value, entry) => `${value} ${entry.payload.share}%`} />
-            </PieChart>
+          <ChartCard title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260} raw>
+            <DonutChart
+              data={typeData.map((t) => ({ key: t.key, label: t.label, value: t.lostMin, color: t.color }))}
+              centre={{ caption: 'Total', total: fmtHrs(hrs(summary.lostMin)), unit: 'Hrs Lost' }}
+              tooltip={(d) => `${fmtHrs(hrs(d.value))} Hrs`}
+            />
           </ChartCard>
 
           <ChartCard title="Trend of Downtime Hours" icon={TrendingUp} loading={loading} empty={empty} height={260}>

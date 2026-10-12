@@ -5,6 +5,11 @@ import OrderTraceabilityScreen from './production/OrderTraceabilityScreen'
 import ProductionStatusScreen from './reports/ProductionStatusScreen'
 import DailyMachineScreen from './reports/DailyMachineScreen'
 import DowntimeScreen from './reports/DowntimeScreen'
+import WipStatusScreen from './reports/WipStatusScreen'
+import FgInventoryScreen from './reports/FgInventoryScreen'
+import RawMaterialStatusScreen from './reports/RawMaterialStatusScreen'
+import CustomerOrderStatusScreen from './reports/CustomerOrderStatusScreen'
+import JobOrderStatusScreen from './reports/JobOrderStatusScreen'
 
 // Reports & Dashboard: the module opens the Dashboard; its sub-screens are
 // read-only reports moved here from Customer Orders and Production (files
@@ -18,11 +23,24 @@ const TABS = [
   { key: 'production-status', component: ProductionStatusScreen },
   { key: 'daily-machine', component: DailyMachineScreen },
   { key: 'downtime', component: DowntimeScreen },
+  { key: 'wip-status', component: WipStatusScreen },
+  { key: 'fg-inventory', component: FgInventoryScreen },
+  { key: 'rm-status', component: RawMaterialStatusScreen },
+  { key: 'customer-order-status', component: CustomerOrderStatusScreen },
+  { key: 'job-order-status', component: JobOrderStatusScreen },
 ]
 
-export default function ReportsModule({ activeTab, onNavigate }) {
+// activeMode carries a PRD into Order Traceability (Customer Order Status's
+// View action); `key` remounts the screen so a new PRD is picked up.
+export default function ReportsModule({ activeTab, activeMode, onNavigate, onOpenScreen }) {
   const tab = TABS.find((t) => t.key === activeTab)
   if (!tab) return <Dashboard onNavigate={onNavigate} />
   const Screen = tab.component
-  return <Screen />
+  return (
+    <Screen
+      key={activeMode ?? ''}
+      initialPrdNo={activeMode ?? ''}
+      onOpenTraceability={(prdNo) => onOpenScreen?.('traceability', prdNo)}
+    />
+  )
 }

@@ -128,7 +128,7 @@ function App() {
 
   let content
   let themeKey = activeKey
-  if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} onNavigate={handleSelect} />
+  if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} activeMode={activeMode} onNavigate={handleSelect} onOpenScreen={(subKey, mode) => handleSelectSub('dashboard', subKey, mode)} />
   else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
   else if (activeKey === 'masters') {
     content = <Dashboard />
