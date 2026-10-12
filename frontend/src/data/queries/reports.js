@@ -85,3 +85,32 @@ export const listJobOrderStatusRows = ({ from, to }) =>
 /** Customer order lines with PO date from..to. */
 export const listOrdersByPoDate = ({ from, to }) =>
   fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('prd_no'))
+
+/** "report quality inspections" (029) for log_date from..to; optional filters. */
+export function listQualityInspections({ from, to, prdNo, machineId, shiftCode, employeeId }) {
+  return fetchAll(() => {
+    let q = supabase
+      .from('report quality inspections')
+      .select('*')
+      .gte('log_date', from)
+      .lte('log_date', to)
+      .order('log_date')
+      .order('quality_log_id')
+    if (prdNo) q = q.eq('prd_no', prdNo)
+    if (machineId) q = q.eq('machine_id', machineId)
+    if (shiftCode) q = q.eq('shift_code', shiftCode)
+    if (employeeId) q = q.eq('employee_id', employeeId)
+    return q
+  })
+}
+
+/** "quality log results" readings for the given quality logs, in batches of
+ * 200 ids (keeps the request URL short). */
+export async function listReadingsForLogs(logIds) {
+  const out = []
+  for (let i = 0; i < logIds.length; i += 200) {
+    const ids = logIds.slice(i, i + 200)
+    out.push(...(await fetchAll(() => supabase.from('quality log results').select('*').in('quality_log_id', ids).order('reading_id'))))
+  }
+  return out
+}

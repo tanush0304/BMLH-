@@ -41,7 +41,7 @@ describe('job orders', () => {
       { qty: 50, expected_receipt_date: '2026-10-01' },
       { qty: 30, expected_receipt_date: '2026-10-30' },
     ], today)
-    expect(rows.map((r) => [r.status, r.pending])).toEqual([['Closed', 10], ['Overdue', 50], ['Open', 30]])
+    expect(rows.map((r) => [r.status, r.pending, r.short_qty])).toEqual([['Closed', 0, 10], ['Overdue', 50, null], ['Open', 30, null]])
     expect(jobOrderCounts(rows)).toMatchObject({ total: 3, closed: 1, pending: 2, overdue: 1, closedPct: 33.3 })
   })
 })

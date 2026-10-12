@@ -133,6 +133,6 @@ describe('Reports & Dashboard', () => {
   it('opens the Dashboard by default and the moved reports by key', () => {
     expect(ReportsModule({ activeTab: null }).type).toBe(Dashboard)
     expect(ReportsModule({ activeTab: 'schedule' }).type).toBe(ProductionScheduleScreen)
-    expect(subLabels('dashboard')).toEqual(['PO Summary', 'Production Schedule', 'Order Traceability', 'Production Status', 'Daily Machine', 'Downtime', 'WIP Status', 'FG Inventory', 'Raw Material Status', 'Customer Order Status', 'Job Order Status'])
+    expect(subLabels('dashboard')).toEqual(['PO Summary', 'Production Schedule', 'Order Traceability', 'Production Status', 'Daily Machine', 'Downtime', 'WIP Status', 'FG Inventory', 'Raw Material Status', 'Customer Order Status', 'Job Order Status', 'Quality Status'])
   })
 })

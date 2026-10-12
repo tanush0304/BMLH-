@@ -10,6 +10,7 @@ import FgInventoryScreen from './reports/FgInventoryScreen'
 import RawMaterialStatusScreen from './reports/RawMaterialStatusScreen'
 import CustomerOrderStatusScreen from './reports/CustomerOrderStatusScreen'
 import JobOrderStatusScreen from './reports/JobOrderStatusScreen'
+import QualityStatusScreen from './reports/QualityStatusScreen'
 
 // Reports & Dashboard: the module opens the Dashboard; its sub-screens are
 // read-only reports moved here from Customer Orders and Production (files
@@ -28,6 +29,7 @@ const TABS = [
   { key: 'rm-status', component: RawMaterialStatusScreen },
   { key: 'customer-order-status', component: CustomerOrderStatusScreen },
   { key: 'job-order-status', component: JobOrderStatusScreen },
+  { key: 'quality-status', component: QualityStatusScreen },
 ]
 
 // activeMode carries a PRD into Order Traceability (Customer Order Status's

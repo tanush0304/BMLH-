@@ -78,7 +78,8 @@ export function jobOrderStatus(row, today) {
   return 'Open'
 }
 
-/** Job order rows enriched with status, pending qty and lead times. */
+/** Job order rows with status, pending qty (Open / Overdue only) and short
+ * qty (Closed: sent - received). */
 export function jobOrderRows(rows, today) {
   return rows.map((r) => {
     const status = jobOrderStatus(r, today)
@@ -87,7 +88,9 @@ export function jobOrderRows(rows, today) {
       ...r,
       qty,
       status,
-      pending: status === 'Closed' ? Math.max(0, qty - num(r.qty_received)) : qty,
+      // Pending only while the DC is out; a Closed DC's shortfall is Short Qty.
+      pending: status === 'Closed' ? 0 : qty,
+      short_qty: status === 'Closed' ? Math.max(0, qty - num(r.qty_received)) : null,
     }
   })
 }

@@ -99,6 +99,7 @@ export const NAV_ITEMS = [
       { key: 'rm-status', label: 'Raw Material Status' },
       { key: 'customer-order-status', label: 'Customer Order Status' },
       { key: 'job-order-status', label: 'Job Order Status' },
+      { key: 'quality-status', label: 'Quality Status' },
     ],
   },
 ]

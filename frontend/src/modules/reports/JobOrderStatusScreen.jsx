@@ -22,7 +22,8 @@ const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
  * Job Order Status Report from "job order status" (dispatch + receipt), for
  * DCs dispatched in the period. Status: Closed = received; Overdue = not
  * received and expected receipt date < today; else Open. Pending qty = qty
- * not yet received (a Closed DC shows any shortfall). Standard lead time from
+ * still out (Open / Overdue); Short Qty = sent - received on a Closed DC.
+ * Standard lead time from
  * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type).
  */
 export default function JobOrderStatusScreen() {
@@ -104,6 +105,7 @@ export default function JobOrderStatusScreen() {
     { key: 'receipt_date', label: 'Date of Receipt', format: dateText },
     { key: 'actual_lead_time_days', label: 'Actual Lead Time (Days)', align: 'right', format: formatQty },
     { key: 'pending', label: 'Quantity Pending (Nos)', align: 'right', format: formatQty },
+    { key: 'short_qty', label: 'Short Qty (Nos)', align: 'right', format: formatQty, cellClass: (v) => (v > 0 ? 'bg-amber-100' : '') },
     { key: 'status', label: 'Status', render: (row) => <ReportBadge status={row.status} tones={STATUS_TONES} /> },
   ]
 
