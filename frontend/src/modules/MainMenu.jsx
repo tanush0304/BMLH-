@@ -13,6 +13,7 @@ import {
 import bmlhLogo from '../assets/bmlh-logo.png'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
 import mainMenuHero from '../assets/main-menu-hero.jpg'
+import { DevelopedByLogo } from '../components/PageHeader'
 
 const MODULES = [
   {
@@ -89,9 +90,12 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
 
   return (
     <main className="flex min-h-screen flex-col bg-[#F5F7FA] text-[#1D2B3B]">
-      <header className="grid min-h-[76px] grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[#D9E1E8] bg-white px-4 py-2.5 shadow-sm sm:px-6 lg:px-8">
+      {/* From lg the logo block is PageHeader's own (same size + position:
+          78px header, flush left); below lg the compact logo stays. */}
+      <header className="grid min-h-[76px] grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[#D9E1E8] bg-white px-4 py-2.5 shadow-sm sm:px-6 lg:h-[78px] lg:py-0 lg:pl-0 lg:pr-8">
         <div className="flex min-w-0 items-center">
-          <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="w-[145px] shrink-0 object-contain sm:w-[180px]" />
+          <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="w-[145px] shrink-0 object-contain sm:w-[180px] lg:hidden" />
+          <DevelopedByLogo className="hidden lg:flex" />
         </div>
         <h1 className="text-center text-lg font-bold leading-tight text-[#173A63] sm:text-2xl lg:text-[30px]">Data Management System</h1>
         <div className="flex items-center justify-end gap-3 sm:gap-5">

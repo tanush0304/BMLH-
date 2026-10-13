@@ -13,6 +13,18 @@ export function PageHeaderBandProvider({ breadcrumb, children }) {
   return <PageHeaderBandContext.Provider value={{ breadcrumb }}>{children}</PageHeaderBandContext.Provider>
 }
 
+// "Developed by" + Pragati & Unnati logo, the header's left block. Shared
+// with Main Menu so both sit at the same size and position; `className`
+// sets visibility (PageHeader hides it below lg).
+export function DevelopedByLogo({ className = 'flex' }) {
+  return (
+    <div className={`z-10 shrink-0 items-center gap-3 pl-5 pr-5 ${className}`}>
+      <span className="text-[12px] text-slate-600">Developed by</span>
+      <img src={pragatiUnnatiLogo} alt="Pragati & Unnati" className="h-[70px] w-auto object-contain" />
+    </div>
+  )
+}
+
 // "Developed by" Pragati & Unnati left, navy diagonal title band (title +
 // subtitle tags) centre, BMLH logo right, breadcrumb row underneath.
 function BandHeader({ title, subtitle, breadcrumb }) {
@@ -20,10 +32,7 @@ function BandHeader({ title, subtitle, breadcrumb }) {
   return (
     <div className="shrink-0">
       <header className="relative flex h-[78px] items-stretch overflow-hidden border-b border-[#DCE4ED] bg-white">
-        <div className="z-10 hidden shrink-0 items-center gap-3 pl-5 pr-5 lg:flex">
-          <span className="text-[12px] text-slate-600">Developed by</span>
-          <img src={pragatiUnnatiLogo} alt="Pragati & Unnati" className="h-[70px] w-auto object-contain" />
-        </div>
+        <DevelopedByLogo className="hidden lg:flex" />
         <div
           className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 bg-[#12305F] px-10 text-white sm:px-12"
           style={{ clipPath: 'polygon(42px 0, 100% 0, calc(100% - 42px) 100%, 0 100%)' }}

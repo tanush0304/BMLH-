@@ -6,21 +6,21 @@ import MasterList, { MASTER_ENTRIES, MasterCard } from './MasterList'
 
 const EXPECTED_LABELS = [
   'Employee Master',
+  'Shift Master',
   'Customer Master',
-  'Product Master',
   'Supplier Master',
   'Raw Material Master',
-  'Vendor Master',
-  'Quality Master',
-  'Machine Master',
-  'Job Work Master',
-  'Cycle Time Master',
-  'Shift Master',
+  'Product Master',
   'Production Batch Master',
-  'Maintenance Master',
-  'Finished Goods Master',
-  'WIP Master',
+  'Machine Master',
+  'Cycle Time Master',
   'Route Card',
+  'Maintenance Master',
+  'Vendor Master',
+  'Job Work Master',
+  'WIP Master',
+  'Finished Goods Master',
+  'Quality Master',
 ]
 
 describe('Masters landing entries', () => {
