@@ -3,7 +3,6 @@ import { supabase } from './lib/supabaseClient'
 import Sidebar from './components/Sidebar'
 import ComingSoon from './components/ComingSoon'
 import LoginScreen from './components/LoginScreen'
-import Dashboard from './modules/Dashboard'
 import MainMenu from './modules/MainMenu'
 import MasterList from './modules/masters/MasterList'
 import CustomerOrderModule from './modules/customerOrder/CustomerOrderModule'
@@ -87,9 +86,8 @@ function App() {
     // still-checking (undefined) vs signed-out (null) distinction.
   }, [userId])
 
-  // A module click (sidebar, Main Menu, Dashboard shortcuts) opens that
-  // module's landing tiles -- no screen selected. Reports & Dashboard opens
-  // the Dashboard.
+  // A module click (sidebar, Main Menu) opens that module's landing tiles --
+  // no screen selected.
   function handleSelect(key) {
     setShowMainMenu(false)
     setActiveKey(key)
@@ -124,16 +122,16 @@ function App() {
     return <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
   }
 
-  const canSeeMasters = role === 'supervisor' || role === 'admin'
+  // Modules with `roles` in NAV_ITEMS (Masters, Reports & Dashboard) are
+  // supervisor/admin only; anyone else who reaches one gets a notice.
+  const restricted = NAV_ITEMS.find((item) => item.key === activeKey)?.roles?.includes(role) === false
 
   let content
-  let themeKey = activeKey
-  if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} activeMode={activeMode} role={role} onOpenScreen={(subKey, mode) => handleSelectSub('dashboard', subKey, mode)} />
-  else if (activeKey === 'masters' && canSeeMasters) content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
-  else if (activeKey === 'masters') {
-    content = <Dashboard />
-    themeKey = 'dashboard'
-  } else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
+  const themeKey = activeKey
+  if (restricted) content = <ComingSoon title={NAV_ITEMS.find((item) => item.key === activeKey).label} subtitle="Supervisor or admin access required." />
+  else if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} activeMode={activeMode} role={role} onOpenScreen={(subKey, mode) => handleSelectSub('dashboard', subKey, mode)} />
+  else if (activeKey === 'masters') content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
+  else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
   else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('production', subKey)} />
   else if (activeKey === 'quality') content = (
       <QualityModule
@@ -143,7 +141,7 @@ function App() {
         onSelect={(subKey, mode) => handleSelectSub('quality', subKey, mode)}
       />
     )
-  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
+  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
   else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
   else if (activeKey === 'stores') content = (
       <StoresModule
@@ -169,7 +167,12 @@ function App() {
       />
       <ModuleThemeProvider module={themeKey}>
         <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey)}>
-          <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}>{content}</Suspense>
+          {/* Shared content column: min-w-0 lets every screen shrink to the
+              space beside the sidebar (a flex item's default min-width is its
+              content, which pushed wide pages past the viewport). */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}>{content}</Suspense>
+          </div>
         </PageHeaderBandProvider>
       </ModuleThemeProvider>
     </div>

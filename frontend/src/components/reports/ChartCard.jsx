@@ -14,20 +14,12 @@ export const CHART_COLORS = {
 
 export const AXIS_TICK = { fontSize: 11, fill: CHART_COLORS.axis }
 
-// Daily Machine category header colours (mockup: CNC blue, VMC green,
-// Grinding orange, Cutting purple); any other category cycles the rest.
-const CATEGORY_COLORS = [
-  [/cnc/i, CHART_COLORS.blue],
-  [/vmc/i, CHART_COLORS.green],
-  [/grind/i, CHART_COLORS.orange],
-  [/cut/i, CHART_COLORS.purple],
-]
-const FALLBACK_COLORS = [CHART_COLORS.red, '#0F9F8F', '#64748B']
-
-export function categoryColor(name, index = 0) {
-  const hit = CATEGORY_COLORS.find(([re]) => re.test(name ?? ''))
-  return hit ? hit[1] : FALLBACK_COLORS[index % FALLBACK_COLORS.length]
-}
+// Machine category colours, assigned in order (categories come from the
+// data, so any number works; the palette repeats after the last colour).
+export const CATEGORY_PALETTE = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#0F9F8F', '#C2185B', '#64748B']
+// Efficiency line colour per bar colour -- a contrasting palette entry.
+export const categoryColor = (index) => CATEGORY_PALETTE[index % CATEGORY_PALETTE.length]
+export const categoryLineColor = (index) => CATEGORY_PALETTE[(index + 1) % CATEGORY_PALETTE.length]
 
 /**
  * Donut with the total in the centre and a legend on the right (dot, label,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, jobOrderStatus, jobOrderRows, jobOrderCounts } from './reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText } from './reportOrders'
 
 describe('customer orders', () => {
   const orders = [
@@ -29,19 +29,31 @@ describe('customer orders', () => {
 
 describe('job orders', () => {
   const today = '2026-10-12'
-  it('derives Closed / Overdue / Open', () => {
-    expect(jobOrderStatus({ receipt_date: '2026-10-01', qty_received: 10 }, today)).toBe('Closed')
-    expect(jobOrderStatus({ expected_receipt_date: '2026-10-11' }, today)).toBe('Overdue')
-    expect(jobOrderStatus({ expected_receipt_date: '2026-10-12' }, today)).toBe('Open') // due today = not yet overdue
-    expect(jobOrderStatus({ expected_receipt_date: null }, today)).toBe('Open')
+  it('flags overdue only on open DCs past the expected date (view flag wins)', () => {
+    expect(isDcOverdue({ status: 'Sent', expected_receipt_date: '2026-10-11' }, today)).toBe(true)
+    expect(isDcOverdue({ status: 'Partially Received', expected_receipt_date: '2026-10-12' }, today)).toBe(false) // due today
+    expect(isDcOverdue({ status: 'Received', expected_receipt_date: '2026-10-01' }, today)).toBe(false)
+    expect(isDcOverdue({ status: 'Sent', expected_receipt_date: '2026-10-30', is_overdue: true }, today)).toBe(true)
   })
-  it('computes pending qty and counts', () => {
+  it('computes pending (open balance), short qty (Closed Short) and counts', () => {
     const rows = jobOrderRows([
-      { qty: 100, qty_received: 90, receipt_date: '2026-10-01' },
-      { qty: 50, expected_receipt_date: '2026-10-01' },
-      { qty: 30, expected_receipt_date: '2026-10-30' },
+      { status: 'Closed Short', qty: 42, qty_received: 40 },
+      { status: 'Received', qty: 19, qty_received: 19 },
+      { status: 'Partially Received', qty: 300, qty_received: 100, expected_receipt_date: '2026-10-01' },
+      { status: 'Sent', qty: 30, qty_received: null, expected_receipt_date: '2026-10-30' },
+      { status: 'Closed Short', qty: 200, qty_received: null },
     ], today)
-    expect(rows.map((r) => [r.status, r.pending, r.short_qty])).toEqual([['Closed', 0, 10], ['Overdue', 50, null], ['Open', 30, null]])
-    expect(jobOrderCounts(rows)).toMatchObject({ total: 3, closed: 1, pending: 2, overdue: 1, closedPct: 33.3 })
+    expect(rows.map((r) => [r.status, r.pending, r.short_qty, r.overdue])).toEqual([
+      ['Closed Short', 0, 2, false],
+      ['Received', 0, 0, false],
+      ['Partially Received', 200, 0, true],
+      ['Sent', 30, 0, false],
+      ['Closed Short', 0, 200, false],
+    ])
+    expect(jobOrderCounts(rows)).toMatchObject({ total: 5, received: 1, closedShort: 2, closed: 3, partial: 1, sent: 1, pending: 2, overdue: 1, closedPct: 60 })
+  })
+  it('describes a stage as "N of M back"', () => {
+    expect(stageBackText({ dc_count: 2, received_qty: 300, sent_qty: 500 })).toBe('300 of 500 back')
+    expect(stageBackText({ dc_count: 0, received_qty: 0, sent_qty: 0 })).toBe('Not sent')
   })
 })

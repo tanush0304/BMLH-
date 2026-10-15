@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { buildJobRouteCardRows, jobRouteCardPrintHtml, shiftsPlanned, templateRow } from './jobRouteCard'
+import { buildJobRouteCardRows, jobRouteCardPrintHtml, outsourcedStageLabel, outsourcedStageStatus, shiftsPlanned, templateRow } from './jobRouteCard'
 
 const jobWorkTypes = [{ job_work_code: 'HT', lead_time_days: 5 }]
 
 describe('shiftsPlanned', () => {
-  it('is CEIL(batch x cycle / 60 / shift hours) -- round-up, pending senior confirmation', () => {
+  it('is ROUND(batch x cycle / 60 / shift hours), minimum 1', () => {
     // 100 x 9 / 60 / 8 = 1.875 -> 2
     expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 9, batchQty: 100, shiftHours: 8 })).toBe(2)
-    // 100 x 6 / 60 / 8 = 1.25 -> 2 (rounded up)
-    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 100, shiftHours: 8 })).toBe(2)
-    // E2E JC-004: 20 x 6 / 60 / 8 = 0.25 -> 1 (ROUND gave 0)
+    // 100 x 6 / 60 / 8 = 1.25 -> 1 (normal rounding)
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 100, shiftHours: 8 })).toBe(1)
+    // E2E JC-004: 20 x 6 / 60 / 8 = 0.25 -> 0 -> minimum 1
     expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 20, shiftHours: 8 })).toBe(1)
+    // 48 x 5 / 60 / 8 = 0.5 -> 1
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 5, batchQty: 48, shiftHours: 8 })).toBe(1)
+    // 400 x 6 / 60 / 8 = 5 -> 5; 520 x 6 / 60 / 8 = 6.5 -> 7
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 400, shiftHours: 8 })).toBe(5)
+    expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 6, batchQty: 520, shiftHours: 8 })).toBe(7)
     // 48 x 5 / 60 / 8 = 0.5 -> 1
     expect(shiftsPlanned({ type: 'Internal', cycleTimeMin: 5, batchQty: 48, shiftHours: 8 })).toBe(1)
   })
@@ -45,16 +50,26 @@ describe('buildJobRouteCardRows', () => {
     { id: 3, seq: 30, operation: 'Deburr', type: 'Manual', cycle_time_min: null, status: 'Pending', actual_date: null },
   ]
   const dispatches = [
-    { dc_no: 'DC-001', stage_id: 2, dispatch_date: '2026-10-01' },
-    { dc_no: 'DC-004', stage_id: 2, dispatch_date: '2026-10-03' },
+    { dc_no: 'DC-004', stage_id: 2, dispatch_date: '2026-10-03', qty: 200, qty_received: 200 },
+    { dc_no: 'DC-001', stage_id: 2, dispatch_date: '2026-10-01', qty: 300, qty_received: 100 },
   ]
 
   it('orders by seq and fills job order no, date and status from the stage', () => {
     const rows = buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches })
     expect(rows.map((r) => r.operation)).toEqual(['Stage 10 – Turning', 'Stage 20 – Heat Treatment', 'Stage 30 – Deburr'])
     expect(rows[0]).toMatchObject({ shifts_planned: 2, job_order_no: '', date: '2026-10-02', status: 'Completed' })
-    expect(rows[1]).toMatchObject({ shifts_planned: '', lead_time_days: 5, job_order_no: 'DC-004', status: 'Received' })
+    // Split across two DCs: both listed oldest first, progress summed.
+    expect(rows[1]).toMatchObject({ shifts_planned: '', lead_time_days: 5, job_order_no: 'DC-001, DC-004', status: 'Received (300 of 500 back)' })
     expect(rows[2]).toMatchObject({ shifts_planned: '', job_order_no: '', date: '', status: 'Pending' })
+  })
+
+  it('outsourced stage status: Pending until a DC, then Sent / Partially Received / Received with N of M back', () => {
+    const stage = { status: 'Pending' }
+    expect(outsourcedStageStatus(stage, [])).toBe('Pending')
+    expect(outsourcedStageStatus(stage, [{ qty: 300, qty_received: null }, { qty: 200 }])).toBe('Sent (0 of 500 back)')
+    expect(outsourcedStageStatus(stage, [{ qty: 300, qty_received: 300 }, { qty: 200, qty_received: 0 }])).toBe('Partially Received (300 of 500 back)')
+    expect(outsourcedStageStatus({ status: 'Received' }, [{ qty: 42, qty_received: 40 }])).toBe('Received (40 of 42 back)')
+    expect(outsourcedStageLabel(stage, [])).toBe('Not Sent')
   })
 
   it('print HTML carries the JC No and escapes values', () => {

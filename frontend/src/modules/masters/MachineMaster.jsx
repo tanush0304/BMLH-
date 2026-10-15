@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import { Factory, Cog, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput } from '../../components/FormSection'
 import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
 import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
@@ -23,6 +24,10 @@ const EMPTY_FORM = {
   dia: '',
   remarks: '',
 }
+
+// Built-in categories; values typed via "+ Add new…" are saved on the
+// machine and offered to everyone after that.
+const BUILT_IN_CATEGORIES = ['Cutting', 'CNC Turning', 'VMC', 'Grinding']
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
@@ -166,7 +171,7 @@ export default function MachineMaster() {
               <TextInput value={form.manufacturer_name} onChange={handleField('manufacturer_name')} disabled={readOnly} />
             </Field>
             <Field label="Category">
-              <SelectInput value={form.category} onChange={handleField('category')} disabled={readOnly} options={['Cutting', 'CNC Turning', 'VMC', 'Grinding']} />
+              <SelectWithAddNew value={form.category} onChange={handleField('category')} disabled={readOnly} options={mergeOptions(BUILT_IN_CATEGORIES, records.map((r) => r.category))} placeholder="Type new category" />
             </Field>
           </FormSection>
           <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model and specification" columns={3}>

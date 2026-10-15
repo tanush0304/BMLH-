@@ -5,7 +5,7 @@ import { getRouteCard, getStagesForPrd } from '../data/queries/routeCards'
 import { listCustomerOrders } from '../data/queries/customerOrders'
 import { listProducts } from '../data/queries/products'
 import { listJobWorkTypes } from '../data/queries/jobWorkTypes'
-import { listDispatches } from '../data/queries/jobOrders'
+import { listJobOrderStatus } from '../data/queries/jobOrders'
 import { listMachines } from '../data/queries/machines'
 import {
   JOB_ROUTE_CARD_COLUMNS,
@@ -48,7 +48,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           listCustomerOrders(),
           listProducts(),
           listJobWorkTypes(),
-          listDispatches(),
+          listJobOrderStatus(), // per DC with qty_received -> outsourced stage progress
           listMachines(),
         ])
         if (cancelled) return

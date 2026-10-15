@@ -14,6 +14,7 @@ import bmlhLogo from '../assets/bmlh-logo.png'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
 import mainMenuHero from '../assets/main-menu-hero.jpg'
 import { DevelopedByLogo } from '../components/PageHeader'
+import { NAV_ITEMS } from '../utils/constants'
 
 const MODULES = [
   {
@@ -86,7 +87,9 @@ const CARD_COLORS = {
 }
 
 export default function MainMenu({ role, onNavigate, onSignOut }) {
-  const canSeeMasters = role === 'supervisor' || role === 'admin'
+  // Same role rule as the sidebar: a module with `roles` in NAV_ITEMS
+  // (Masters, Reports & Dashboard) is supervisor/admin only.
+  const isLocked = (key) => NAV_ITEMS.find((item) => item.key === key)?.roles?.includes(role) === false
 
   return (
     <main className="flex min-h-screen flex-col bg-[#F5F7FA] text-[#1D2B3B]">
@@ -126,7 +129,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
         {MODULES.map((module) => {
           const Icon = module.icon
           const colors = CARD_COLORS[module.color]
-          const locked = module.key === 'masters' && !canSeeMasters
+          const locked = isLocked(module.key)
           return (
             <button
               key={module.key}
@@ -141,7 +144,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
               </span>
               <span className="min-w-0 flex-1 pb-5 lg:pb-0">
                 <span className={`block text-lg font-bold leading-tight sm:text-xl xl:text-[22px] ${colors.text}`}>{module.title}</span>
-                <span className="mt-2 block text-sm leading-[1.45] text-[#3F4F60] sm:text-[15px]">{locked ? 'Supervisor or admin access is required to manage master data.' : module.description}</span>
+                <span className="mt-2 block text-sm leading-[1.45] text-[#3F4F60] sm:text-[15px]">{locked ? 'Supervisor or admin access is required.' : module.description}</span>
               </span>
               <ArrowRight size={24} strokeWidth={2.8} className={`absolute bottom-4 right-4 transition-transform group-hover:translate-x-1 ${colors.text}`} aria-hidden="true" />
             </button>

@@ -8,6 +8,7 @@ import FormSection, { Field, TextInput, AutoFillBox } from '../../components/For
 import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
+import StatusPill from '../../components/StatusPill'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
@@ -15,15 +16,18 @@ import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import {
   listPendingOutsourcedStagesForPrd,
   listVendorsForJobWorkCode,
-  listDispatches,
   createDispatch,
   generateNextDcNo,
+  listJobOrderStatus,
+  listJobworkStageStatus,
 } from '../../data/queries/jobOrders'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import { listVendors } from '../../data/queries/vendors'
 import { computeStageAvailability } from '../../utils/calculations'
 import { stageLabel } from '../../utils/stageLabel'
 import { qtyOverLimitError } from '../../utils/qtyLimits'
+import { dcBalance } from '../../utils/jobwork'
+import { stageBackText } from '../../utils/reportOrders'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
@@ -33,6 +37,8 @@ const LIST_COLUMNS = [
   { key: 'qty', label: 'Qty' },
   { key: 'dispatch_date', label: 'Dispatch Date' },
   { key: 'expected_receipt_date', label: 'Expected Receipt' },
+  { key: 'progress', label: 'Received / Sent' },
+  { key: 'status', label: 'Status', type: 'status' },
 ]
 
 function vendorLabel(vendorId, vendors) {
@@ -54,6 +60,8 @@ export default function JobOrderDispatchScreen() {
   const [stageId, setStageId] = useState('')
   const [vendorOptions, setVendorOptions] = useState([])
   const [availableQty, setAvailableQty] = useState(null)
+  // Stage progress ("jobwork stage status") per stage id of the chosen PRD.
+  const [stageStatus, setStageStatus] = useState({})
 
   const [form, setForm] = useState({ vendor_id: '', qty: '', dispatch_date: '' })
   const [saving, setSaving] = useState(false)
@@ -66,7 +74,7 @@ export default function JobOrderDispatchScreen() {
       const [ords, jwts, disps, vends] = await Promise.all([
         listCustomerOrders(),
         listJobWorkTypes(),
-        listDispatches(),
+        listJobOrderStatus(),
         listVendors(),
       ])
       setVendors(vends)
@@ -90,13 +98,16 @@ export default function JobOrderDispatchScreen() {
     setStageId('')
     setVendorOptions([])
     setAvailableQty(null)
+    setStageStatus({})
     if (!prd) {
       setEligibleStages([])
       return
     }
     setError(null)
     try {
-      setEligibleStages(await listPendingOutsourcedStagesForPrd(prd))
+      const [stages, progress] = await Promise.all([listPendingOutsourcedStagesForPrd(prd), listJobworkStageStatus(prd)])
+      setEligibleStages(stages)
+      setStageStatus(Object.fromEntries(progress.map((p) => [p.stage_id, p])))
     } catch (e) {
       setError(e.message)
     }
@@ -127,6 +138,9 @@ export default function JobOrderDispatchScreen() {
   }
 
   const selectedStage = eligibleStages.find((s) => String(s.id) === String(stageId))
+  const selectedProgress = selectedStage ? stageStatus[selectedStage.id] : null
+  // A stage can be split across vendors: every DC still open on it.
+  const openDcsForStage = selectedStage ? dispatches.filter((d) => d.is_open && String(d.stage_id) === String(selectedStage.id)) : []
 
   function handleField(key) {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -186,7 +200,7 @@ export default function JobOrderDispatchScreen() {
     }
   }
 
-  const filteredDispatches = dispatches.map((d) => ({ ...d, vendor_label: vendorLabel(d.vendor_id, vendors) })).filter((d) => {
+  const filteredDispatches = dispatches.map((d) => ({ ...d, vendor_label: vendorLabel(d.vendor_id, vendors), progress: `${Number(d.qty_received ?? 0)} / ${Number(d.qty)}` })).filter((d) => {
     if (!search) return true
     const q = search.toLowerCase()
     return d.dc_no?.toLowerCase().includes(q) || d.prd_no?.toLowerCase().includes(q) || d.vendor_label.toLowerCase().includes(q)
@@ -225,7 +239,10 @@ export default function JobOrderDispatchScreen() {
               value={stageId}
               onChange={handleStageChange}
               disabled={!prdNo || eligibleStages.length === 0}
-              options={eligibleStages.map((s) => ({ value: String(s.id), label: stageLabel(s) }))}
+              options={eligibleStages.map((s) => {
+                const p = stageStatus[s.id]
+                return { value: String(s.id), label: p && p.dc_count > 0 ? `${stageLabel(s)} (${stageBackText(p)})` : stageLabel(s) }
+              })}
             />
           </Field>
           <Field label="Job Work Type">
@@ -269,6 +286,35 @@ export default function JobOrderDispatchScreen() {
               {saving ? 'Dispatching...' : 'Dispatch'}
             </button>
           </div>
+          {selectedStage && (
+            <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">
+              <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-slate-700">This stage:</span>
+                <StatusPill status={selectedProgress?.stage_status ?? 'Not Sent'} />
+                <span className="text-slate-600">{stageBackText(selectedProgress)}</span>
+              </div>
+              {openDcsForStage.length === 0 ? (
+                <p className="text-slate-500">No open DCs on this stage.</p>
+              ) : (
+                <table className="w-full text-left">
+                  <thead className="text-slate-500">
+                    <tr><th className="py-1 pr-3 font-medium">Open DC</th><th className="pr-3 font-medium">Vendor</th><th className="pr-3 text-right font-medium">Sent</th><th className="pr-3 text-right font-medium">Received</th><th className="text-right font-medium">Balance</th></tr>
+                  </thead>
+                  <tbody>
+                    {openDcsForStage.map((d) => (
+                      <tr key={d.dc_no} className="border-t border-slate-100">
+                        <td className="py-1 pr-3">{d.dc_no}</td>
+                        <td className="pr-3">{vendorLabel(d.vendor_id, vendors)}</td>
+                        <td className="pr-3 text-right">{Number(d.qty)}</td>
+                        <td className="pr-3 text-right">{Number(d.qty_received ?? 0)}</td>
+                        <td className="text-right font-semibold">{dcBalance(d)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
           {prdNo && eligibleStages.length === 0 && (
             <p className="text-sm text-amber-600 sm:col-span-3">
               This order has no pending Outsourced stage to dispatch.

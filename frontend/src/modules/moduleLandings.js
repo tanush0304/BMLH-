@@ -1,7 +1,10 @@
-import { ClipboardPlus, Hand, Route, ShieldCheck } from 'lucide-react'
+import { ClipboardPlus, Route } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES, canSeeSubItem } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
+// Manual Operations / Shift Verification: deck slide 20 (title banner cropped off).
+import manualOperationsTile from '../assets/tiles/manual_operations.webp'
+import shiftVerificationTile from '../assets/tiles/shift_verification.webp'
 import customerEnquiryTile from '../assets/tiles/customer_enquiry.webp'
 import customerOrdersTile from '../assets/tiles/customer_orders.webp'
 import jobworkIssueTile from '../assets/tiles/jobwork_issue.webp'
@@ -41,10 +44,10 @@ const MODULE_TONES = {
 const TILE_ART = {
   production: {
     'production-data-entry': { img: productionEntryTile, bg: '#FEF0D3' },
-    'manual-operations': { icon: Hand },
+    'manual-operations': { img: manualOperationsTile, bg: '#E8F5EC' },
     planning: { img: productionPlanningTile, bg: '#CFECFE' },
     'route-card': { icon: Route },
-    'shift-verification': { icon: ShieldCheck },
+    'shift-verification': { img: shiftVerificationTile, bg: '#E6F0FD' },
   },
   'customer-order': {
     enquiry: { img: customerEnquiryTile, bg: '#E4F1FF' },

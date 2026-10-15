@@ -15,15 +15,16 @@ import { displayDate } from '../../utils/reportPeriods'
 import { jobOrderRows, jobOrderCounts } from '../../utils/reportOrders'
 import { topN } from '../../utils/reportStock'
 
-const STATUS_TONES = { Closed: 'green', Open: 'amber', Overdue: 'red' }
+const STATUS_TONES = { Received: 'green', 'Closed Short': 'slate', 'Partially Received': 'blue', Sent: 'amber', Overdue: 'red' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
 
 /**
- * Job Order Status Report from "job order status" (dispatch + receipt), for
- * DCs dispatched in the period. Status: Closed = received; Overdue = not
- * received and expected receipt date < today; else Open. Pending qty = qty
- * still out (Open / Overdue); Short Qty = sent - received on a Closed DC.
- * Standard lead time from
+ * Job Order Status Report from "job order status" (migration 031: one row
+ * per DC, so a stage split across two vendors shows two rows), for DCs
+ * dispatched in the period. Status: Sent / Partially Received / Received /
+ * Closed Short; Overdue = open DC past its expected receipt date (a flag,
+ * shown next to the status). Pending qty = balance still out on open DCs;
+ * Short Qty = sent - received on a Closed Short DC. Standard lead time from
  * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type).
  */
 export default function JobOrderStatusScreen() {
@@ -85,9 +86,10 @@ export default function JobOrderStatusScreen() {
   }, [rows])
 
   const donut = [
-    { key: 'Closed', label: 'Closed', value: counts.closed, color: CHART_COLORS.green },
-    { key: 'Open', label: 'Open', value: counts.open, color: CHART_COLORS.amber },
-    { key: 'Overdue', label: 'Overdue', value: counts.overdue, color: CHART_COLORS.red },
+    { key: 'Received', label: 'Received', value: counts.received, color: CHART_COLORS.green },
+    { key: 'Closed Short', label: 'Closed Short', value: counts.closedShort, color: '#64748B' },
+    { key: 'Partially Received', label: 'Partially Received', value: counts.partial, color: CHART_COLORS.blue },
+    { key: 'Sent', label: 'Sent', value: counts.sent, color: CHART_COLORS.amber },
   ]
 
   const prdOptions = [...new Set(raw.map((x) => x.prd_no))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -104,9 +106,21 @@ export default function JobOrderStatusScreen() {
     { key: 'expected_receipt_date', label: 'Expected Receipt', format: dateText },
     { key: 'receipt_date', label: 'Date of Receipt', format: dateText },
     { key: 'actual_lead_time_days', label: 'Actual Lead Time (Days)', align: 'right', format: formatQty },
+    { key: 'received', label: 'Received (Nos)', align: 'right', format: formatQty },
+    { key: 'receipt_nos', label: 'Receipt No(s)', format: (v) => v || '—' },
     { key: 'pending', label: 'Quantity Pending (Nos)', align: 'right', format: formatQty },
     { key: 'short_qty', label: 'Short Qty (Nos)', align: 'right', format: formatQty, cellClass: (v) => (v > 0 ? 'bg-amber-100' : '') },
-    { key: 'status', label: 'Status', render: (row) => <ReportBadge status={row.status} tones={STATUS_TONES} /> },
+    {
+      key: 'status',
+      label: 'Status',
+      format: (v, row) => (row?.overdue ? `${v} (Overdue)` : v),
+      render: (row) => (
+        <span className="inline-flex flex-wrap gap-1">
+          <ReportBadge status={row.status} tones={STATUS_TONES} />
+          {row.overdue && <ReportBadge status="Overdue" tones={STATUS_TONES} />}
+        </span>
+      ),
+    },
   ]
 
   return (
@@ -126,8 +140,8 @@ export default function JobOrderStatusScreen() {
 
         <KpiCardRow columns={4}>
           <KpiCard label="Total Job Orders" value={formatQty(counts.total)} icon={FileText} tone="blue" loading={loading} />
-          <KpiCard label="Received (Closed)" value={formatQty(counts.closed)} unit={pctText(counts.closedPct)} icon={Settings} tone="green" loading={loading} />
-          <KpiCard label="Pending" value={formatQty(counts.pending)} unit={pctText(counts.pendingPct)} icon={Hourglass} tone="orange" loading={loading} />
+          <KpiCard label="Closed (Received / Short)" value={formatQty(counts.closed)} unit={pctText(counts.closedPct)} icon={Settings} tone="green" loading={loading} />
+          <KpiCard label="Pending (Sent / Partial)" value={formatQty(counts.pending)} unit={pctText(counts.pendingPct)} icon={Hourglass} tone="orange" loading={loading} />
           <KpiCard label="Overdue" value={formatQty(counts.overdue)} unit={pctText(counts.overduePct)} icon={Truck} tone="red" loading={loading} />
         </KpiCardRow>
 

@@ -32,8 +32,8 @@ describe('module landing tiles', () => {
 
   it('uses deck pictures where they exist and icons otherwise', () => {
     const art = (key) => Object.fromEntries(landingTiles(key).map((t) => [t.key, t.img ? 'img' : 'icon']))
-    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'icon', planning: 'img', 'route-card': 'icon' })
-    expect(landingTiles('production', 'supervisor').find((t) => t.key === 'shift-verification').icon).toBeTruthy()
+    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'img', planning: 'img', 'route-card': 'icon' })
+    expect(landingTiles('production', 'supervisor').find((t) => t.key === 'shift-verification').img).toBeTruthy()
     expect(art('customer-order')).toEqual({ enquiry: 'img', order: 'img' })
     expect(Object.values(art('job-order'))).toEqual(['img', 'img'])
     expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])

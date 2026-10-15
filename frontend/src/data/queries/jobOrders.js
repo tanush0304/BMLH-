@@ -2,11 +2,10 @@ import { supabase } from '../../lib/supabaseClient'
 import { nextSequenceNo } from '../../utils/numbering'
 
 /**
- * Sequence is no longer enforced -- a stage can be fed via WIP Issue rather
- * than strictly from the stage before it. The lock here is a still-open
- * dispatch: a stage that's already been dispatched but not yet received
- * can't be dispatched a second time (to a different vendor, say) until
- * that receipt lands or the dispatch is otherwise resolved.
+ * Outsourced stages of a PRD that can still be dispatched (status Pending).
+ * Since migration 031 a stage may have several open DCs at once (split
+ * across vendors); the database limits the total dispatched to the stage's
+ * available qty (trg_job_order_dispatch_insert_guard).
  */
 export async function listPendingOutsourcedStagesForPrd(prdNo) {
   const { data, error } = await supabase
@@ -15,12 +14,7 @@ export async function listPendingOutsourcedStagesForPrd(prdNo) {
     .eq('prd_no', prdNo)
     .order('seq')
   if (error) throw error
-
-  const openDispatches = await listDispatchesWithoutReceipt()
-  const lockedStageIds = new Set(
-    openDispatches.filter((d) => d.prd_no === prdNo).map((d) => d.stage_id)
-  )
-  return data.filter((s) => s.type === 'Outsourced' && s.status === 'Pending' && !lockedStageIds.has(s.id))
+  return data.filter((s) => s.type === 'Outsourced' && s.status === 'Pending')
 }
 
 export async function listVendorsForJobWorkCode(jobWorkCode) {
@@ -56,12 +50,8 @@ export async function generateNextDcNo() {
   return nextSequenceNo('DC', data.map((r) => r.dc_no))
 }
 
-/**
- * The actual concurrency lock: "job order dispatch" has a partial unique
- * index on stage_id where is_open, so a second dispatch for a stage that
- * already has one open fails at the database with 23505 -- this check is
- * just a courtesy to fail fast with a clear message before hitting that.
- */
+/** New DC. The database checks it (031): stage Outsourced + Pending and
+ * qty <= what the stage still has to send -- its message is shown as is. */
 export async function createDispatch(payload) {
   const { data, error } = await supabase
     .from('job order dispatch')
@@ -70,29 +60,19 @@ export async function createDispatch(payload) {
     .single()
   if (error) {
     if (error.code === '23505') {
-      throw new Error('This stage already has an open dispatch. Someone else dispatched it first -- refresh and check Job Order Status.')
+      throw new Error('That DC number was just used by someone else -- save again for the next number.')
     }
     throw error
   }
   return data
 }
 
-/** Source of truth is the is_open column (set false by createReceipt below),
- * not an inferred join against receipts. */
-export async function listDispatchesWithoutReceipt() {
-  const { data, error } = await supabase.from('job order dispatch').select('*').eq('is_open', true)
-  if (error) throw error
-  return data
-}
-
 /**
- * Recording a receipt also marks the dispatch's route card stage as
- * 'Received' (actual_date = receipt date) and closes the dispatch
- * (is_open = false). All three happen in ONE database transaction inside
- * create_job_order_receipt (migration 019) -- either everything is saved or
- * nothing is. Since migration 021 it also generates the JR-NNN receipt_no
- * and returns it on the row. A second receipt for the same DC still fails on the receipt
- * table's unique (dc_no).
+ * One receipt against a DC (a DC can have several since migration 031).
+ * create_job_order_receipt numbers it JR-NNN, checks DC open / qty > 0 /
+ * qty <= balance (trigger), closes the DC once fully received and then lets
+ * refresh_outsourced_stage decide whether the stage is Received -- all in one
+ * transaction.
  */
 export async function createReceipt(payload) {
   const { data, error } = await supabase.rpc('create_job_order_receipt', {
@@ -104,10 +84,32 @@ export async function createReceipt(payload) {
   return data
 }
 
-/** dc_no -> receipt_no, merged into the Job Order Status list (the view
- * itself doesn't carry receipt_no). dc_no is unique on the receipt table. */
-export async function listReceiptNumbers() {
-  const { data, error } = await supabase.from('job order receipt').select('dc_no, receipt_no')
+/** Close an open DC short (supervisor/admin, reason required; allowed with
+ * nothing received). The stage completion check runs in the same call. */
+export async function closeDispatchShort(dcNo, reason) {
+  const { data, error } = await supabase.rpc('close_job_order_short', { p_dc_no: dcNo, p_reason: reason })
+  if (error) throw error
+  return data
+}
+
+/** Every receipt row (one per JR number), newest first. */
+export async function listReceipts() {
+  const { data, error } = await supabase
+    .from('job order receipt')
+    .select('*')
+    .order('receipt_date', { ascending: false })
+    .order('id', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+/** "jobwork stage status" (031): one row per Outsourced stage -- sent /
+ * received / short qty, remaining to dispatch and the stage status
+ * (Not Sent / Sent / Partially Received / Received). */
+export async function listJobworkStageStatus(prdNo) {
+  let q = supabase.from('jobwork stage status').select('*').order('prd_no').order('seq')
+  if (prdNo) q = q.eq('prd_no', prdNo)
+  const { data, error } = await q
   if (error) throw error
   return data
 }

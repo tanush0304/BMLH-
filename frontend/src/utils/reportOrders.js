@@ -70,38 +70,56 @@ export function monthlyPoVsDispatch(lines, dispatches, months) {
 
 // ---------------------------------------------------------------- Job orders
 
-/** Closed = received; Overdue = not received and expected receipt date
- * before today; otherwise Open (sent, still within lead time). */
-export function jobOrderStatus(row, today) {
-  if (row.receipt_date || row.qty_received != null) return 'Closed'
-  if (row.expected_receipt_date && row.expected_receipt_date < today) return 'Overdue'
-  return 'Open'
+// DC status comes from "job order status" (migration 031):
+// Sent / Partially Received / Received / Closed Short. Overdue is a separate
+// flag (open DC past its expected receipt date), not a status.
+export const DC_CLOSED_STATUSES = ['Received', 'Closed Short']
+
+export const isDcClosed = (row) => DC_CLOSED_STATUSES.includes(row.status)
+
+/** Open DC whose expected receipt date is before today (due today = not
+ * yet overdue). Uses the view's is_overdue when present. */
+export function isDcOverdue(row, today) {
+  if (row.is_overdue != null) return Boolean(row.is_overdue)
+  return !isDcClosed(row) && Boolean(row.expected_receipt_date) && row.expected_receipt_date < today
 }
 
-/** Job order rows with status, pending qty (Open / Overdue only) and short
- * qty (Closed: sent - received). */
+/** One row per DC with received, pending (balance still out on an open DC)
+ * and short qty (sent - received on a Closed Short DC). */
 export function jobOrderRows(rows, today) {
   return rows.map((r) => {
-    const status = jobOrderStatus(r, today)
     const qty = num(r.qty)
+    const received = num(r.qty_received)
+    const closed = isDcClosed(r)
     return {
       ...r,
       qty,
-      status,
-      // Pending only while the DC is out; a Closed DC's shortfall is Short Qty.
-      pending: status === 'Closed' ? 0 : qty,
-      short_qty: status === 'Closed' ? Math.max(0, qty - num(r.qty_received)) : null,
+      received,
+      overdue: isDcOverdue(r, today),
+      pending: closed ? 0 : Math.max(0, qty - received),
+      short_qty: r.status === 'Closed Short' ? Math.max(0, qty - received) : 0,
     }
   })
 }
 
-/** Counts and % per status. */
+/** Counts and % per status; "closed" = Received + Closed Short, "pending" =
+ * DCs still out (Sent + Partially Received), overdue = open and late. */
 export function jobOrderCounts(rows) {
   const total = rows.length
   const count = (s) => rows.filter((r) => r.status === s).length
   const pct = (n) => (total > 0 ? Math.round((1000 * n) / total) / 10 : null)
-  const closed = count('Closed')
-  const open = count('Open')
-  const overdue = count('Overdue')
-  return { total, closed, open, overdue, pending: open + overdue, closedPct: pct(closed), pendingPct: pct(open + overdue), overduePct: pct(overdue) }
+  const received = count('Received')
+  const closedShort = count('Closed Short')
+  const partial = count('Partially Received')
+  const sent = count('Sent')
+  const closed = received + closedShort
+  const pending = partial + sent
+  const overdue = rows.filter((r) => r.overdue).length
+  return { total, received, closedShort, partial, sent, closed, pending, overdue, closedPct: pct(closed), pendingPct: pct(pending), overduePct: pct(overdue) }
+}
+
+/** "300 of 500 back" for an outsourced stage row of "jobwork stage status". */
+export function stageBackText(stage) {
+  if (!stage || num(stage.dc_count) === 0) return 'Not sent'
+  return `${num(stage.received_qty).toLocaleString('en-IN')} of ${num(stage.sent_qty).toLocaleString('en-IN')} back`
 }

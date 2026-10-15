@@ -98,6 +98,19 @@ describe('contextual sidebar navigation', () => {
     expect(html).toContain('Production Data Entry')
   })
 
+  it('locks Masters, Customer Orders, Jobwork and Reports & Dashboard for an operator', () => {
+    const html = renderToStaticMarkup(
+      createElement(Sidebar, { activeKey: 'production', activeSubKey: null, onSelect: () => {}, onSelectSub: () => {}, onSignOut: () => {}, role: 'operator' })
+    )
+    expect(html).toContain('aria-label="Masters. Supervisor or admin access required."')
+    expect(html).toContain('aria-label="Reports &amp; Dashboard. Supervisor or admin access required."')
+    expect(html).toContain('aria-label="Customer Orders. Supervisor or admin access required."')
+    expect(html).toContain('aria-label="Jobwork. Supervisor or admin access required."')
+    expect(html).toContain('aria-label="Open Production"')
+    expect(html).toContain('aria-label="Open Stores"')
+    expect(html).toContain('aria-label="Open Quality"')
+  })
+
   it('keeps the navigation scrollable when contextual content exceeds its height', () => {
     const html = renderSidebar('masters', 'customer')
     expect(html).toContain('overflow-y-auto')

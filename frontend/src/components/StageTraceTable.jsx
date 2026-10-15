@@ -5,6 +5,8 @@ import { getStagesForPrd } from '../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../data/queries/productionLogs'
 import { getWipAggregatesForPrd } from '../data/queries/wip'
 import { computeStageAvailability } from '../utils/calculations'
+import { listJobOrderStatus } from '../data/queries/jobOrders'
+import { outsourcedStageLabel, stageBackLabel } from '../utils/jobRouteCard'
 
 function buildColumns(card) {
   const columns = [
@@ -12,6 +14,8 @@ function buildColumns(card) {
     { key: 'operation', label: 'Operation' },
     { key: 'type', label: 'Type' },
     { key: 'status', label: 'Status', type: 'status' },
+    // Outsourced stages: DC progress, e.g. "300 of 500 back · DC-001, DC-004".
+    { key: 'jobwork', label: 'Jobwork' },
     { key: 'actual_output', label: 'Actual Output So Far' },
     { key: 'available_qty', label: 'Available to Feed Next Stage' },
   ]
@@ -47,11 +51,12 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
       setLoading(true)
       setError(null)
       try {
-        const [orders, stages, aggregates, wipAggregates] = await Promise.all([
+        const [orders, stages, aggregates, wipAggregates, dcRows] = await Promise.all([
           listCustomerOrders(),
           getStagesForPrd(prdNo),
           getStageAggregatesForPrd(prdNo),
           getWipAggregatesForPrd(prdNo),
+          listJobOrderStatus(),
         ])
         const order = orders.find((o) => o.prd_no === prdNo)
         const availability = computeStageAvailability(stages, order?.order_qty ?? 0, aggregates, wipAggregates)
@@ -59,11 +64,17 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
         setRows(
           stages
             .sort((a, b) => a.seq - b.seq)
-            .map((s) => ({
-              ...s,
-              actual_output: aggregates[s.id]?.output ?? (s.type === 'Manual' ? '—' : 0),
-              available_qty: availability[s.id],
-            }))
+            .map((s) => {
+              const dcs = dcRows.filter((d) => d.stage_id === s.id)
+              const outsourced = s.type === 'Outsourced'
+              return {
+                ...s,
+                status: outsourced ? outsourcedStageLabel(s, dcs) : s.status,
+                jobwork: outsourced && dcs.length ? `${stageBackLabel(dcs)} · ${dcs.map((d) => d.dc_no).sort().join(', ')}` : '',
+                actual_output: aggregates[s.id]?.output ?? (s.type === 'Manual' ? '—' : 0),
+                available_qty: availability[s.id],
+              }
+            })
         )
       } catch (e) {
         if (!cancelled) setError(e.message)

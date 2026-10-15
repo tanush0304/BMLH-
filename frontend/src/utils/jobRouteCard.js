@@ -5,9 +5,8 @@
 import { stageLabel } from './stageLabel'
 
 /**
- * No. of Shifts Planned = CEIL(batch_qty x cycle_time_min / 60 / shift_hours)
- * -- rounded UP, so any part-shift of work counts as a shift (ROUND showed 0
- * for short batches). PENDING SENIOR CONFIRMATION: round vs round-up.
+ * No. of Shifts Planned = ROUND(batch_qty x cycle_time_min / 60 / shift_hours),
+ * minimum 1 (senior: normal rounding; a short batch still needs one shift).
  * Computed on screen, never stored. Blank ('') for
  * Outsourced stages and for any stage without a cycle time (e.g. Manual), or
  * when the card has no batch qty / shift hours.
@@ -18,7 +17,7 @@ export function shiftsPlanned({ type, cycleTimeMin, batchQty, shiftHours }) {
   const batch = Number(batchQty)
   const hours = Number(shiftHours)
   if (!cycle || !batch || !hours) return ''
-  return Math.ceil((batch * cycle) / 60 / hours)
+  return Math.max(1, Math.round((batch * cycle) / 60 / hours))
 }
 
 /** Job work lead time (days) for an Outsourced stage; '' otherwise. */
@@ -49,18 +48,49 @@ export function templateRow(stage, jobWorkTypes, machines = []) {
   }
 }
 
+/** Sent / received totals of an outsourced stage's DCs ("job order status" rows). */
+export function stageDcTotals(dcs) {
+  return {
+    sent: dcs.reduce((a, d) => a + (Number(d.qty) || 0), 0),
+    back: dcs.reduce((a, d) => a + (Number(d.qty_received) || 0), 0),
+  }
+}
+
+/** Outsourced stage status (migration 031 -- a stage can be split across
+ * vendors): Not Sent (no DC) / Sent / Partially Received / Received. */
+export function outsourcedStageLabel(stage, dcs) {
+  if (stage.status === 'Received') return 'Received'
+  if (!dcs.length) return 'Not Sent'
+  return stageDcTotals(dcs).back === 0 ? 'Sent' : 'Partially Received'
+}
+
+/** "300 of 500 back" for an outsourced stage's DCs ('' when none). */
+export function stageBackLabel(dcs) {
+  if (!dcs.length) return ''
+  const { sent, back } = stageDcTotals(dcs)
+  return `${back.toLocaleString('en-IN')} of ${sent.toLocaleString('en-IN')} back`
+}
+
+/** Job Route Card status text for an outsourced stage: the stored status
+ * until a DC exists, then "<label> (N of M back)". */
+export function outsourcedStageStatus(stage, dcs) {
+  if (!dcs.length) return stage.status ?? ''
+  return `${outsourcedStageLabel(stage, dcs)} (${stageBackLabel(dcs)})`
+}
+
 /**
  * Full Job Route Card rows for one PRD: template columns plus shifts planned,
- * job order number (dc_no of the stage's latest dispatch, if any), date
- * (stage actual_date) and production status (stage status).
+ * job order number(s) (every DC of the stage, oldest first), date (stage
+ * actual_date) and production status (stage status; outsourced stages show
+ * their DC progress, see outsourcedStageStatus).
  */
 export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines = [] }) {
   return [...stages]
     .sort((a, b) => a.seq - b.seq)
     .map((s) => {
-      const latestDispatch = dispatches
+      const stageDcs = dispatches
         .filter((d) => d.stage_id === s.id)
-        .sort((a, b) => String(b.dispatch_date ?? '').localeCompare(String(a.dispatch_date ?? '')))[0]
+        .sort((a, b) => String(a.dispatch_date ?? '').localeCompare(String(b.dispatch_date ?? '')) || String(a.dc_no).localeCompare(String(b.dc_no)))
       return {
         id: s.id,
         seq: s.seq,
@@ -71,9 +101,9 @@ export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, 
           batchQty: card?.batch_qty,
           shiftHours: card?.shift_hours,
         }),
-        job_order_no: latestDispatch?.dc_no ?? '',
+        job_order_no: stageDcs.map((d) => d.dc_no).join(', '),
         date: s.actual_date ?? '',
-        status: s.status ?? '',
+        status: s.type === 'Outsourced' ? outsourcedStageStatus(s, stageDcs) : s.status ?? '',
       }
     })
 }

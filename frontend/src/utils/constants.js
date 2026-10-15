@@ -17,11 +17,11 @@ export const NAV_ITEMS = [
       { key: 'product', label: 'Product Master' },
       { key: 'production-batch', label: 'Production Batch Master' },
       { key: 'machine', label: 'Machine Master' },
+      { key: 'vendor', label: 'Vendor Master' },
+      { key: 'job-work', label: 'Job Work Master' },
       { key: 'cycle-time', label: 'Cycle Time Master' },
       { key: 'route-card', label: 'Route Card' },
       { key: 'maintenance', label: 'Maintenance Master' },
-      { key: 'vendor', label: 'Vendor Master' },
-      { key: 'job-work', label: 'Job Work Master' },
       { key: 'wip', label: 'WIP Master' },
       { key: 'finished-goods', label: 'Finished Goods Master' },
       { key: 'quality', label: 'Quality Master' },
@@ -30,6 +30,7 @@ export const NAV_ITEMS = [
   {
     key: 'customer-order',
     label: 'Customer Orders',
+    roles: ['supervisor', 'admin'],
     subItems: [
       { key: 'enquiry', label: 'New Enquiry' },
       { key: 'order', label: 'New Order' },
@@ -50,6 +51,7 @@ export const NAV_ITEMS = [
   {
     key: 'job-order',
     label: 'Jobwork',
+    roles: ['supervisor', 'admin'],
     subItems: [
       { key: 'dispatch', label: 'Dispatch' },
       { key: 'receipt', label: 'Receipt' },
@@ -85,6 +87,7 @@ export const NAV_ITEMS = [
   {
     key: 'dashboard',
     label: 'Reports & Dashboard',
+    roles: ['supervisor', 'admin'],
     // The module opens a landing with the 9 report cards -- order, names and
     // descriptions from the client deck (Main UI Interface.pptx, slide 18;
     // "Downtine" typo fixed, "despatch" -> "dispatch"). PO Summary /
@@ -134,7 +137,11 @@ export const STATUS_COLORS = {
   Pending: 'bg-amber-100 text-amber-800',
   Completed: 'bg-green-100 text-green-800',
   Received: 'bg-blue-100 text-blue-800',
-  Sent: 'bg-blue-100 text-blue-800',
+  // Jobwork DC / stage (031): Sent -> Partially Received -> Received | Closed Short
+  Sent: 'bg-amber-100 text-amber-800',
+  'Partially Received': 'bg-sky-100 text-sky-800',
+  'Closed Short': 'bg-slate-200 text-slate-700',
+  'Not Sent': 'bg-gray-100 text-gray-600',
   Overdue: 'bg-red-100 text-red-800',
   Active: 'bg-green-100 text-green-800',
   Inactive: 'bg-gray-100 text-gray-600',
