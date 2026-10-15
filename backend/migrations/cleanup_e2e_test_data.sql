@@ -1,16 +1,31 @@
 -- =====================================================================
--- Cleanup: E2E browser test data (runs of 2026-10-09/10 and 2026-10-12)
+-- Cleanup: E2E browser test data (runs of 2026-10-09/10, 2026-10-12, and
+-- the 031 / 030 tests of 2026-10-15 onwards)
 -- NOT a migration -- review, then run manually in the Supabase SQL editor.
+-- Written for the schema AFTER 030 ("production orders" = one row per PRD /
+-- batch, "customer orders" = PO line keyed by order_line_id). Run it LAST,
+-- after 031 and 030 are tested.
 --
 -- Everything is scoped to the TEST- master records, or to rows hanging off
--- the TEST customer's orders (PRD-004 .. PRD-008), so no real data matches.
+-- the TEST customer's PO lines (customer TEST-CUST01): their PRDs in
+-- "production orders" (PRD-004 .. PRD-009 + any planned in the 030 test),
+-- cancelled PRDs, and legacy prd_no values -- so no real data matches.
+-- "quality log results" is a VIEW over the readings in the repo schema --
+-- confirm with check 18 of 030_preflight.sql (if it is a table, delete it before the readings); readings are deleted
+-- before their quality logs below.
 -- Step 1 previews what will be deleted; step 2 deletes in one transaction
 -- (children before parents). Check the preview counts first.
 -- =====================================================================
 
 -- ---------- Step 1: preview -------------------------------------------
-with prd as (select prd_no from "customer orders" where customer_id = 'TEST-CUST01')
-select 'customer orders' as t, count(*) from "customer orders" where customer_id = 'TEST-CUST01'
+with line as (select order_line_id from "customer orders" where customer_id = 'TEST-CUST01'),
+prd as (
+  select prd_no from "production orders" where order_line_id in (select order_line_id from line)
+  union select prd_no from "customer orders" where customer_id = 'TEST-CUST01' and prd_no is not null
+)
+select 'customer orders (PO lines)' as t, count(*) from "customer orders" where customer_id = 'TEST-CUST01'
+union all select 'production orders (PRDs)', count(*) from "production orders" where order_line_id in (select order_line_id from line)
+union all select 'production order cancellations', count(*) from "production order cancellations" where order_line_id in (select order_line_id from line)
 union all select 'customer po headers', count(*) from "customer po headers" where customer_id = 'TEST-CUST01'
 union all select 'customer enquiries', count(*) from "customer enquiries" where customer_id = 'TEST-CUST01'
 union all select 'production route cards', count(*) from "production route cards" where prd_no in (select prd_no from prd)
@@ -22,7 +37,10 @@ union all select 'wip transactions', count(*) from "wip transactions" where prd_
 union all select 'finished goods transactions', count(*) from "finished goods transactions" where prd_no in (select prd_no from prd)
 union all select 'raw material transactions', count(*) from "raw material transactions" where raw_material_code = 'TEST-RM01'
 union all select 'job order dispatch', count(*) from "job order dispatch" where prd_no in (select prd_no from prd)
+union all select 'job order receipt', count(*) from "job order receipt" where dc_no in (select dc_no from "job order dispatch" where prd_no in (select prd_no from prd))
+union all select 'raw material requisitions', count(*) from "raw material requisitions" where prd_no in (select prd_no from prd)
 union all select 'quality logs', count(*) from "quality logs" where prd_no in (select prd_no from prd)
+union all select 'quality log readings', count(*) from "quality log readings" where quality_log_id in (select id from "quality logs" where prd_no in (select prd_no from prd))
 union all select 'maintenance logs', count(*) from "maintenance logs" where machine_id = 'TEST-MC01'
 -- Customer complaints (027) raised against a TEST customer or TEST part.
 union all select 'customer complaints', count(*) from "customer complaints"
@@ -42,6 +60,10 @@ union all select 'customer complaint attachments', count(*) from "customer compl
 -- FGR-003, FGD-001), RM 2 (GRN-002, RMI-002), dispatch 2 (DC-002, DC-003), quality logs 2,
 -- maintenance logs 1, customer complaints 2 (CMP-2026-0001 TEST-CUST01/TEST-PART01,
 -- CMP-2026-0002 TEST-CUST02/TEST-PART02), complaint attachments 2.
+-- Added 2026-10-15 (031 test): PO line / PRD-009 (TEST-PART03, PO TEST-PO-031,
+-- 500), route card JC-008 (1 Outsourced stage), DCs DC-004 (300, received via
+-- JR-003 + JR-004) and DC-005 (200, Closed Short) -- so dispatch +2, receipts
+-- +2, route cards +1. The 030 test adds its own PO line(s) / PRDs here.
 -- Added 2026-10-12 (Shift Verification test): order PRD-008 (TEST-PART04, PO
 -- TEST-PO03), route card JC-007 (Stage 1 – TEST-Deburr, Manual), product
 -- TEST-PART04 + its cycle time row, production logs on PRD-005 / PRD-008 and
@@ -53,8 +75,11 @@ union all select 'customer complaint attachments', count(*) from "customer compl
 -- ---------- Step 2: delete --------------------------------------------
 begin;
 
+create temporary table e2e_line on commit drop as
+  select order_line_id from "customer orders" where customer_id = 'TEST-CUST01';
 create temporary table e2e_prd on commit drop as
-  select prd_no from "customer orders" where customer_id = 'TEST-CUST01';
+  select prd_no from "production orders" where order_line_id in (select order_line_id from e2e_line)
+  union select prd_no from "customer orders" where customer_id = 'TEST-CUST01' and prd_no is not null;
 create temporary table e2e_stage on commit drop as
   select id from "production route card stages" where prd_no in (select prd_no from e2e_prd);
 create temporary table e2e_log on commit drop as
@@ -109,8 +134,10 @@ delete from "production logs" where id in (select id from e2e_log);
 delete from "production route card stages" where id in (select id from e2e_stage);
 delete from "production route cards" where prd_no in (select prd_no from e2e_prd);
 
--- Orders
-delete from "customer orders" where prd_no in (select prd_no from e2e_prd);
+-- Orders: PRDs (030) and their cancellation log, then the PO lines
+delete from "production order cancellations" where order_line_id in (select order_line_id from e2e_line);
+delete from "production orders" where order_line_id in (select order_line_id from e2e_line);
+delete from "customer orders" where order_line_id in (select order_line_id from e2e_line);
 delete from "customer po headers" where customer_id = 'TEST-CUST01';
 delete from "customer enquiries" where customer_id = 'TEST-CUST01';
 

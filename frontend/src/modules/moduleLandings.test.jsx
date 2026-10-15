@@ -31,8 +31,8 @@ describe('module landing tiles', () => {
   )
 
   it('uses deck pictures where they exist and icons otherwise', () => {
-    const art = (key) => Object.fromEntries(landingTiles(key).map((t) => [t.key, t.img ? 'img' : 'icon']))
-    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'img', planning: 'img', 'route-card': 'icon' })
+    const art = (key) => Object.fromEntries(landingTiles(key, 'supervisor').map((t) => [t.key, t.img ? 'img' : 'icon']))
+    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'img', planning: 'img', 'route-card': 'icon', 'shift-verification': 'img' })
     expect(landingTiles('production', 'supervisor').find((t) => t.key === 'shift-verification').img).toBeTruthy()
     expect(art('customer-order')).toEqual({ enquiry: 'img', order: 'img' })
     expect(Object.values(art('job-order'))).toEqual(['img', 'img'])
@@ -64,13 +64,21 @@ describe('module landing tiles', () => {
     expect(subItemLabel('production', 'shift-verification')).toBe('Shift Verification')
   })
 
+  it('Production Planning is supervisor/admin only (creates PRDs, 030)', () => {
+    const keys = (role) => landingTiles('production', role).map((t) => t.key)
+    expect(keys('supervisor')).toContain('planning')
+    expect(keys('admin')).toContain('planning')
+    expect(keys('operator')).toEqual(['production-data-entry', 'manual-operations', 'route-card'])
+  })
+
   it('the production-data-entry screen is labelled "Production Data Entry"', () => {
     expect(subItemLabel('production', 'production-data-entry')).toBe('Production Data Entry')
-    expect(landingTiles('production').map((t) => t.label)).toEqual([
+    expect(landingTiles('production', 'supervisor').map((t) => t.label)).toEqual([
       'Production Planning',
       'Production Data Entry',
       'Manual Operations',
       'Production Route Card',
+      'Shift Verification',
     ])
   })
 })

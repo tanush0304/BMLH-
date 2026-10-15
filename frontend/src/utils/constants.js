@@ -40,7 +40,8 @@ export const NAV_ITEMS = [
     key: 'production',
     label: 'Production',
     subItems: [
-      { key: 'planning', label: 'Production Planning' },
+      // Creates PRDs + route cards (030) -- supervisor/admin only.
+      { key: 'planning', label: 'Production Planning', roles: ['supervisor', 'admin'] },
       { key: 'production-data-entry', label: 'Production Data Entry' },
       { key: 'manual-operations', label: 'Manual Operations' },
       { key: 'route-card', label: 'Production Route Card' },

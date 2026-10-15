@@ -111,6 +111,15 @@ describe('contextual sidebar navigation', () => {
     expect(html).toContain('aria-label="Open Quality"')
   })
 
+  it('hides Production Planning and Shift Verification from an operator', () => {
+    const html = renderToStaticMarkup(
+      createElement(Sidebar, { activeKey: 'production', activeSubKey: 'production-data-entry', onSelect: () => {}, onSelectSub: () => {}, onSignOut: () => {}, role: 'operator' })
+    )
+    expect(html).toContain('Production Data Entry')
+    expect(html).not.toContain('Production Planning')
+    expect(html).not.toContain('Shift Verification')
+  })
+
   it('keeps the navigation scrollable when contextual content exceeds its height', () => {
     const html = renderSidebar('masters', 'customer')
     expect(html).toContain('overflow-y-auto')

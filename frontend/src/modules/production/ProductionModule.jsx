@@ -29,7 +29,8 @@ export default function ProductionModule({ activeTab, role, onSelect }) {
       />
     )
   }
-  // Role-gated screens (Shift Verification) fall back to the first screen.
+  // Role-gated screens (Production Planning, Shift Verification) fall back to
+  // the first screen (Production Data Entry) for an operator.
   const subItem = NAV_ITEMS.find((n) => n.key === 'production').subItems.find((s) => s.key === activeTab)
   const allowed = !subItem || canSeeSubItem(subItem, role)
   const tab = (allowed && TABS.find((t) => t.key === activeTab)) || TABS[0]
