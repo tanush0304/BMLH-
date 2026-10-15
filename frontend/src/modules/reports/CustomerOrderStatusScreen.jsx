@@ -8,6 +8,7 @@ import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listOrdersByPoDate, listFgTransactionsUpTo } from '../../data/queries/reports'
+import { listProductionOrders } from '../../data/queries/customerOrders'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
@@ -28,6 +29,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const [dispatches, setDispatches] = useState([])
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
+  const [prdRows, setPrdRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -41,10 +43,11 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    Promise.all([listOrdersByPoDate(r.applied), listFgTransactionsUpTo(r.applied.to)])
-      .then(([o, fg]) => {
+    Promise.all([listOrdersByPoDate(r.applied), listFgTransactionsUpTo(r.applied.to), listProductionOrders()])
+      .then(([o, fg, prds]) => {
         if (cancelled) return
         setOrders(o)
+        setPrdRows(prds)
         setDispatches(fg.filter((t) => t.transaction_type === 'Dispatch'))
       })
       .catch((e) => !cancelled && setError(e.message))
@@ -59,11 +62,14 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     const dispatched = new Map()
     for (const d of dispatches) dispatched.set(d.prd_no, (dispatched.get(d.prd_no) ?? 0) + (Number(d.qty) || 0))
     const scoped = orders.filter((o) => !r.applied.customerId || o.customer_id === r.applied.customerId)
-    return orderLines(scoped, dispatched).map((l) => {
+    // 030: a PO line's PRDs (one per batch); dispatched = sum over them.
+    const prdsByLine = new Map()
+    for (const p of prdRows) prdsByLine.set(p.order_line_id, [...(prdsByLine.get(p.order_line_id) ?? []), p.prd_no].sort())
+    return orderLines(scoped, dispatched, prdsByLine).map((l) => {
       const p = productBySerial.get(l.part_serial_number)
       return { ...l, customer_name: customerName.get(l.customer_id) ?? l.customer_id, part_name: p?.part_name ?? '', drawing: p?.part_drawing_reference_number ?? '' }
     })
-  }, [orders, dispatches, r.applied.customerId, customerName, productBySerial])
+  }, [orders, dispatches, prdRows, r.applied.customerId, customerName, productBySerial])
 
   const po = useMemo(() => poSummary(lines), [lines])
   const totalQty = lines.reduce((a, l) => a + l.order_qty, 0)
@@ -82,7 +88,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     { key: 'part_name', label: 'Part Name' },
     { key: 'drawing', label: 'Drawing Ref No' },
     { key: 'order_qty', label: 'PO Qty (Nos)', align: 'right', format: formatQty },
-    { key: 'prd_no', label: 'PRD No' },
+    { key: 'prd_list', label: 'PRDs', format: (v) => v || 'Not planned' },
     { key: 'dispatched', label: 'Quantity Dispatched (Nos)', align: 'right', format: formatQty },
     { key: 'status', label: 'Status', render: (row) => <ReportBadge status={row.status} tones={STATUS_TONES} /> },
     {
@@ -92,7 +98,9 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
       render: (row) => (
         <button
           type="button"
-          onClick={() => onOpenTraceability?.(row.prd_no)}
+          disabled={!row.prds.length}
+          title={row.prds.length ? `Trace ${row.prds[0]}` : 'Not planned yet'}
+          onClick={() => onOpenTraceability?.(row.prds[0])}
           className="inline-flex items-center gap-1.5 rounded border border-[#1E5FD0] px-3 py-0.5 text-[12px] font-semibold text-[#1E5FD0] hover:bg-[#E3F0FD]"
         >
           <Eye size={14} /> View
@@ -149,8 +157,8 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           rows={lines}
           loading={loading}
           error={null}
-          rowKey="prd_no"
-          searchKeys={['customer_name', 'po_number', 'part_name', 'drawing', 'prd_no', 'status']}
+          rowKey="order_line_id"
+          searchKeys={['customer_name', 'po_number', 'part_name', 'drawing', 'prd_list', 'status']}
           searchPlaceholder="Search by Customer / PO Reference / Part Name / Drawing No..."
           exportTitle={`Customer Order Status – PO date ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
           exportName="customer_order_status"

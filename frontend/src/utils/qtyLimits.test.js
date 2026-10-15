@@ -51,6 +51,8 @@ describe('E2E #7: FG Receipt ceilings', () => {
   it('takes the smaller of production and order balance', () => {
     expect(fgReceiptLimits({ lastStageAccepted: 18, orderQty: 20, fgReceived: 0 })).toEqual({ fromProduction: 18, fromOrder: 20, max: 18 })
     expect(fgReceiptLimits({ lastStageAccepted: 30, orderQty: 20, fgReceived: 5 })).toEqual({ fromProduction: 25, fromOrder: 15, max: 15 })
+    // 030: PO line 1600 split into PRDs; 1500 already received on the line's other PRDs
+    expect(fgReceiptLimits({ lastStageAccepted: 500, orderQty: 1600, fgReceived: 0, lineFgReceived: 1500 })).toEqual({ fromProduction: 500, fromOrder: 100, max: 100 })
     expect(fgReceiptLimits({ lastStageAccepted: 10, orderQty: 20, fgReceived: 12 })).toEqual({ fromProduction: 0, fromOrder: 8, max: 0 })
   })
   it('blocks 100 > 20-order', () => {

@@ -8,7 +8,7 @@ import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listQualityInspections, listReadingsForLogs, listProductionHours } from '../../data/queries/reports'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listMachines } from '../../data/queries/machines'
 import { listShifts } from '../../data/queries/shifts'
 import { listEmployees } from '../../data/queries/employees'
@@ -45,7 +45,7 @@ export default function QualityStatusScreen() {
   const [chartParam, setChartParam] = useState('')
 
   useEffect(() => {
-    Promise.all([listCustomerOrders(), listMachines(), listShifts(), listEmployees()])
+    Promise.all([listOrdersByPrd(), listMachines(), listShifts(), listEmployees()])
       .then(([orders, machines, shifts, employees]) => setOpts({ orders, machines, shifts, employees }))
       .catch((e) => setError(e.message))
   }, [])

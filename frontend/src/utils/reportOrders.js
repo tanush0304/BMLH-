@@ -7,13 +7,16 @@ function num(v) {
 
 // ---------------------------------------------------------------- Customer orders
 
-/** Order lines with dispatched qty (FG Dispatch up to To) and status:
- * Closed when dispatched >= order qty, else Open. */
-export function orderLines(orders, dispatchedByPrd) {
+/** PO lines with dispatched qty (FG Dispatch up to To, summed over the
+ * line's PRDs -- migration 030 splits a line into one PRD per batch) and
+ * status: Closed when dispatched >= order qty, else Open. prdsByLine maps
+ * order_line_id -> [prd_no]; without it a line's own legacy prd_no is used. */
+export function orderLines(orders, dispatchedByPrd, prdsByLine) {
   return orders.map((o) => {
-    const dispatched = num(dispatchedByPrd.get(o.prd_no))
+    const prds = prdsByLine?.get(o.order_line_id) ?? (o.prd_no ? [o.prd_no] : [])
+    const dispatched = prds.reduce((a, p) => a + num(dispatchedByPrd.get(p)), 0)
     const orderQty = num(o.order_qty)
-    return { ...o, order_qty: orderQty, dispatched, status: dispatched >= orderQty && orderQty > 0 ? 'Closed' : 'Open' }
+    return { ...o, prds, prd_list: prds.join(', '), order_qty: orderQty, dispatched, status: dispatched >= orderQty && orderQty > 0 ? 'Closed' : 'Open' }
   })
 }
 

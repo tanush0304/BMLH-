@@ -78,7 +78,9 @@ export default function FgInventoryScreen() {
       if (!prdsInScope.has(prd)) continue
       if (v.opening === 0 && v.receipts === 0 && v.issues === 0) continue
       const fg = masterByPrd.get(prd) ?? {}
-      const orderQty = fg.order_quantity == null ? null : Number(fg.order_quantity)
+      // 030: per PRD -- its own (batch) qty and balance; the PO line's qty is
+      // in "finished goods master".order_quantity.
+      const orderQty = fg.prd_qty == null ? (fg.order_quantity == null ? null : Number(fg.order_quantity)) : Number(fg.prd_qty)
       out.push({
         prd_no: prd,
         customer_name: fg.customer_name ?? '',

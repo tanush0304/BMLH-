@@ -84,7 +84,7 @@ export const listJobOrderStatusRows = ({ from, to }) =>
 
 /** Customer order lines with PO date from..to. */
 export const listOrdersByPoDate = ({ from, to }) =>
-  fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('prd_no'))
+  fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('order_line_id'))
 
 /** "report quality inspections" (029) for log_date from..to; optional filters. */
 export function listQualityInspections({ from, to, prdNo, machineId, shiftCode, employeeId }) {

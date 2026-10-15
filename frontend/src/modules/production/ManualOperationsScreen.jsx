@@ -9,7 +9,7 @@ import HourlySlotsEntry from '../../components/HourlySlotsEntry'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
@@ -167,14 +167,14 @@ export default function ManualOperationsScreen({ role }) {
     setError(null)
     try {
       const [order, allStages, aggregates, openLog, wipAggregates] = await Promise.all([
-        listCustomerOrders().then((orders) => orders.find((o) => o.prd_no === prd)),
+        listOrdersByPrd().then((orders) => orders.find((o) => o.prd_no === prd)),
         getStagesForPrd(prd),
         getStageAggregatesForPrd(prd),
         getOpenLogForStage(prd, stage.id),
         getWipAggregatesForPrd(prd),
       ])
-      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates, wipAggregates)
-      const targets = computeStageUpstreamTargets(allStages, order?.order_qty ?? 0, aggregates)
+      const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
+      const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)

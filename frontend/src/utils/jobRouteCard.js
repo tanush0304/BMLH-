@@ -174,6 +174,7 @@ export function jobRouteCardPrintHtml({ header, rows }) {
     <div class="top"><h1>JOB ROUTE CARD</h1><div class="jc">JC No: ${escapeHtml(header.jc_no)}</div></div>
     <table class="info">
       <tr>${cell('PRD Number', header.prd_no)}${cell('Batch Qty', header.batch_qty)}${cell('Shift Hours', header.shift_hours)}</tr>
+      <tr>${cell('PO Number', header.po_number)}${cell('Batch', header.batch)}${cell('', '')}</tr>
       <tr>${cell('Part Serial Number', header.part_serial_number)}${cell('Part Name', header.part_name)}${cell('Drawing Reference Number', header.part_drawing_reference_number)}</tr>
     </table>
     <table class="stages"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>

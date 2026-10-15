@@ -13,7 +13,7 @@ import {
   createCustomerOrder,
   updateCustomerOrder,
   deleteCustomerOrder,
-  generateNextPrdNo,
+  listProductionOrders,
 } from '../../data/queries/customerOrders'
 import { createPoHeader } from '../../data/queries/customerPoHeaders'
 import { listCustomerEnquiries } from '../../data/queries/customerEnquiries'
@@ -26,6 +26,8 @@ import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 
 const EMPTY_FORM = {
+  order_line_id: '',
+  prds: '', // PRDs of this line (display only) -- created by Production Planning
   prd_no: '',
   qtn_no: '',
   customer_id: '',
@@ -66,8 +68,11 @@ function emptyLineItem() {
   }
 }
 
+// One row per PO line (migration 030). PRDs are created per batch in
+// Production Planning; "PRDs" shows them (legacy lines keep their old one).
 const LIST_COLUMNS = [
-  { key: 'prd_no', label: 'PRD No' },
+  { key: 'prds', label: 'PRDs' },
+  { key: 'planned_label', label: 'Planned' },
   { key: 'customer_name', label: 'Customer Name' },
   { key: 'po_number', label: 'PO Number' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
@@ -105,15 +110,25 @@ export default function CustomerOrderScreen() {
     setLoading(true)
     setError(null)
     try {
-      const [orders, enq, custs, prods, headers] = await Promise.all([
+      const [orders, prdRows, enq, custs, prods, headers] = await Promise.all([
         listCustomerOrders(),
+        listProductionOrders(),
         listCustomerEnquiries(),
         listCustomers(),
         listProducts(),
         listPoHeaders(),
       ])
       setPoHeaders(headers)
-      setRecords(orders)
+      setRecords(orders.map((o) => {
+        const own = prdRows.filter((p) => p.order_line_id === o.order_line_id)
+        const planned = own.reduce((a, p) => a + Number(p.prd_qty), 0)
+        return {
+          ...o,
+          prds: own.map((p) => p.prd_no).sort().join(', ') || '(not planned)',
+          planned_qty: planned,
+          planned_label: `${planned} of ${Number(o.order_qty)}`,
+        }
+      }))
       setEnquiries(enq)
       setCustomers(custs)
       setProducts(prods)
@@ -177,7 +192,7 @@ export default function CustomerOrderScreen() {
   }
 
   function handleEdit() {
-    if (mode !== 'view' || !form.prd_no) return
+    if (mode !== 'view' || !form.order_line_id) return
     setMode('edit')
   }
 
@@ -271,8 +286,8 @@ export default function CustomerOrderScreen() {
         expected_delivery: form.expected_delivery,
         customer_po_line_no: form.customer_po_line_no || null,
       }, ORDER_LINE_TYPES)
-      const saved = await updateCustomerOrder(form.prd_no, payload)
-      setForm({ ...EMPTY_FORM, ...saved })
+      const saved = await updateCustomerOrder(form.order_line_id, payload)
+      setForm({ ...EMPTY_FORM, ...form, ...Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v ?? ''])) })
       await refresh()
       setMode('view')
     } catch (e) {
@@ -318,9 +333,9 @@ export default function CustomerOrderScreen() {
         payment_terms: poHeader.payment_terms || null,
       })
 
-      // Sequential, not Promise.all -- generateNextPrdNo computes "max + 1"
-      // from what's already committed, so parallel calls could compute the
-      // same next number for two different lines.
+      // Sequential -- a newly typed part is created (and confirmed) before
+      // its line. Lines get no PRD here: Production Planning creates one per
+      // batch (migration 030).
       let knownProducts = products
       const createdPrds = []
       for (const it of validLines) {
@@ -334,9 +349,7 @@ export default function CustomerOrderScreen() {
         })
         const partSerialNumber = resolved.partSerialNumber
         knownProducts = resolved.knownProducts
-        const prdNo = await generateNextPrdNo()
-        await createCustomerOrder(withTypedFields({
-          prd_no: prdNo,
+        const line = await createCustomerOrder(withTypedFields({
           qtn_no: it.qtnNo || null,
           customer_id: poHeader.customer_id,
           po_number: poHeader.po_number,
@@ -348,7 +361,7 @@ export default function CustomerOrderScreen() {
           customer_po_line_no: it.customerPoLineNo || null,
           parent_po_id: header.id,
         }, ORDER_LINE_TYPES))
-        createdPrds.push(prdNo)
+        createdPrds.push(line.order_line_id)
       }
 
       setPoHeader(EMPTY_PO_HEADER)
@@ -368,12 +381,12 @@ export default function CustomerOrderScreen() {
 
   async function handleDelete() {
     if (mode !== 'edit' && mode !== 'view') return
-    if (!form.prd_no) return
-    if (!confirm(`Delete order ${form.prd_no}? This cannot be undone.`)) return
+    if (!form.order_line_id) return
+    if (!confirm(`Delete this PO line (${form.po_number} – ${form.part_serial_number})? This cannot be undone.`)) return
     setSaving(true)
     setSaveError(null)
     try {
-      await deleteCustomerOrder(form.prd_no)
+      await deleteCustomerOrder(form.order_line_id)
       await refresh()
       handleNew()
     } catch (e) {
@@ -398,7 +411,7 @@ export default function CustomerOrderScreen() {
   })).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
-    return r.prd_no?.toLowerCase().includes(q) || r.po_number?.toLowerCase().includes(q) || r.customer_name?.toLowerCase().includes(q)
+    return r.prds?.toLowerCase().includes(q) || r.po_number?.toLowerCase().includes(q) || r.customer_name?.toLowerCase().includes(q)
   })
 
   const readOnly = mode === 'view'
@@ -588,8 +601,8 @@ export default function CustomerOrderScreen() {
           </>
         ) : (
           <FormSection icon={ClipboardList} title="1. Order Details" subtitle="One line item from a PO" columns={3}>
-            <Field label="PRD No">
-              <AutoFillBox value={form.prd_no || '(auto-generated on save)'} />
+            <Field label="PRDs">
+              <AutoFillBox value={form.prds || '(created in Production Planning)'} />
             </Field>
             <Field label="Quotation (QTN)">
               <SearchableSelect
@@ -660,11 +673,11 @@ export default function CustomerOrderScreen() {
           rows={filteredRecords}
           loading={loading}
           error={error}
-          rowKey="prd_no"
-          selectedKey={form.prd_no}
+          rowKey="order_line_id"
+          selectedKey={form.order_line_id}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch} searchPlaceholder="Search by PRD No / PO Number..."
+          onSearchChange={setListSearch} searchPlaceholder="Search by PRD / PO Number / Customer..."
         />
       </div>
     </div>

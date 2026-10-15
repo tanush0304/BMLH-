@@ -3,7 +3,7 @@
 //   cd frontend && node scripts/compareStageAvailability.mjs
 // Logs in as the TEST supervisor from .env.test; Supabase URL/key from .env.
 // Builds the JS inputs the same way the screens do (getStageAggregatesForPrd,
-// getWipAggregatesForPrd, order qty from "customer orders").
+// getWipAggregatesForPrd, stage 1 = the PRD qty from "production orders", migration 030).
 import fs from 'node:fs'
 import { register } from 'node:module'
 import { createClient } from '@supabase/supabase-js'
@@ -45,7 +45,7 @@ if (authError) throw authError
 
 const [stages, orders, logs, hours, dispatches, receipts, wip] = await Promise.all([
   all('production route card stages'),
-  all('customer orders', 'prd_no, order_qty'),
+  all('production orders', 'prd_no, prd_qty'),
   all('production logs', 'id, prd_no, stage_id, planned_qty'),
   all('production log hours', 'log_id, qty_produced, qty_rejected, qty_rework'),
   all('job order dispatch', 'dc_no, prd_no, stage_id, qty'),
@@ -87,7 +87,7 @@ for (const s of stages) stagesByPrd.set(s.prd_no, [...(stagesByPrd.get(s.prd_no)
 const diffs = []
 let checked = 0
 for (const [prdNo, prdStages] of stagesByPrd) {
-  const orderQty = Number(orders.find((o) => o.prd_no === prdNo)?.order_qty ?? 0)
+  const orderQty = Number(orders.find((o) => o.prd_no === prdNo)?.prd_qty ?? 0)
   const js = computeStageAvailability(prdStages, orderQty, aggregates, wipByPrd.get(prdNo) ?? {})
   for (const s of prdStages) {
     const { data: sql, error } = await supabase.rpc('stage_dispatch_remaining', { p_stage_id: s.id })

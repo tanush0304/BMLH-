@@ -25,8 +25,18 @@ export async function listPoSummary() {
   return data
 }
 
+/** PO lines of a PO header, each with its PRDs (migration 030: one per
+ * planned batch; "Not planned" until Production Planning runs). */
 export async function listOrdersForPoHeader(poHeaderId) {
-  const { data, error } = await supabase.from('customer orders').select('*').eq('parent_po_id', poHeaderId)
+  const { data, error } = await supabase.from('customer orders').select('*').eq('parent_po_id', poHeaderId).order('order_line_id')
   if (error) throw error
-  return data
+  const ids = data.map((l) => l.order_line_id)
+  const { data: prds, error: prdError } = ids.length
+    ? await supabase.from('production orders').select('prd_no, order_line_id').in('order_line_id', ids)
+    : { data: [], error: null }
+  if (prdError) throw prdError
+  return data.map((l) => ({
+    ...l,
+    prd_no: prds.filter((p) => p.order_line_id === l.order_line_id).map((p) => p.prd_no).sort().join(', ') || 'Not planned',
+  }))
 }

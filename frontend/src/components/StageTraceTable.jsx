@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import RecordsList from './RecordsList'
-import { listCustomerOrders } from '../data/queries/customerOrders'
+import { listOrdersByPrd } from '../data/queries/customerOrders'
 import { getStagesForPrd } from '../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../data/queries/productionLogs'
 import { getWipAggregatesForPrd } from '../data/queries/wip'
@@ -52,14 +52,14 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
       setError(null)
       try {
         const [orders, stages, aggregates, wipAggregates, dcRows] = await Promise.all([
-          listCustomerOrders(),
+          listOrdersByPrd(),
           getStagesForPrd(prdNo),
           getStageAggregatesForPrd(prdNo),
           getWipAggregatesForPrd(prdNo),
           listJobOrderStatus(),
         ])
         const order = orders.find((o) => o.prd_no === prdNo)
-        const availability = computeStageAvailability(stages, order?.order_qty ?? 0, aggregates, wipAggregates)
+        const availability = computeStageAvailability(stages, order?.prd_qty ?? 0, aggregates, wipAggregates)
         if (cancelled) return
         setRows(
           stages

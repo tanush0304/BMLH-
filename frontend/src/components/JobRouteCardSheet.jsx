@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Printer, X } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { getRouteCard, getStagesForPrd } from '../data/queries/routeCards'
-import { listCustomerOrders } from '../data/queries/customerOrders'
+import { listOrdersByPrd } from '../data/queries/customerOrders'
 import { listProducts } from '../data/queries/products'
 import { listJobWorkTypes } from '../data/queries/jobWorkTypes'
 import { listJobOrderStatus } from '../data/queries/jobOrders'
@@ -45,7 +45,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
         const [card, stages, orders, products, jobWorkTypes, dispatches, machines] = await Promise.all([
           getRouteCard(prdNo),
           getStagesForPrd(prdNo),
-          listCustomerOrders(),
+          listOrdersByPrd(),
           listProducts(),
           listJobWorkTypes(),
           listJobOrderStatus(), // per DC with qty_received -> outsourced stage progress
@@ -62,6 +62,9 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           part_serial_number: order?.part_serial_number ?? '',
           part_name: product?.part_name ?? '',
           part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
+          // 030: PO line + which batch of it this PRD is
+          po_number: order?.po_number ?? '',
+          batch: order ? `${order.batch_no} of ${order.batch_count} (PO line ${order.order_qty})` : '',
         })
         setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines }))
       } catch (e) {
@@ -114,6 +117,8 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           <div className="grid grid-cols-2 border-l border-t border-slate-400 md:grid-cols-6">
             <InfoCell label="PRD Number" value={header.prd_no} />
             <InfoCell label="Batch Qty" value={header.batch_qty} />
+            <InfoCell label="PO Number" value={header.po_number} />
+            <InfoCell label="Batch" value={header.batch} />
             <InfoCell label="Shift Hours" value={header.shift_hours} />
             <InfoCell label="Part Serial Number" value={header.part_serial_number} />
             <InfoCell label="Part Name" value={header.part_name} />

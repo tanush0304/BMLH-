@@ -7,7 +7,7 @@ import FormSection, { Field } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import StageTraceTable from '../../components/StageTraceTable'
 import RecordsList from '../../components/RecordsList'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listJobOrderStatus } from '../../data/queries/jobOrders'
 import { listVendors } from '../../data/queries/vendors'
 import { stageLabel } from '../../utils/stageLabel'
@@ -37,7 +37,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
   useEffect(() => {
     async function load() {
       try {
-        const [ords, dcs, vends] = await Promise.all([listCustomerOrders(), listJobOrderStatus(), listVendors()])
+        const [ords, dcs, vends] = await Promise.all([listOrdersByPrd(), listJobOrderStatus(), listVendors()])
         setOrders(ords)
         setDcRows(dcs)
         setVendors(vends)

@@ -8,7 +8,7 @@ import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listWipTransactionsUpTo } from '../../data/queries/reports'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listAllStages } from '../../data/queries/routeCards'
 import { stageLabel } from '../../utils/stageLabel'
 import { addDays, daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
@@ -33,7 +33,7 @@ export default function WipStatusScreen() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([listCustomerOrders(), listAllStages()])
+    Promise.all([listOrdersByPrd(), listAllStages()])
       .then(([o, s]) => { setOrders(o); setStages(s) })
       .catch((e) => setError(e.message))
   }, [])
@@ -68,7 +68,7 @@ export default function WipStatusScreen() {
       out.push({
         key,
         prd_no: prdNo,
-        order_qty: orderByPrd.get(prdNo)?.order_qty ?? null,
+        order_qty: orderByPrd.get(prdNo)?.prd_qty ?? null, // the PRD's own (batch) qty
         operation: stage?.operation ?? '',
         stage_label: stage ? stageLabel(stage) : '',
         stage_seq: stage?.seq ?? 0,
@@ -86,7 +86,7 @@ export default function WipStatusScreen() {
     const prds = [...new Set(rows.map((x) => x.prd_no))]
     return {
       prds: prds.length,
-      orderQty: prds.reduce((a, p) => a + (Number(orderByPrd.get(p)?.order_qty) || 0), 0),
+      orderQty: prds.reduce((a, p) => a + (Number(orderByPrd.get(p)?.prd_qty) || 0), 0),
       received: rows.reduce((a, x) => a + x.received, 0),
       issued: rows.reduce((a, x) => a + x.issued, 0),
       balance: rows.reduce((a, x) => a + x.balance, 0),

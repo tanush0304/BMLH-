@@ -11,7 +11,7 @@ import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listAllStages } from '../../data/queries/routeCards'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listProducts } from '../../data/queries/products'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
@@ -90,7 +90,7 @@ export default function ShiftVerificationScreen() {
   const [acting, setActing] = useState(false)
 
   useEffect(() => {
-    Promise.all([listShifts(), listMachines(), listEmployees(), listAllStages(), listCustomerOrders(), listProducts(), getCurrentUserId()])
+    Promise.all([listShifts(), listMachines(), listEmployees(), listAllStages(), listOrdersByPrd(), listProducts(), getCurrentUserId()])
       .then(([shf, machs, emps, stages, orders, products, uid]) => {
         setShifts(shf)
         setMachines(machs)

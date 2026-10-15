@@ -14,7 +14,7 @@ const PO_COLUMNS = [
 ]
 
 const LINE_COLUMNS = [
-  { key: 'prd_no', label: 'PRD No' },
+  { key: 'prd_no', label: 'PRDs' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_type', label: 'Order Type' },
   { key: 'order_qty', label: 'Order Qty' },
@@ -107,7 +107,7 @@ export default function CustomerPoSummaryScreen() {
             rows={lineItems}
             loading={lineLoading}
             error={null}
-            rowKey="prd_no"
+            rowKey="order_line_id"
           />
         )}
       </div>

@@ -6,7 +6,7 @@ import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProducts } from '../../data/queries/products'
@@ -56,7 +56,7 @@ export default function RawMaterialRequisitionScreen({ role }) {
     setError(null)
     try {
       const [ords, prods, employeeRows, rms, reqmt, reqs] = await Promise.all([
-        listCustomerOrders(),
+        listOrdersByPrd(),
         listProducts(),
         listEmployees(),
         listRawMaterials(),

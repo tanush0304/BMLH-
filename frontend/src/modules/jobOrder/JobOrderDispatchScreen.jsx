@@ -9,7 +9,7 @@ import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
 import RecordsList from '../../components/RecordsList'
 import StatusPill from '../../components/StatusPill'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
@@ -72,7 +72,7 @@ export default function JobOrderDispatchScreen() {
     setError(null)
     try {
       const [ords, jwts, disps, vends] = await Promise.all([
-        listCustomerOrders(),
+        listOrdersByPrd(),
         listJobWorkTypes(),
         listJobOrderStatus(),
         listVendors(),
@@ -130,7 +130,7 @@ export default function JobOrderDispatchScreen() {
         getWipAggregatesForPrd(prdNo),
       ])
       setVendorOptions(vendors)
-      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates, wipAggregates)
+      const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
       setAvailableQty(availability[stage.id] ?? 0)
     } catch (e) {
       setError(e.message)

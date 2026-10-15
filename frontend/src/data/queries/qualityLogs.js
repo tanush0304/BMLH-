@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
-import { listCustomerOrders } from './customerOrders'
+import { listOrdersByPrd } from './customerOrders'
 import { listRouteCards } from './routeCards'
 
 const LOGS_TABLE = 'quality logs'
@@ -9,7 +9,7 @@ const RESULTS_VIEW = 'quality log results'
 /** Orders that already have a route card -- an inspection can only be
  * logged against a PRD that's actually in production. */
 export async function listPrdsWithRouteCard() {
-  const [orders, cards] = await Promise.all([listCustomerOrders(), listRouteCards()])
+  const [orders, cards] = await Promise.all([listOrdersByPrd(), listRouteCards()])
   const cardedPrds = new Set(cards.map((c) => c.prd_no))
   return orders.filter((o) => cardedPrds.has(o.prd_no))
 }

@@ -1,8 +1,11 @@
 -- =====================================================================
--- 030 (DRAFT, updated for the live schema after 031) -- PRDs created at
--- Production Planning, one PRD per batch.  NOT RUN.
--- Becomes 030_prd_at_planning.sql once 030_preflight.sql output is in:
--- the spots marked [PRE-FLIGHT n] are checked/filled from it.
+-- 030 -- PRDs created at Production Planning, one PRD per batch.  NOT RUN.
+-- Final, written against the 030 pre-flight output (2026-10-15).
+-- Verify afterwards with 030_verify.sql (one small result set).
+--
+-- NOTE: until the 030 frontend lands, Production Planning cannot create
+-- route cards (insert revoked -- plan_production_orders only) and New Order
+-- still writes a legacy prd_no; run the frontend change right after this.
 --
 -- Model:
 --   "customer orders"   = PO LINE (name unchanged). New key order_line_id.
@@ -49,9 +52,11 @@ create table "production orders" (
 create index production_orders_order_line_idx on "production orders" (order_line_id);
 
 -- A cancelled PRD's row is deleted from "production orders" (its qty goes
--- back to the line); this keeps who/when/why and blocks re-use of the number.
+-- back to the line); this keeps who/when/why and blocks re-use of its PRD
+-- and JC numbers.
 create table "production order cancellations" (
   prd_no        text primary key,
+  jc_no         text,
   order_line_id bigint not null references "customer orders" (order_line_id),
   batch_no      integer not null,
   prd_qty       numeric not null,
@@ -71,13 +76,13 @@ revoke all on "production orders", "production order cancellations" from anon;
 
 -- 3. Backfill: every existing PRD = batch 1 of its own line, prd_qty =
 --    order qty (what stage 1 was capped at until now -- nothing in
---    progress changes). [PRE-FLIGHT 13: no order_qty null/<= 0]
+--    progress changes).
 insert into "production orders" (prd_no, order_line_id, batch_no, prd_qty, created_at)
 select prd_no, order_line_id, 1, order_qty, created_at
 from "customer orders";
 
 -- 4. Re-point every FK onto "customer orders"(prd_no) to "production
---    orders"(prd_no), keeping name and ON DELETE. [PRE-FLIGHT 3]
+--    orders"(prd_no), keeping name and ON DELETE.
 do $repoint$
 declare
   c record;
@@ -103,7 +108,7 @@ end
 $repoint$;
 
 -- 5. "customer orders" key -> order_line_id; prd_no becomes legacy.
-alter table "customer orders" drop constraint "customer orders_pkey";   -- [PRE-FLIGHT 2: name]
+alter table "customer orders" drop constraint "customer orders_pkey";
 alter table "customer orders" add primary key (order_line_id);
 alter table "customer orders" alter column prd_no drop not null;
 alter table "customer orders" add constraint customer_orders_prd_no_key unique (prd_no);
@@ -111,8 +116,8 @@ comment on column "customer orders".prd_no is
   'Legacy (pre-030) PRD number. New PO lines leave it null; PRDs live in "production orders".';
 
 -- 6. Unplanned legacy PRDs (no route card) go back to planning: their
---    production order is removed. [PRE-FLIGHT 14/15: all reference counts 0;
---    otherwise the FK stops the whole migration.]
+--    production order is removed. Live: only PRD-007 (TEST, nothing
+--    references it); any reference would make the FK stop the migration.
 delete from "production orders" po
 where not exists (select 1 from "production route cards" rc where rc.prd_no = po.prd_no);
 
@@ -189,8 +194,9 @@ declare
   v_qty       numeric;
   v_prd       "production orders";
 begin
-  if auth.uid() is null then
-    raise exception 'Not signed in' using errcode = '42501';
+  -- Production Planning is supervisor/admin only (UI + here).
+  if not is_app_supervisor() then
+    raise exception 'Only a supervisor or admin can plan production orders' using errcode = '42501';
   end if;
   if p_batches is null or cardinality(p_batches) = 0 then
     raise exception 'Plan at least one batch' using errcode = '23514';
@@ -228,7 +234,11 @@ begin
   perform pg_advisory_xact_lock(hashtext('production orders.prd_no'));
   v_prd_n := next_prd_number() - 1;
   perform pg_advisory_xact_lock(hashtext('production route cards.jc_no'));
-  select coalesce(max(substring(jc_no from '^JC-(\d+)$')::int), 0) into v_jc_n from "production route cards";
+  -- JC numbers of cancelled PRDs count too, so a JC is never re-issued.
+  select greatest(
+           coalesce((select max(substring(jc_no from '^JC-(\d+)$')::int) from "production route cards"), 0),
+           coalesce((select max(substring(jc_no from '^JC-(\d+)$')::int) from "production order cancellations"), 0))
+  into v_jc_n;
 
   foreach v_qty in array p_batches loop
     v_prd_n := v_prd_n + 1;
@@ -304,8 +314,10 @@ begin
     end if;
   end loop;
 
-  insert into "production order cancellations" (prd_no, order_line_id, batch_no, prd_qty, reason, cancelled_by)
-  values (v_prd.prd_no, v_prd.order_line_id, v_prd.batch_no, v_prd.prd_qty, trim(p_reason), auth.uid());
+  insert into "production order cancellations" (prd_no, jc_no, order_line_id, batch_no, prd_qty, reason, cancelled_by)
+  values (v_prd.prd_no,
+          (select jc_no from "production route cards" where prd_no = p_prd_no),
+          v_prd.order_line_id, v_prd.batch_no, v_prd.prd_qty, trim(p_reason), auth.uid());
 
   delete from "production route card stages" where prd_no = p_prd_no;
   delete from "production route cards" where prd_no = p_prd_no;
@@ -376,8 +388,8 @@ end;
 $$;
 
 -- 12. Views: one row per PRD; order figures per PO LINE (summed over the
---     line's PRDs). Live columns kept in order; new ones appended.
---     [PRE-FLIGHT 7: compare with the live definitions before running]
+--     line's PRDs). Live columns kept in order and type (pre-flight 7);
+--     new ones appended.
 create or replace view "finished goods master" as
 with fg as (
   select prd_no,
@@ -450,18 +462,73 @@ join "customer orders" co on co.order_line_id = po.order_line_id
 left join "products master" p on p.part_serial_number = co.part_serial_number
 left join "customers master" c on c.customer_id = co.customer_id;
 
--- [PRE-FLIGHT 7/8] Rewritten from the live definitions once known:
---   "finished goods order status"  -> per PO line: order qty, dispatched
---                                     (sum over the line's PRDs), balance, status
---   "order material requirement"   -> per PRD: BOM x prd_qty (was x order_qty)
---   "order material shortfall"     -> same basis as requirement
---   + any other view in pre-flight 7 that joins "customer orders" by prd_no.
--- "job order status" and "jobwork stage status" (031) do not read
--- "customer orders" -- no change; their stage 1 figures change through
--- stage_dispatch_remaining above.
+-- "finished goods order status": one row per PRD (as before, the app looks
+-- it up by prd_no) but order qty / dispatched / balance / status are per PO
+-- LINE, summed over the line's PRDs. Appended: line id, PRD qty, PRD's own
+-- dispatched qty.
+create or replace view "finished goods order status" as
+with prd_disp as (
+  select po.prd_no, po.order_line_id, po.prd_qty,
+         coalesce(sum(fgt.qty) filter (where fgt.transaction_type = 'Dispatch'), 0) as dispatched
+  from "production orders" po
+  left join "finished goods transactions" fgt on fgt.prd_no = po.prd_no
+  group by po.prd_no, po.order_line_id, po.prd_qty
+),
+line_disp as (
+  select order_line_id, sum(dispatched) as dispatched from prd_disp group by order_line_id
+)
+select
+  pd.prd_no,
+  co.part_serial_number,
+  co.order_qty,
+  ld.dispatched                    as dispatched_qty,
+  co.order_qty - ld.dispatched     as balance_to_dispatch,
+  case when ld.dispatched >= co.order_qty then 'Completed' else 'Not Completed' end as order_status,
+  -- appended
+  pd.order_line_id,
+  pd.prd_qty,
+  pd.dispatched                    as prd_dispatched_qty
+from prd_disp pd
+join line_disp ld on ld.order_line_id = pd.order_line_id
+join "customer orders" co on co.order_line_id = pd.order_line_id;
+
+-- "order material requirement": per PRD, BOM x PRD qty (was x order qty).
+-- Column order_qty is kept (now = the PRD qty); "order material shortfall"
+-- is built on it and needs no change.
+create or replace view "order material requirement" as
+select
+  po.prd_no,
+  co.part_serial_number,
+  po.prd_qty                               as order_qty,
+  prm.raw_material_code,
+  prm.consumption_per_unit,
+  po.prd_qty * prm.consumption_per_unit    as total_qty_required,
+  -- appended
+  po.order_line_id
+from "production orders" po
+join "customer orders" co on co.order_line_id = po.order_line_id
+join "product raw materials" prm on prm.part_serial_number = co.part_serial_number;
+
+-- "customer po summary": count lines, not prd_no (empty on new lines).
+create or replace view "customer po summary" as
+select
+  h.id                       as po_header_id,
+  h.customer_id,
+  h.po_number,
+  h.po_date,
+  count(co.order_line_id)    as line_item_count,
+  sum(co.order_qty)          as total_order_qty
+from "customer po headers" h
+left join "customer orders" co on co.parent_po_id = h.id
+group by h.id, h.customer_id, h.po_number, h.po_date;
+
+-- Unchanged: "job order status", "jobwork stage status" (031) -- they do
+-- not read "customer orders"; their stage 1 figures follow
+-- stage_dispatch_remaining above. "order material shortfall" reads the
+-- requirement view.
 
 commit;
 
 notify pgrst, 'reload schema';
 
--- VERIFY (after run) -- one result set, in the final file.
+-- VERIFY: 030_verify.sql

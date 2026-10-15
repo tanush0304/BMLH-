@@ -9,7 +9,7 @@ import EmployeeSelect from '../../components/EmployeeSelect'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
 import { listMachinesForProductSeqs } from '../../data/queries/productionDataEntry'
 import { buildMachineLabelMap } from '../../utils/machineLabel'
@@ -173,7 +173,7 @@ export default function ProductionDataEntryScreen({ role }) {
       // operations" -- that table is Machine Master's own informational
       // operation list, never used to decide this. See
       // utils/machineEligibility.js.
-      const order = (await listCustomerOrders()).find((o) => o.prd_no === prd)
+      const order = (await listOrdersByPrd()).find((o) => o.prd_no === prd)
       const seqs = [...new Set(stages.map((s) => s.seq))]
       setMachineOpsForPrd(await listMachinesForProductSeqs(order?.part_serial_number, seqs))
     } catch (e) {
@@ -232,14 +232,14 @@ export default function ProductionDataEntryScreen({ role }) {
     setError(null)
     try {
       const [order, allStages, aggregates, openLog, wipAggregates] = await Promise.all([
-        listCustomerOrders().then((orders) => orders.find((o) => o.prd_no === prd)),
+        listOrdersByPrd().then((orders) => orders.find((o) => o.prd_no === prd)),
         getStagesForPrd(prd),
         getStageAggregatesForPrd(prd),
         getOpenLogForStage(prd, stage.id),
         getWipAggregatesForPrd(prd),
       ])
-      const availability = computeStageAvailability(allStages, order?.order_qty ?? 0, aggregates, wipAggregates)
-      const targets = computeStageUpstreamTargets(allStages, order?.order_qty ?? 0, aggregates)
+      const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
+      const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)

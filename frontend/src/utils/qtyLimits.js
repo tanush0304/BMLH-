@@ -25,10 +25,13 @@ export function wipReceiptAvailable({ stageAccepted, alreadyReceived }) {
   return Math.max(0, num(stageAccepted) - num(alreadyReceived))
 }
 
-/** FG Receipt: both ceilings and the binding one. */
-export function fgReceiptLimits({ lastStageAccepted, orderQty, fgReceived }) {
+/** FG Receipt: both ceilings and the binding one. By production = this PRD's
+ * last-stage accepted - FG received for the PRD; by order = the PO line's
+ * order qty - FG received across ALL the line's PRDs (migration 030; defaults
+ * to the PRD's own receipts when lineFgReceived is not given). */
+export function fgReceiptLimits({ lastStageAccepted, orderQty, fgReceived, lineFgReceived = fgReceived }) {
   const fromProduction = Math.max(0, num(lastStageAccepted) - num(fgReceived))
-  const fromOrder = Math.max(0, num(orderQty) - num(fgReceived))
+  const fromOrder = Math.max(0, num(orderQty) - num(lineFgReceived))
   return { fromProduction, fromOrder, max: Math.min(fromProduction, fromOrder) }
 }
 

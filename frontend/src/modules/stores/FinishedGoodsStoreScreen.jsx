@@ -8,7 +8,7 @@ import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import StatusPill from '../../components/StatusPill'
-import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -102,7 +102,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     setError(null)
     try {
       const [ords, employeeRows, shf, bal, txns, status, masterRows, userId] = await Promise.all([
-        listCustomerOrders(),
+        listOrdersByPrd(),
         listEmployees(),
         listShifts(),
         listFinishedGoodsStockBalance(),
@@ -152,9 +152,16 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     balances.find((b) => b.prd_no === prdNo)?.current_stock ?? 0
   const qtyReceivedForPrd = (prdNo) =>
     finishedGoodsMaster.find((row) => row.prd_no === prdNo)?.receipts ?? 0
+  // FG received across every PRD of the same PO line (030: a line has one
+  // PRD per batch; the order ceiling is per line).
+  const qtyReceivedForLineOf = (prdNo) => {
+    const lineId = orders.find((o) => o.prd_no === prdNo)?.order_line_id
+    return finishedGoodsMaster.filter((row) => row.order_line_id === lineId).reduce((a, row) => a + Number(row.receipts ?? 0), 0)
+  }
 
-  // FG Receipt ceiling: the last route-card stage's accepted qty and the
-  // order qty, each minus FG already received for the PRD.
+  // FG Receipt ceiling: the last route-card stage's accepted qty minus FG
+  // received for the PRD, and the PO line's order qty minus FG received for
+  // the whole line.
   const [lastStageAccepted, setLastStageAccepted] = useState(null)
   useEffect(() => {
     const prd = receiptForm.prd_no
@@ -177,6 +184,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
         lastStageAccepted,
         orderQty: selectedReceiptOrder?.order_qty,
         fgReceived: qtyReceivedForPrd(receiptForm.prd_no),
+        lineFgReceived: qtyReceivedForLineOf(receiptForm.prd_no),
       })
     : null
 
@@ -200,6 +208,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
       lastStageAccepted: last ? stageAcceptedQty(aggs, last.id) : 0,
       orderQty: orders.find((o) => o.prd_no === row.prd_no)?.order_qty,
       fgReceived: qtyReceivedForPrd(row.prd_no),
+      lineFgReceived: qtyReceivedForLineOf(row.prd_no),
     })
     return validateCeilingEdit(newQty, row.qty, limits.max, 'the quantity that can be received for this order')
   }

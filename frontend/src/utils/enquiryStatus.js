@@ -10,7 +10,9 @@ export function deriveEnquiryStatuses(enquiries, orders) {
   for (const o of orders) {
     if (!o.qtn_no) continue
     const list = prdsByQtn.get(o.qtn_no) ?? []
-    list.push(o.prd_no)
+    // 030: new PO lines have no prd_no (PRDs are created per batch in
+    // Production Planning) -- show the PO instead.
+    list.push(o.prd_no ?? `PO ${o.po_number}`)
     prdsByQtn.set(o.qtn_no, list)
   }
 

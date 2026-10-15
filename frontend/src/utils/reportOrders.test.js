@@ -9,6 +9,14 @@ describe('customer orders', () => {
   ]
   const lines = orderLines(orders, new Map([['P1', 100], ['P2', 10], ['P3', 25]]))
 
+  it('sums dispatches over the PRDs of a PO line (030 batches)', () => {
+    const line = [{ order_line_id: 7, prd_no: null, customer_id: 'C1', po_number: 'PO-5', order_qty: 1600 }]
+    const byLine = new Map([[7, ['PRD-010', 'PRD-011', 'PRD-012', 'PRD-013']]])
+    const [l] = orderLines(line, new Map([['PRD-010', 500], ['PRD-011', 500], ['PRD-012', 500], ['PRD-013', 100]]), byLine)
+    expect([l.dispatched, l.status, l.prd_list]).toEqual([1600, 'Closed', 'PRD-010, PRD-011, PRD-012, PRD-013'])
+    const [open] = orderLines(line, new Map([['PRD-010', 500]]), byLine)
+    expect([open.dispatched, open.status]).toEqual([500, 'Open'])
+  })
   it('closes a line when dispatched >= order qty', () => {
     expect(lines.map((l) => l.status)).toEqual(['Closed', 'Open', 'Closed'])
   })

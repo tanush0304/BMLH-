@@ -3,7 +3,9 @@ import { stageAcceptedQty } from './qtyLimits'
 /**
  * Stage-to-stage quantity linkage (§4).
  *
- * Stage 1 (lowest seq) is capped by the order quantity itself. Stage N>1 is
+ * Stage 1 (lowest seq) is capped by the PRD (batch) quantity -- since
+ * migration 030 a PO line is split into PRDs; legacy PRDs have prd_qty = their
+ * old order qty. Stage N>1 is
  * capped by whatever stage N-1 actually produced, minus whatever's already
  * been consumed at stage N -- the same rule whether stage N runs on a
  * machine (Internal) or is sent out via Job Order (Outsourced), since both
@@ -16,7 +18,7 @@ import { stageAcceptedQty } from './qtyLimits'
  *
  * @param {Array<{id: number|string, seq: number, type: 'Internal'|'Outsourced'|'Manual'}>} stages
  *   Sorted or unsorted stages for one PRD; sorted internally by seq.
- * @param {number} orderQty - the customer order's order_qty, caps stage 1.
+ * @param {number} orderQty - the PRD's prd_qty ("production orders"), caps stage 1.
  * @param {Record<string, {output: number, consumed: number}>} stageAggregates
  *   Keyed by stage id. `output` = actual qty produced (Internal/Manual, from
  *   production log hours) or received (Outsourced, from job order receipt)
