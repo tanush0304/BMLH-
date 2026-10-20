@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { suggestSplit, validateSplit, lineProgressLabel } from './batchSplit'
+import { suggestSplit, validateSplit, lineProgressLabel, masterBatchSizeFor } from './batchSplit'
 
 describe('suggestSplit', () => {
   it('splits by the master batch size, last batch = remainder', () => {
@@ -26,10 +26,41 @@ describe('validateSplit', () => {
     expect(validateSplit(rows([1600, 0], 1), 1600, 500).errors).toContain('Every batch qty must be greater than 0.')
     expect(validateSplit(rows([1600], 0), 1600, 500).errors).toContain('Tick at least one batch to plan now.')
   })
-  it('only warns when a batch is above the master size', () => {
-    const r = validateSplit(rows([800, 800], 2), 1600, 500)
+  it('blocks a batch above the master size, on every row (ticked or not)', () => {
+    const msg = 'Max batch size for PKH2-0266 is 500 — split into another batch or update the Production Batch Master'
+    const r = validateSplit(rows([800, 300, 500], 1), 1600, 500, 'PKH2-0266')
+    expect(r.errors).toEqual([msg])
+    expect(r.rowErrors).toEqual([msg, null, null])
+    const unticked = validateSplit(rows([500, 1100], 1), 1600, 500, 'PKH2-0266')
+    expect(unticked.rowErrors).toEqual([null, msg])
+    expect(unticked.errors).toContain(msg)
+  })
+  it('allows a batch equal to the master size', () => {
+    const r = validateSplit(rows([500, 500], 2), 1000, 500, 'P1')
     expect(r.errors).toEqual([])
-    expect(r.warnings[0]).toMatch(/800, 800 is above .* \(500\)/)
+    expect(r.rowErrors).toEqual([null, null])
+  })
+  it('no batch size -> no limit', () => {
+    const r = validateSplit(rows([100000], 1), 100000, null, 'P1')
+    expect(r.errors).toEqual([])
+    expect(r.rowErrors).toEqual([null])
+  })
+})
+
+describe('masterBatchSizeFor', () => {
+  const master = [
+    { part_serial_number: 'P1', production_batch_quantity: 500 },
+    { part_serial_number: 'P1', production_batch_quantity: 200 },
+    { part_serial_number: 'P1', production_batch_quantity: 0 },
+    { part_serial_number: 'P2', production_batch_quantity: null },
+  ]
+  it('uses the SMALLEST positive size when a part has several rows (same as 038)', () => {
+    expect(masterBatchSizeFor(master, 'P1')).toBe(200)
+  })
+  it('null when the part has no row or no positive size', () => {
+    expect(masterBatchSizeFor(master, 'P2')).toBeNull()
+    expect(masterBatchSizeFor(master, 'P3')).toBeNull()
+    expect(masterBatchSizeFor(master, '')).toBeNull()
   })
 })
 

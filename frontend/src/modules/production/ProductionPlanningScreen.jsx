@@ -17,7 +17,8 @@ import { planProductionOrders, cancelProductionOrder } from '../../data/queries/
 import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
-import { suggestSplit, validateSplit } from '../../utils/batchSplit'
+import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 const LIST_COLUMNS = [
   { key: 'jc_no', label: 'JC No' },
@@ -46,7 +47,8 @@ const NO_PO_KEY = 'no-po'
 /**
  * Production Planning (migration 030): pick a PO line, split what is left to
  * plan into batches (suggested from Production Batch Master: max per PRD,
- * last = remainder; editable; a batch above the master size only warns),
+ * last = remainder; editable; a batch above the master size is blocked --
+ * row error, Save disabled, and plan_production_orders refuses it, 038),
  * tick the batches to plan now, Save -> one PRD + Job Route Card per ticked
  * batch (plan_production_orders). The rest stays on the line for later.
  * Supervisor/admin can Cancel a PRD that has not started (reason required).
@@ -100,8 +102,8 @@ export default function ProductionPlanningScreen() {
   const selectedLine = lines.find((l) => String(l.order_line_id) === String(form.line_id))
   const selectedCustomer = customers.find((c) => c.customer_id === selectedLine?.customer_id)
   const selectedProduct = products.find((p) => p.part_serial_number === selectedLine?.part_serial_number)
-  const masterBatchSize = batchMaster.find((b) => b.part_serial_number === selectedLine?.part_serial_number)?.production_batch_quantity ?? null
-  const check = selectedLine ? validateSplit(split, selectedLine.remaining_qty, masterBatchSize) : null
+  const masterBatchSize = masterBatchSizeFor(batchMaster, selectedLine?.part_serial_number)
+  const check = selectedLine ? validateSplit(split, selectedLine.remaining_qty, masterBatchSize, selectedLine.part_serial_number) : null
 
   // Raw material for the part's BOM: stock and how many units it covers. No
   // BOM row -> "Pending BOM" (no guessing).
@@ -145,7 +147,7 @@ export default function ProductionPlanningScreen() {
 
   function selectLine(lineId, poKey) {
     const line = lines.find((l) => String(l.order_line_id) === String(lineId))
-    const size = batchMaster.find((b) => b.part_serial_number === line?.part_serial_number)?.production_batch_quantity
+    const size = masterBatchSizeFor(batchMaster, line?.part_serial_number)
     setForm((f) => ({ po_key: poKey, line_id: lineId ? String(lineId) : '', shift_hours: f.shift_hours }))
     setSplit(line ? suggestSplit(line.remaining_qty, size).map((qty) => ({ qty: String(qty), plan: true })) : [])
     setNotice('')
@@ -213,7 +215,7 @@ export default function ProductionPlanningScreen() {
       setNotice(`Planned ${prdNos.join(', ')}${left > 0 ? ` -- ${left} still to plan on this PO line.` : ' -- PO line fully planned.'}`)
       if (prdNos[0]) setRouteCardPrd(prdNos[0])
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -253,6 +255,7 @@ export default function ProductionPlanningScreen() {
       <ActionToolbar
         showEditDelete={false}
         saving={saving}
+        canSave={!check || check.errors.length === 0}
         onNew={handleReset}
         onSave={handleSave}
         onClear={() => {
@@ -331,7 +334,8 @@ export default function ProductionPlanningScreen() {
                     <tr key={i} className="border-t border-slate-100">
                       <td className="py-1 pr-3">{i + 1}</td>
                       <td className="pr-3">
-                        <TextInput type="number" aria-label={`Batch ${i + 1} qty`} value={row.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
+                        <TextInput type="number" aria-label={`Batch ${i + 1} qty`} aria-invalid={Boolean(check.rowErrors[i])} value={row.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
+                        {check.rowErrors[i] && <p role="alert" className="mt-0.5 text-[12px] text-red-600">{check.rowErrors[i]}</p>}
                       </td>
                       <td className="pr-3">
                         <input type="checkbox" aria-label={`Plan batch ${i + 1} now`} checked={row.plan} onChange={(e) => setRow(i, { plan: e.target.checked })} />
@@ -357,7 +361,6 @@ export default function ProductionPlanningScreen() {
                 </span>
               </div>
               {check.errors.map((m) => <p key={m} className="text-[13px] text-red-600">{m}</p>)}
-              {check.warnings.map((m) => <p key={m} className="text-[13px] text-amber-600">{m}</p>)}
             </div>
           </FormSection>
         )}
