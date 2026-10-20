@@ -33,3 +33,11 @@ export function stageLabel(stage) {
   const n = stageDisplayNumber(stage)
   return stage.operation ? `Stage ${n} – ${stage.operation}` : `Stage ${n}`
 }
+
+/** seq -> position over the DISTINCT seqs of a route template (Cycle Time
+ * Master can have several rows -- one per machine -- for the same seq; they
+ * share one stage number). */
+export function positionBySeq(rows = []) {
+  const seqs = [...new Set(rows.map((r) => Number(r.seq)))].sort((a, b) => a - b)
+  return new Map(seqs.map((s, i) => [s, i + 1]))
+}

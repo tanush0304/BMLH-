@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber } from './stageLabel'
+import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber, positionBySeq } from './stageLabel'
 import { noAvailableMessage } from './stageStartGuard'
 import { filterOptions } from './searchableSelect'
 import { openLogsWithSeq } from './machineEligibility'
@@ -50,5 +50,19 @@ describe('stageLabel', () => {
     const opts = [{ value: '91', label: stageLabel({ seq: 4, operation: 'Toughening' }) }, { value: '92', label: stageLabel({ seq: 5, operation: 'Plating' }) }]
     expect(filterOptions(opts, '4').map((o) => o.value)).toEqual(['91'])
     expect(filterOptions(opts, 'plat').map((o) => o.value)).toEqual(['92'])
+  })
+})
+
+describe('positionBySeq (Masters > Route Card template)', () => {
+  it('numbers distinct seqs; rows sharing a seq (one per machine) share the stage number', () => {
+    const m = positionBySeq([{ seq: 20, machine_id: 'MC-005' }, { seq: 10 }, { seq: 20, machine_id: 'MC-004' }, { seq: 35 }])
+    expect([m.get(10), m.get(20), m.get(35)]).toEqual([1, 2, 3])
+    expect(positionBySeq([]).size).toBe(0)
+  })
+  it('the screen shows Stage and Seq columns', async () => {
+    const { readFileSync } = await import('node:fs')
+    const src = readFileSync(new URL('../modules/customerOrder/RouteCardScreen.jsx', import.meta.url), 'utf8')
+    expect(src).toMatch(/>Stage<\/th>\s*<th[^>]*>Seq<\/th>/)
+    expect(src).toContain('stage_no: stageNo.get(Number(r.seq))')
   })
 })
