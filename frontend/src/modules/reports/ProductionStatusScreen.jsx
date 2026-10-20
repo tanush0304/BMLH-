@@ -29,7 +29,7 @@ const lossClass = (v) => (v == null ? '' : v <= 2 ? 'bg-green-100' : v <= 5 ? 'b
 
 const COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
-  { key: 'operation', label: 'Type of Operation', format: (_, r) => stageLabel({ seq: r.stage_seq, operation: r.operation }) },
+  { key: 'operation', label: 'Type of Operation', format: (_, r) => stageLabel({ seq: r.stage_seq, position: r.stage_position, operation: r.operation }) },
   { key: 'machine_name', label: 'Machine', format: (v, r) => (r.machine_id ? `${v ?? ''} (${r.machine_id})` : r.log_id ? MANUAL_LABEL : '') },
   { key: 'required_qty', label: 'Required Qty (Nos)', align: 'right', format: formatQty },
   { key: 'shift_hours', label: 'Shift Hours (Hrs)', align: 'right', format: formatQty },

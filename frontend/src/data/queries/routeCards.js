@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { withStagePositions } from '../../utils/stageLabel'
 import { todayISO } from '../../utils/dates'
 import { toNumberOrNull } from '../../utils/numericFields'
 
@@ -15,13 +16,13 @@ export async function listRouteCards() {
 export async function listAllStages() {
   const { data, error } = await supabase.from(STAGES_TABLE).select('*')
   if (error) throw error
-  return data
+  return withStagePositions(data) // display position per PRD (stageLabel)
 }
 
 export async function getStagesForPrd(prdNo) {
   const { data, error } = await supabase.from(STAGES_TABLE).select('*').eq('prd_no', prdNo).order('seq')
   if (error) throw error
-  return data
+  return withStagePositions(data)
 }
 
 export async function updateStageStatus(stageId, status, actualDate) {

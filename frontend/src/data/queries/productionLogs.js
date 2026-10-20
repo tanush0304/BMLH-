@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabaseClient'
 import { acceptedFromHour } from '../../utils/qtyLimits'
+import { stageNumber } from '../../utils/stageLabel'
 import { isMachineBusyError, machineBusyMessage, SAME_STAGE_MESSAGE } from '../../utils/productionLogConflict'
 
 export async function listLogsForPrd(prdNo) {
@@ -134,10 +135,10 @@ async function describeOpenLogOnMachine(machineId) {
   if (openLog?.stage_id) {
     const { data } = await supabase
       .from('production route card stages')
-      .select('seq, operation')
-      .eq('id', openLog.stage_id)
-      .maybeSingle()
-    stage = data
+      .select('id, prd_no, seq, operation')
+      .eq('prd_no', openLog.prd_no)
+    const own = (data ?? []).find((s) => s.id === openLog.stage_id) ?? null
+    stage = own ? { ...own, position: stageNumber(own, data) } : null
   }
   return machineBusyMessage({ machine, machineId, openLog, stage })
 }

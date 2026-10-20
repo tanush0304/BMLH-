@@ -11,7 +11,7 @@ import { outsourcedStageLabel, stageBackLabel } from '../utils/jobRouteCard'
 
 function buildColumns(card) {
   const columns = [
-    { key: 'seq', label: 'Seq' },
+    { key: 'position', label: 'Stage' }, // position in the route (1, 2, 3 …), not the stored seq
     { key: 'operation', label: 'Operation' },
     { key: 'type', label: 'Type' },
     // Planned machine, or "MC-005 (planned MC-004)" when a log ran on a substitute.

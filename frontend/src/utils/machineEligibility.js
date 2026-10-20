@@ -156,5 +156,9 @@ export function stageMachineDisplay({ plannedId, logs = [] }) {
 
 /** Open logs with their stage seq, for machinesForStage's busy labels. */
 export function openLogsWithSeq(openLogs = [], stages = []) {
-  return openLogs.map((l) => ({ ...l, stage_seq: stages.find((s) => s.id === l.stage_id)?.seq ?? null }))
+  // stage_seq here is the DISPLAY number (route position when known).
+  return openLogs.map((l) => {
+    const st = stages.find((s) => s.id === l.stage_id)
+    return { ...l, stage_seq: st ? st.position ?? st.seq : null }
+  })
 }

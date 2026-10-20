@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { withStagePositions } from '../../utils/stageLabel'
 import { nextSequenceNo } from '../../utils/numbering'
 
 /**
@@ -14,7 +15,8 @@ export async function listPendingOutsourcedStagesForPrd(prdNo) {
     .eq('prd_no', prdNo)
     .order('seq')
   if (error) throw error
-  return data.filter((s) => s.type === 'Outsourced' && s.status === 'Pending')
+  // Positions over the whole route, then filtered (stage picker shows "Stage N").
+  return withStagePositions(data).filter((s) => s.type === 'Outsourced' && s.status === 'Pending')
 }
 
 export async function listVendorsForJobWorkCode(jobWorkCode) {

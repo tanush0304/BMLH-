@@ -2,7 +2,7 @@
 // Card) and the per-part template (Masters > Route Card), kept outside the
 // components so it's independently testable.
 
-import { stageLabel } from './stageLabel'
+import { withStagePositions } from './stageLabel'
 import { stageMachineDisplay } from './machineEligibility'
 
 /**
@@ -38,9 +38,9 @@ export function machineName(machineId, machines = []) {
 export function templateRow(stage, jobWorkTypes, machines = []) {
   const outsourced = stage.type === 'Outsourced'
   return {
-    // "Stage N – operation" when the row has a sequence (route card stages
-    // and Cycle Time Master rows both do), plain operation otherwise.
-    operation: stage.seq != null && stage.seq !== '' ? stageLabel(stage) : (stage.operation ?? ''),
+    // Plain operation; the Job Route Card shows the stage number in its own
+    // "Stage" column (position 1, 2, 3 …), Masters > Route Card shows Seq.
+    operation: stage.operation ?? '',
     machine: outsourced ? '' : machineName(stage.machine_id, machines),
     type: stage.type ?? '',
     // Cycle time is blank on job-work rows -- the lead time column applies instead.
@@ -86,8 +86,7 @@ export function outsourcedStageStatus(stage, dcs) {
  * their DC progress, see outsourcedStageStatus).
  */
 export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines = [], logs = [] }) {
-  return [...stages]
-    .sort((a, b) => a.seq - b.seq)
+  return withStagePositions([...stages].sort((a, b) => a.seq - b.seq))
     .map((s) => {
       const stageDcs = dispatches
         .filter((d) => d.stage_id === s.id)
@@ -95,6 +94,7 @@ export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, 
       return {
         id: s.id,
         seq: s.seq,
+        stage_no: s.position, // position in the route (1, 2, 3 …), not the stored seq
         ...templateRow(s, jobWorkTypes, machines),
         shifts_planned: shiftsPlanned({
           type: s.type,
@@ -122,7 +122,7 @@ export function machineActualText(stage, stageLogs, machines = []) {
 }
 
 export const TEMPLATE_COLUMNS = [
-  { key: 'operation', label: 'Operations Stage' },
+  { key: 'operation', label: 'Operation' },
   { key: 'machine', label: 'Machine' },
   { key: 'type', label: 'Type of Process' },
   { key: 'cycle_time_min', label: 'Cycle Time (min)' },
@@ -130,6 +130,7 @@ export const TEMPLATE_COLUMNS = [
 ]
 
 export const JOB_ROUTE_CARD_COLUMNS = [
+  { key: 'stage_no', label: 'Stage' },
   ...TEMPLATE_COLUMNS,
   { key: 'shifts_planned', label: 'No. of Shifts Planned' },
   { key: 'job_order_no', label: 'Job Order Number' },

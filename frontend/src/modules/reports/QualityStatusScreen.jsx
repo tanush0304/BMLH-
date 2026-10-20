@@ -143,7 +143,7 @@ export default function QualityStatusScreen() {
     for (const i of scopedInspections) {
       const base = {
         prd_no: i.prd_no,
-        stage: stageLabel({ seq: i.stage_seq, operation: i.operation }),
+        stage: stageLabel({ seq: i.stage_seq, position: i.stage_position, operation: i.operation }),
         machine: i.machine_id ? `${i.machine_name ?? ''} (${i.machine_id})` : '—',
         machine_category: i.machine_category,
         log_date: i.log_date,

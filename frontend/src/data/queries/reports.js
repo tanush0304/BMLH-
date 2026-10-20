@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { withStagePositions } from '../../utils/stageLabel'
 
 const PAGE = 1000 // PostgREST's default max rows per request
 
@@ -14,9 +15,22 @@ async function fetchAll(build) {
   }
 }
 
+/** Adds stage_position (the stage's position in its PRD's route) to report
+ * rows that carry stage_id -- labels show "Stage <position>". */
+async function withStagePosition(rows) {
+  const prds = [...new Set(rows.map((r) => r.prd_no).filter(Boolean))]
+  if (!prds.length) return rows
+  const stages = await fetchAll(() => supabase.from('production route card stages').select('id, prd_no, seq').in('prd_no', prds))
+  const pos = new Map(withStagePositions(stages).map((s) => [s.id, s.position]))
+  return rows.map((r) => ({ ...r, stage_position: pos.get(r.stage_id) ?? null }))
+}
+
 /** "report production hours" (029) for log_date from..to; optional filters
  * are skipped when blank. */
-export function listProductionHours({ from, to, prdNo, machineId, shiftCode, employeeId }) {
+export async function listProductionHours(args) {
+  return withStagePosition(await listProductionHoursRaw(args))
+}
+function listProductionHoursRaw({ from, to, prdNo, machineId, shiftCode, employeeId }) {
   return fetchAll(() => {
     let q = supabase
       .from('report production hours')
@@ -92,7 +106,10 @@ export const listOrdersByPoDate = ({ from, to }) =>
   fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('order_line_id'))
 
 /** "report quality inspections" (029) for log_date from..to; optional filters. */
-export function listQualityInspections({ from, to, prdNo, machineId, shiftCode, employeeId }) {
+export async function listQualityInspections(args) {
+  return withStagePosition(await listQualityInspectionsRaw(args))
+}
+function listQualityInspectionsRaw({ from, to, prdNo, machineId, shiftCode, employeeId }) {
   return fetchAll(() => {
     let q = supabase
       .from('report quality inspections')

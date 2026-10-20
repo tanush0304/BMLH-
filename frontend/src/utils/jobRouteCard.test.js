@@ -56,7 +56,8 @@ describe('buildJobRouteCardRows', () => {
 
   it('orders by seq and fills job order no, date and status from the stage', () => {
     const rows = buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches })
-    expect(rows.map((r) => r.operation)).toEqual(['Stage 10 – Turning', 'Stage 20 – Heat Treatment', 'Stage 30 – Deburr'])
+    // Separate columns: Stage = position (1, 2, 3 …, not seq 10/20/30) + plain Operation
+    expect(rows.map((r) => [r.stage_no, r.operation])).toEqual([[1, 'Turning'], [2, 'Heat Treatment'], [3, 'Deburr']])
     expect(rows[0]).toMatchObject({ shifts_planned: 2, job_order_no: '', date: '2026-10-02', status: 'Completed' })
     // Split across two DCs: both listed oldest first, progress summed.
     expect(rows[1]).toMatchObject({ shifts_planned: '', lead_time_days: 5, job_order_no: 'DC-001, DC-004', status: 'Received (300 of 500 back)' })
@@ -88,7 +89,7 @@ describe('buildJobRouteCardRows', () => {
   it('blank print variant: no dates / statuses, every other field filled, headers kept, taller rows', () => {
     const html = jobRouteCardPrintHtml({ header, rows: rows(), blank: true })
     for (const v of ['2026-10-02', '2026-10-05', 'Completed', 'Received (300 of 500 back)', 'Pending']) expect(html).not.toContain(v)
-    for (const v of ['JC No: JC-007', 'PRD-001', '5527000387', 'Batch 1', 'P-1-0-1', 'Rotor', 'Stage 10 – Turning', 'CNC-01', 'Outsourced', '>9<', '>5<', '>2<', 'DC-001, DC-004']) expect(html).toContain(v)
+    for (const v of ['JC No: JC-007', 'PRD-001', '5527000387', 'Batch 1', 'P-1-0-1', 'Rotor', '<td class="">1</td>', '>Turning<', 'CNC-01', 'Outsourced', '>9<', '>5<', '>2<', 'DC-001, DC-004']) expect(html).toContain(v)
     expect(html).toContain('<th class=" hand-date">Date</th>')
     expect(html).toContain('<th class=" hand-status">Production Status</th>')
     expect(html).toContain('class="stages blank"')

@@ -72,6 +72,7 @@ export function productionStatusRows(rows) {
       log_id: logId,
       prd_no: first.prd_no,
       stage_seq: first.stage_seq,
+      stage_position: first.stage_position ?? null,
       operation: first.operation,
       machine_id: first.machine_id,
       machine_name: first.machine_name,

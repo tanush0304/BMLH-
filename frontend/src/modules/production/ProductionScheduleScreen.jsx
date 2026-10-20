@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { withStagePositions } from '../../utils/stageLabel'
 import { CalendarClock } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
@@ -8,7 +9,7 @@ import { supabase } from '../../lib/supabaseClient'
 
 const COLUMNS = [
   { key: 'prd_no', label: 'PRD No' },
-  { key: 'seq', label: 'Seq' },
+  { key: 'position', label: 'Stage' }, // position in the PRD's route (1, 2, 3 …), not the stored seq
   { key: 'operation', label: 'Operation' },
   { key: 'type', label: 'Type' },
   { key: 'machine_id', label: 'Machine ID' },
@@ -34,7 +35,7 @@ export default function ProductionScheduleScreen() {
           .order('prd_no')
           .order('seq')
         if (error) throw error
-        setStages(data)
+        setStages(withStagePositions(data))
       } catch (e) {
         setError(e.message)
       } finally {

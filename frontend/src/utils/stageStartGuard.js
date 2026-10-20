@@ -2,7 +2,7 @@
 // Pure helpers: default stage pick, the pre-Start summary, the "nothing
 // available" block, the earlier-stage-not-complete warning and the
 // running-log banner text.
-import { stageLabel } from './stageLabel'
+import { stageLabel, stageDisplayNumber } from './stageLabel'
 
 const DONE = new Set(['Completed', 'Received'])
 const bySeq = (a, b) => Number(a.seq) - Number(b.seq)
@@ -37,7 +37,7 @@ export function startSummary({ stage, machineLabel, available }) {
 
 /** Message when the stage has nothing to process yet. */
 export function noAvailableMessage(stage) {
-  return `Nothing available for Stage ${stage?.seq} yet — the previous stage has not produced accepted pieces.`
+  return `Nothing available for Stage ${stageDisplayNumber(stage)} yet — the previous stage has not produced accepted pieces.`
 }
 
 /**
