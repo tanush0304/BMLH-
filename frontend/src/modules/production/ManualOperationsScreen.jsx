@@ -41,6 +41,8 @@ import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import StageStartGuard from '../../components/StageStartGuard'
+import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -63,6 +65,8 @@ export default function ManualOperationsScreen({ role }) {
   const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible Manual stage
   const [resolvedStage, setResolvedStage] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
+  const [prdAllStages, setPrdAllStages] = useState([]) // every stage of the PRD -- earlier-stage check
+  const [confirmEarlier, setConfirmEarlier] = useState(false)
   const [stageTarget, setStageTarget] = useState(null)
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
   const [resolving, setResolving] = useState(false)
@@ -165,6 +169,7 @@ export default function ManualOperationsScreen({ role }) {
 
   async function resolveStage(prd, stage) {
     setResolvedStage(stage)
+    setConfirmEarlier(false)
     setResolving(true)
     setError(null)
     try {
@@ -177,6 +182,7 @@ export default function ManualOperationsScreen({ role }) {
       ])
       const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
+      setPrdAllStages(allStages)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
@@ -202,6 +208,7 @@ export default function ManualOperationsScreen({ role }) {
   }
 
   async function handleStart() {
+    if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
     if (!prdNo || !resolvedStage || !employeeId || !shiftCode) {
       setError('PRD, Stage, Employee and Shift are all required to start.')
       return
@@ -335,6 +342,7 @@ export default function ManualOperationsScreen({ role }) {
     await loadPendingStages()
   }
 
+  const earlierIncomplete = resolvedStage ? earlierIncompleteStage(prdAllStages, resolvedStage) : null
   const noEligibleStage = prdNo && !resolving && stageChoicesForPrd.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
@@ -396,6 +404,9 @@ export default function ManualOperationsScreen({ role }) {
             <p className="sm:col-span-3 flex items-start gap-2 text-xs text-[#0A4CB0] bg-[#EAF2FD] border border-[#A9C8EE] rounded px-3 py-2">
               <Lock size={14} className="mt-px shrink-0" aria-hidden="true" />
               <span>
+                <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
+                  {runningBanner({ stage: resolvedStage })}
+                </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · started{' '}
                 {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD and Stage are
                 locked until you End Log or Mark Stage Complete.
@@ -444,10 +455,19 @@ export default function ManualOperationsScreen({ role }) {
                 shift any NEW hours get logged under, today or on a future day.
               </p>
             )}
+            {!activeLog && (
+              <StageStartGuard
+                stage={resolvedStage}
+                available={plannedQty}
+                earlierIncomplete={earlierIncomplete}
+                confirmed={confirmEarlier}
+                onConfirmChange={setConfirmEarlier}
+              />
+            )}
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog || !plannedQty}
+                disabled={starting || !!activeLog || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start'}

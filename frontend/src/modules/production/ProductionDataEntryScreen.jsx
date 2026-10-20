@@ -46,6 +46,8 @@ import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import StageStartGuard from '../../components/StageStartGuard'
+import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -63,6 +65,9 @@ export default function ProductionDataEntryScreen({ role }) {
   const [prdStages, setPrdStages] = useState([]) // this PRD's own eligible stages, any machine
   const [machineOpsForPrd, setMachineOpsForPrd] = useState([]) // {machine_id, seq} rows -- Cycle Time Master's record of which machines can run which of prdStages' seqs
   const [resolving, setResolving] = useState(false)
+  const [prdAllStages, setPrdAllStages] = useState([]) // every stage of the PRD (any type / status) -- earlier-stage check
+  const [nextStageMachineId, setNextStageMachineId] = useState('') // default pick, labelled "(next stage)"
+  const [confirmEarlier, setConfirmEarlier] = useState(false) // "I confirm" for an incomplete earlier stage
 
   const [machineId, setMachineId] = useState('')
   const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible stage on this machine
@@ -114,7 +119,7 @@ export default function ProductionDataEntryScreen({ role }) {
     const match = pickOpenLogForScreen(openLogs, pending)
     if (!match) return
     const { log, stage } = match
-    await selectPrd(log.prd_no, pending)
+    await selectPrd(log.prd_no, pending, { autoPick: false })
     setMachineId(log.machine_id ?? '')
     setStageChoiceId(String(stage.id))
     if (log.employee_id) setEmployeeId(log.employee_id)
@@ -150,9 +155,11 @@ export default function ProductionDataEntryScreen({ role }) {
     await selectPrd(e.target.value, pendingStages)
   }
 
-  async function selectPrd(prd, pending) {
+  async function selectPrd(prd, pending, { autoPick = true } = {}) {
     setPrdNo(prd)
     setMachineId('')
+    setNextStageMachineId('')
+    setPrdAllStages([])
     setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
@@ -177,7 +184,25 @@ export default function ProductionDataEntryScreen({ role }) {
       // utils/machineEligibility.js.
       const order = (await listOrdersByPrd()).find((o) => o.prd_no === prd)
       const seqs = [...new Set(stages.map((s) => s.seq))]
-      setMachineOpsForPrd(await listMachinesForProductSeqs(order?.part_serial_number, seqs))
+      const rows = await listMachinesForProductSeqs(order?.part_serial_number, seqs)
+      setMachineOpsForPrd(rows)
+      if (autoPick) {
+        // Default: the machine of the EARLIEST pending stage (route card
+        // order) that has something available -- labelled "(next stage)".
+        const [allStages, aggregates, wipAggregates] = await Promise.all([
+          getStagesForPrd(prd),
+          getStageAggregatesForPrd(prd),
+          getWipAggregatesForPrd(prd),
+        ])
+        const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
+        const candidates = stages.filter((s) => rows.some((r) => r.seq === s.seq))
+        const next = pickDefaultStage(candidates, availability)
+        const machine = defaultMachineForStage(next, rows)
+        if (next && machine) {
+          setNextStageMachineId(machine)
+          selectMachine(machine, { stages, rows, prd, preferStage: next })
+        }
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -194,8 +219,16 @@ export default function ProductionDataEntryScreen({ role }) {
 
   function handleMachineChange(e) {
     if (activeLog) return // locked while a log is open
-    const id = e.target.value
+    selectMachine(e.target.value)
+  }
+
+  // ctx: values from selectPrd before React state has caught up (default pick).
+  function selectMachine(id, ctx = {}) {
+    const stagesNow = ctx.stages ?? prdStages
+    const rowsNow = ctx.rows ?? machineOpsForPrd
+    const prdNow = ctx.prd ?? prdNo
     setMachineId(id)
+    setConfirmEarlier(false)
     setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
@@ -204,11 +237,14 @@ export default function ProductionDataEntryScreen({ role }) {
     setActiveLog(null)
     resetReportHeader()
     if (!id) return
-    const choices = prdStages.filter((s) =>
-      machineOpsForPrd.some((r) => r.machine_id === id && r.seq === s.seq)
+    const choices = stagesNow.filter((s) =>
+      rowsNow.some((r) => r.machine_id === id && r.seq === s.seq)
     )
     if (choices.length === 1) {
-      resolveStage(prdNo, choices[0], id)
+      resolveStage(prdNow, choices[0], id)
+    } else if (ctx.preferStage && choices.some((s) => s.id === ctx.preferStage.id)) {
+      setStageChoiceId(String(ctx.preferStage.id))
+      resolveStage(prdNow, ctx.preferStage, id)
     }
     // If there's more than one, wait for the user to pick via
     // handleStageChoice below -- don't guess which one they mean.
@@ -219,6 +255,7 @@ export default function ProductionDataEntryScreen({ role }) {
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
+    setConfirmEarlier(false)
     if (stage) resolveStage(prdNo, stage, machineId)
   }
 
@@ -242,6 +279,7 @@ export default function ProductionDataEntryScreen({ role }) {
       ])
       const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
+      setPrdAllStages(allStages)
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
@@ -273,6 +311,7 @@ export default function ProductionDataEntryScreen({ role }) {
   }
 
   async function handleStart() {
+    if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
     if (!machineId || !prdNo || !resolvedStage || !employeeId || !shiftCode) {
       setError('Machine, PRD, Employee and Shift are all required to start.')
       return
@@ -423,6 +462,7 @@ export default function ProductionDataEntryScreen({ role }) {
     await loadPendingStages()
   }
 
+  const earlierIncomplete = resolvedStage ? earlierIncompleteStage(prdAllStages, resolvedStage) : null
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
@@ -474,7 +514,10 @@ export default function ProductionDataEntryScreen({ role }) {
               value={machineId}
               onChange={handleMachineChange}
               disabled={!!activeLog || !prdNo || eligibleMachineIds.length === 0}
-              options={eligibleMachineIds.map((id) => ({ value: id, label: machineLabels[id] ?? id }))}
+              options={eligibleMachineIds.map((id) => ({
+                value: id,
+                label: `${machineLabels[id] ?? id}${id === nextStageMachineId ? ' (next stage)' : ''}`,
+              }))}
             />
           </Field>
           {stageChoicesForPrd.length > 1 && (
@@ -492,6 +535,9 @@ export default function ProductionDataEntryScreen({ role }) {
             <p className="sm:col-span-3 flex items-start gap-2 text-xs text-[#0A4CB0] bg-[#EAF2FD] border border-[#A9C8EE] rounded px-3 py-2">
               <Lock size={14} className="mt-px shrink-0" aria-hidden="true" />
               <span>
+                <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
+                  {runningBanner({ stage: resolvedStage, machineLabel: machineLabels[activeLog.machine_id] ?? activeLog.machine_id })}
+                </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · Machine{' '}
                 <strong>{machineLabels[activeLog.machine_id] ?? activeLog.machine_id}</strong> · started{' '}
                 {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD, Stage and Machine
@@ -565,10 +611,20 @@ export default function ProductionDataEntryScreen({ role }) {
                 shift any NEW hours get logged under, today or on a future day.
               </p>
             )}
+            {!activeLog && (
+              <StageStartGuard
+                stage={resolvedStage}
+                machineLabel={machineLabels[machineId] ?? machineId}
+                available={plannedQty}
+                earlierIncomplete={earlierIncomplete}
+                confirmed={confirmEarlier}
+                onConfirmChange={setConfirmEarlier}
+              />
+            )}
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog || !plannedQty}
+                disabled={starting || !!activeLog || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}
