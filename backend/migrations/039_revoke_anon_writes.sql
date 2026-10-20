@@ -1,5 +1,18 @@
 -- =====================================================================
--- 039 -- Lock down the anon role before public hosting.  NOT RUN.
+-- 039 -- Lock down the anon role before public hosting.  RUN 2026-10-20.
+--
+-- STEP 3 results (2026-10-20):
+--   1. anon: 0 privileges on tables / views / sequences in public; all 13
+--      non-security_invoker views closed to anon (anon_select false).
+--   2. anon_exec 0; auth_exec 57 and service_exec 58 -- unchanged from STEP 1.
+--   3. Only assign_complaint_no() is not executable by authenticated (as
+--      before -- 027 revoked it on purpose).
+--   4. Row-lock UPDATE for authenticated: true x3 ("customer orders",
+--      "production route card stages", "raw materials master").
+--   5. authenticated: SELECT 62 / INSERT 59 / UPDATE 59 / DELETE 52 tables,
+--      no TRUNCATE.
+--   6-7. In-app checks (reads; GRN save + Void as the TEST supervisor): not
+--      recorded here yet.
 --
 -- Does the app use anon (before login)?  NO table / view / RPC access.
 -- Checked in the frontend (2026-10-20): before sign-in the app only calls
@@ -8,7 +21,7 @@
 -- storage call runs after login (App renders LoginScreen until a session
 -- exists; the role lookup getMyAppUser/createAppUser is keyed on the
 -- signed-in user id). So anon needs no write and no EXECUTE.
--- anon also loses SELECT (2026-10-20): the app never reads as anon, and 4
+-- anon also loses SELECT (2026-10-20): the app never reads as anon, and 13
 -- views in public are not security_invoker -- they run as their owner and
 -- would hand data to anon past RLS. anon ends with NO privilege at all on
 -- tables / views in public (ALL revoked, incl. REFERENCES / TRIGGER).
@@ -112,7 +125,7 @@ notify pgrst, 'reload schema';
 --   select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
 --   where n.nspname = 'public' and c.relkind = 'S'
 --     and (has_sequence_privilege('anon', c.oid, 'USAGE') or has_sequence_privilege('anon', c.oid, 'SELECT'));
---   -- and the 4 non-security_invoker views are closed to anon (expect all false):
+--   -- and the 13 non-security_invoker views are closed to anon (expect all false):
 --   select c.relname, has_table_privilege('anon', c.oid, 'SELECT') as anon_select
 --   from pg_class c join pg_namespace n on n.oid = c.relnamespace
 --   where n.nspname = 'public' and c.relkind = 'v'
