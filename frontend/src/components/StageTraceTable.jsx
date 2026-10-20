@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import RecordsList from './RecordsList'
 import { listOrdersByPrd } from '../data/queries/customerOrders'
 import { getStagesForPrd } from '../data/queries/routeCards'
-import { getStageAggregatesForPrd } from '../data/queries/productionLogs'
+import { getStageAggregatesForPrd, listLogsForPrd } from '../data/queries/productionLogs'
+import { stageMachineDisplay } from '../utils/machineEligibility'
 import { getWipAggregatesForPrd } from '../data/queries/wip'
 import { computeStageAvailability } from '../utils/calculations'
 import { listJobOrderStatus } from '../data/queries/jobOrders'
@@ -13,6 +14,8 @@ function buildColumns(card) {
     { key: 'seq', label: 'Seq' },
     { key: 'operation', label: 'Operation' },
     { key: 'type', label: 'Type' },
+    // Planned machine, or "MC-005 (planned MC-004)" when a log ran on a substitute.
+    { key: 'machine', label: 'Machine' },
     { key: 'status', label: 'Status', type: 'status' },
     // Outsourced stages: DC progress, e.g. "300 of 500 back · DC-001, DC-004".
     { key: 'jobwork', label: 'Jobwork' },
@@ -51,12 +54,13 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
       setLoading(true)
       setError(null)
       try {
-        const [orders, stages, aggregates, wipAggregates, dcRows] = await Promise.all([
+        const [orders, stages, aggregates, wipAggregates, dcRows, logs] = await Promise.all([
           listOrdersByPrd(),
           getStagesForPrd(prdNo),
           getStageAggregatesForPrd(prdNo),
           getWipAggregatesForPrd(prdNo),
           listJobOrderStatus(),
+          listLogsForPrd(prdNo),
         ])
         const order = orders.find((o) => o.prd_no === prdNo)
         const availability = computeStageAvailability(stages, order?.prd_qty ?? 0, aggregates, wipAggregates)
@@ -69,6 +73,7 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
               const outsourced = s.type === 'Outsourced'
               return {
                 ...s,
+                machine: s.type === 'Internal' ? stageMachineDisplay({ plannedId: s.machine_id, logs: logs.filter((l) => l.stage_id === s.id) }) : '',
                 status: outsourced ? outsourcedStageLabel(s, dcs) : s.status,
                 jobwork: outsourced && dcs.length ? `${stageBackLabel(dcs)} · ${dcs.map((d) => d.dc_no).sort().join(', ')}` : '',
                 actual_output: aggregates[s.id]?.output ?? (s.type === 'Manual' ? '—' : 0),

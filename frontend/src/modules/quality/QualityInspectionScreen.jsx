@@ -27,7 +27,9 @@ import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/S
 import { employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
-import { stagesEligibleForMachine } from '../../utils/machineEligibility'
+import { machinesForStage, qualityParamsForMachine } from '../../utils/machineEligibility'
+import { MACHINE_CHOICE_MODE } from '../../utils/constants'
+import { listAllMachineOperations } from '../../data/queries/machineOperations'
 import { supabase } from '../../lib/supabaseClient'
 
 const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
@@ -64,6 +66,7 @@ export default function QualityInspectionScreen({ role }) {
 
   const [header, setHeader] = useState(EMPTY_HEADER)
   const [prdStages, setPrdStages] = useState([]) // Internal stages for the chosen PRD
+  const [paramNote, setParamNote] = useState('') // "parameters from planned machine …"
   const [eligibleStages, setEligibleStages] = useState([]) // this PRD's stages the chosen machine can actually run, per Cycle Time Master
   const [resolvedStage, setResolvedStage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -148,12 +151,17 @@ export default function QualityInspectionScreen({ role }) {
       return
     }
     try {
-      const { data, error } = await supabase
-        .from('cycle time master')
-        .select('machine_id, seq, part_serial_number')
-        .eq('part_serial_number', partSerialNumber)
+      const [{ data, error }, machineOps] = await Promise.all([
+        supabase.from('cycle time master').select('machine_id, seq, part_serial_number').eq('part_serial_number', partSerialNumber),
+        listAllMachineOperations(),
+      ])
       if (error) throw error
-      setEligibleStages(stagesEligibleForMachine({ stages: prdStages, cycleTimeRows: data, partSerialNumber, machineId }))
+      // Same rule as Production Data Entry: planned machine + substitutes (MACHINE_CHOICE_MODE).
+      setEligibleStages(
+        prdStages.filter((st) =>
+          machinesForStage({ mode: MACHINE_CHOICE_MODE, stage: st, machineOps, machines, cycleTimeRows: data }).some((m) => m.machine_id === machineId)
+        )
+      )
     } catch (e) {
       setError(e.message)
     }
@@ -193,12 +201,15 @@ export default function QualityInspectionScreen({ role }) {
     setSubmitting(true)
     try {
       const params = await listQualityParameters()
-      const matching = params.filter(
-        (p) =>
-          p.part_serial_number === selectedOrder?.part_serial_number &&
-          p.machine_id === header.machine_id &&
-          (!p.type_of_operation || p.type_of_operation === header.operation)
-      )
+      // Chosen machine's parameters, else the planned machine's (substitute machine).
+      const { params: matching, note } = qualityParamsForMachine({
+        params,
+        partSerialNumber: selectedOrder?.part_serial_number,
+        operation: header.operation,
+        chosenId: header.machine_id,
+        plannedId: resolvedStage.machine_id,
+      })
+      setParamNote(note)
       setReadingRows(
         matching.map((p) => ({
           quality_parameter_id: p.id,
@@ -407,6 +418,11 @@ export default function QualityInspectionScreen({ role }) {
               <div className="bg-red-50 border-b border-red-200 text-red-700 text-xs px-3.5 py-1.5">{saveError}</div>
             )}
 
+            {paramNote && readingRows.length > 0 && (
+              <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-3.5 py-1.5" data-testid="param-note">
+                {paramNote}
+              </div>
+            )}
             {readingRows.length === 0 ? (
               <div className="p-4 text-xs text-gray-500">
                 No quality parameters are defined for product "{selectedOrder?.part_serial_number}" on machine "

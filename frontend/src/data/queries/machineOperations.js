@@ -18,3 +18,10 @@ export async function setMachineOperations(machineId, operations) {
     .insert(operations.map((operation) => ({ machine_id: machineId, operation })))
   if (insErr) throw insErr
 }
+
+/** Every machine's operations (substitute machines, MACHINE_CHOICE_MODE 'capable'). */
+export async function listAllMachineOperations() {
+  const { data, error } = await supabase.from(TABLE).select('machine_id, operation')
+  if (error) throw error
+  return data
+}

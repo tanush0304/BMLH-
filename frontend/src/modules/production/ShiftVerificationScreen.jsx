@@ -25,6 +25,7 @@ import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { todayISO } from '../../utils/dates'
 import { subItemLabel } from '../../utils/constants'
 import { machineOptionLabel } from '../../utils/machineLabel'
+import { substituteLine } from '../../utils/machineEligibility'
 import { employeeLabelForId } from '../../utils/employeeLabel'
 import { acceptedFromHour } from '../../utils/qtyLimits'
 import { totalIdle } from '../../utils/productionReport'
@@ -165,6 +166,20 @@ export default function ShiftVerificationScreen({ role }) {
   const shownManualRows = machineFilter ? [] : search(filterShiftRows(manualRows, filters), searchManual)
 
   const selected = [...machineRows, ...manualRows].find((r) => r.key === selectedKey) ?? null
+  const labelOf = (id) => {
+    const m = machines.find((x) => x.machine_id === id)
+    return m ? machineOptionLabel(m) : id
+  }
+  const substituteText = selected
+    ? substituteLine({
+        actualId: selected.machine_id,
+        plannedId: selected.planned_machine_id,
+        actualLabel: labelOf(selected.machine_id),
+        plannedLabel: labelOf(selected.planned_machine_id),
+        reason: selected.substitute_reason,
+        note: selected.substitute_reason_note,
+      })
+    : ''
   const blockedReason = selected ? approveBlockedReason(selected, currentUserId) : null
   const showCorrect = canCorrectRole(role) && Boolean(selected?.log_id) && !selected?.log_is_open && selected?.status !== 'Approved'
   const correctBlock = showCorrect ? correctBlockedReason(selected, role, currentUserId) : null
@@ -353,6 +368,7 @@ export default function ShiftVerificationScreen({ role }) {
                   </span>
                 )}
                 {correctedBy && <span className="text-amber-700">{correctedBy}</span>}
+                {substituteText && <span className="text-amber-800 font-medium" data-testid="substitute-line">{substituteText}</span>}
                 {showCorrect && !correcting && (
                   <button
                     type="button"

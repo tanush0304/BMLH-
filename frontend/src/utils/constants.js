@@ -175,3 +175,17 @@ export function isModuleRestricted(moduleKey, role) {
 export function canSeeSubItem(subItem, role) {
   return !subItem.roles || subItem.roles.includes(role)
 }
+
+/**
+ * Which machines Production Data Entry / Quality Inspection offer for a stage
+ * (utils/machineEligibility.js machinesForStage):
+ *   'capable'  -- planned machine + machines whose "machine operations" match
+ *                 the stage operation (+ Cycle Time Master machines); no
+ *                 match -> the planned machine's category
+ *   'category' -- planned machine + every machine of its category (+ Cycle Time)
+ *   'any'      -- planned machine + every machine
+ */
+export const MACHINE_CHOICE_MODE = 'capable'
+
+/** Reasons for running a stage on a machine other than the planned one (040). */
+export const SUBSTITUTE_REASONS = ['Planned machine busy', 'Breakdown', 'Supervisor instruction', 'Other']

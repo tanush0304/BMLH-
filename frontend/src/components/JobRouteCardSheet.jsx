@@ -7,12 +7,14 @@ import { listProducts } from '../data/queries/products'
 import { listJobWorkTypes } from '../data/queries/jobWorkTypes'
 import { listJobOrderStatus } from '../data/queries/jobOrders'
 import { listMachines } from '../data/queries/machines'
+import { listLogsForPrd } from '../data/queries/productionLogs'
 import { orderLineProgress } from '../utils/batchSplit'
 import {
   JOB_ROUTE_CARD_COLUMNS,
   TEMPLATE_COLUMNS,
   BLANK_COLUMN_KEYS,
   ROUTE_CARD_VARIANTS,
+  routeCardCell,
   buildJobRouteCardRows,
   printJobRouteCard,
 } from '../utils/jobRouteCard'
@@ -82,7 +84,7 @@ export function JobRouteCardBody({ header, rows, blank = false }) {
                     key={c.key}
                     className={`border border-slate-400 px-2 py-1.5 text-slate-900 ${TEMPLATE_KEYS.has(c.key) ? 'bg-[#FFF8D6]' : ''} ${blank ? 'h-9' : ''}`}
                   >
-                    {blank && BLANK_COLUMN_KEYS.has(c.key) ? null : c.key === 'status' ? <StatusPill status={r.status} /> : r[c.key]}
+                    {blank && BLANK_COLUMN_KEYS.has(c.key) ? null : c.key === 'status' ? <StatusPill status={r.status} /> : routeCardCell(r, c.key, blank)}
                   </td>
                 ))}
               </tr>
@@ -114,7 +116,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
       setLoading(true)
       setError(null)
       try {
-        const [card, stages, orders, products, jobWorkTypes, dispatches, machines] = await Promise.all([
+        const [card, stages, orders, products, jobWorkTypes, dispatches, machines, logs] = await Promise.all([
           getRouteCard(prdNo),
           getStagesForPrd(prdNo),
           listOrdersByPrd(),
@@ -122,6 +124,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           listJobWorkTypes(),
           listJobOrderStatus(), // per DC with qty_received -> outsourced stage progress
           listMachines(),
+          listLogsForPrd(prdNo),
         ])
         if (cancelled) return
         const order = orders.find((o) => o.prd_no === prdNo)
@@ -139,7 +142,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           po_number: order?.po_number ?? '',
           batch: order ? `Batch ${order.batch_no} (PO line: ${orderLineProgress(order)})` : '',
         })
-        setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines }))
+        setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines, logs }))
       } catch (e) {
         if (!cancelled) setError(e.message)
       } finally {

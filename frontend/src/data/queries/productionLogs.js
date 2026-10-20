@@ -219,3 +219,14 @@ export async function updateProductionLogHours(changes) {
     })
   )
 }
+
+/** Every open log (any user) -- machine busy labels on the Machine dropdown.
+ * RLS "authenticated full access" lets operators read them. */
+export async function listAllOpenLogs() {
+  const { data, error } = await supabase
+    .from('production logs')
+    .select('id, prd_no, stage_id, machine_id')
+    .eq('is_open', true)
+  if (error) throw error
+  return data
+}

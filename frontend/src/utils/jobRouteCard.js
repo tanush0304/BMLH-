@@ -3,6 +3,7 @@
 // components so it's independently testable.
 
 import { stageLabel } from './stageLabel'
+import { stageMachineDisplay } from './machineEligibility'
 
 /**
  * No. of Shifts Planned = ROUND(batch_qty x cycle_time_min / 60 / shift_hours),
@@ -84,7 +85,7 @@ export function outsourcedStageStatus(stage, dcs) {
  * actual_date) and production status (stage status; outsourced stages show
  * their DC progress, see outsourcedStageStatus).
  */
-export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines = [] }) {
+export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines = [], logs = [] }) {
   return [...stages]
     .sort((a, b) => a.seq - b.seq)
     .map((s) => {
@@ -104,8 +105,20 @@ export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, 
         job_order_no: stageDcs.map((d) => d.dc_no).join(', '),
         date: s.actual_date ?? '',
         status: s.type === 'Outsourced' ? outsourcedStageStatus(s, stageDcs) : s.status ?? '',
+        // Status copy only: "CNC 2 (MC-005) (planned MC-004)" when a log ran on a substitute.
+        machine_actual: machineActualText(s, logs.filter((l) => l.stage_id === s.id), machines),
       }
     })
+}
+
+/** Machine text for the status copy: the planned machine name, or the
+ * actual machine name(s) + "(planned MC-xxx)" when a log ran elsewhere. */
+export function machineActualText(stage, stageLogs, machines = []) {
+  if (stage.type !== 'Internal') return ''
+  const text = stageMachineDisplay({ plannedId: stage.machine_id, logs: stageLogs })
+  if (text === (stage.machine_id ?? '')) return machineName(stage.machine_id, machines)
+  const actualIds = [...new Set(stageLogs.map((l) => l.machine_id).filter(Boolean))].sort()
+  return `${actualIds.map((id) => machineName(id, machines)).join(', ')} (planned ${stage.machine_id})`
 }
 
 export const TEMPLATE_COLUMNS = [
@@ -133,9 +146,12 @@ export const ROUTE_CARD_VARIANTS = [
   { value: 'status', label: 'With current status' },
 ]
 
-/** Cell value for a stage row; '' for the hand-filled columns on the blank variant. */
+/** Cell value for a stage row; '' for the hand-filled columns on the blank
+ * variant. The status copy shows the actual machine (+ planned) in Machine. */
 export function routeCardCell(row, key, blank = false) {
-  return blank && BLANK_COLUMN_KEYS.has(key) ? '' : row[key]
+  if (blank && BLANK_COLUMN_KEYS.has(key)) return ''
+  if (!blank && key === 'machine' && row.machine_actual) return row.machine_actual
+  return row[key]
 }
 
 function escapeHtml(value) {

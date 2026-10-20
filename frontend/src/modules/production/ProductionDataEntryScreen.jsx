@@ -11,7 +11,9 @@ import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd, updateStageStatus, listAllStages } from '../../data/queries/routeCards'
-import { listMachinesForProductSeqs } from '../../data/queries/productionDataEntry'
+import { listAllMachineOperations } from '../../data/queries/machineOperations'
+import { machinesForStage, openLogsWithSeq, validateSubstituteReason, substituteReasonRequired, cycleTimeForMachine } from '../../utils/machineEligibility'
+import { MACHINE_CHOICE_MODE, SUBSTITUTE_REASONS } from '../../utils/constants'
 import { buildMachineLabelMap } from '../../utils/machineLabel'
 import { getWipAggregatesForPrd } from '../../data/queries/wip'
 import {
@@ -26,6 +28,7 @@ import {
   endProductionLog,
   updateProductionLogHours,
   listOpenLogsForUser,
+  listAllOpenLogs,
 } from '../../data/queries/productionLogs'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -35,7 +38,7 @@ import {
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
-import { pickCycleTime, computeLiveLogTotals } from '../../utils/productionReport'
+import { computeLiveLogTotals } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 import ShiftDateLine from '../../components/ShiftDateLine'
 import { stageLabel } from '../../utils/stageLabel'
@@ -53,6 +56,12 @@ export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [machineLabels, setMachineLabels] = useState({}) // machine_id -> "Name (ID)", for dropdown display only
+  const [machineRows, setMachineRows] = useState([]) // "machines master" rows (machinesForStage)
+  const [optionsBySeq, setOptionsBySeq] = useState({}) // seq -> machinesForStage() options (labels: planned / busy)
+  const [nextStageSeq, setNextStageSeq] = useState(null)
+  const [substituteReason, setSubstituteReason] = useState('')
+  const [substituteNote, setSubstituteNote] = useState('')
+  const [cycleNote, setCycleNote] = useState('')
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -135,6 +144,7 @@ export default function ProductionDataEntryScreen({ role }) {
         setEmployees(employeeRows)
         setShifts(shf)
         setMachineLabels(buildMachineLabelMap(machs))
+        setMachineRows(machs)
         const pending = await loadPendingStages()
         await restoreOpenLog(pending)
       } catch (e) {
@@ -159,6 +169,8 @@ export default function ProductionDataEntryScreen({ role }) {
     setPrdNo(prd)
     setMachineId('')
     setNextStageMachineId('')
+    setNextStageSeq(null)
+    setOptionsBySeq({})
     setPrdAllStages([])
     setStageChoiceId('')
     setResolvedStage(null)
@@ -184,7 +196,21 @@ export default function ProductionDataEntryScreen({ role }) {
       // utils/machineEligibility.js.
       const order = (await listOrdersByPrd()).find((o) => o.prd_no === prd)
       const seqs = [...new Set(stages.map((s) => s.seq))]
-      const rows = await listMachinesForProductSeqs(order?.part_serial_number, seqs)
+      // Machine options per pending stage (MACHINE_CHOICE_MODE, utils/machineEligibility):
+      // planned machine first, substitutes, busy machines labelled.
+      const [cycleRows, machineOps, openLogs, machs] = await Promise.all([
+        listCycleTimesForPart(order?.part_serial_number),
+        listAllMachineOperations(),
+        listAllOpenLogs(),
+        machineRows.length ? machineRows : listMachines(),
+      ])
+      const busyLogs = openLogsWithSeq(openLogs, pending)
+      const bySeq = {}
+      for (const st of stages.filter((x) => seqs.includes(x.seq))) {
+        bySeq[st.seq] = machinesForStage({ mode: MACHINE_CHOICE_MODE, stage: st, machineOps, machines: machs, cycleTimeRows: cycleRows, openLogs: busyLogs })
+      }
+      setOptionsBySeq(bySeq)
+      const rows = Object.entries(bySeq).flatMap(([seq, opts]) => opts.map((o) => ({ machine_id: o.machine_id, seq: Number(seq) })))
       setMachineOpsForPrd(rows)
       if (autoPick) {
         // Default: the machine of the EARLIEST pending stage (route card
@@ -200,6 +226,7 @@ export default function ProductionDataEntryScreen({ role }) {
         const machine = defaultMachineForStage(next, rows)
         if (next && machine) {
           setNextStageMachineId(machine)
+          setNextStageSeq(next.seq)
           selectMachine(machine, { stages, rows, prd, preferStage: next })
         }
       }
@@ -229,6 +256,8 @@ export default function ProductionDataEntryScreen({ role }) {
     const prdNow = ctx.prd ?? prdNo
     setMachineId(id)
     setConfirmEarlier(false)
+    setSubstituteReason('')
+    setSubstituteNote('')
     setStageChoiceId('')
     setResolvedStage(null)
     setPlannedQty(null)
@@ -284,9 +313,10 @@ export default function ProductionDataEntryScreen({ role }) {
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
       const cycleRows = await listCycleTimesForPart(order?.part_serial_number)
-      setMasterCycleTime(
-        pickCycleTime(cycleRows, { partSerialNumber: order?.part_serial_number, seq: stage.seq, machineId: machine })
-      )
+      // Chosen machine's own Cycle Time row, else the stage's frozen time (+ note).
+      const ct = cycleTimeForMachine({ cycleTimeRows: cycleRows, seq: stage.seq, chosenId: machine, plannedId: stage.machine_id, frozenCycleTime: stage.cycle_time_min })
+      setMasterCycleTime(ct.cycleTimeMin)
+      setCycleNote(ct.note)
 
       if (openLog) {
         // Resume: keep logging against the log that already reserved this
@@ -312,6 +342,10 @@ export default function ProductionDataEntryScreen({ role }) {
 
   async function handleStart() {
     if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
+    if (substituteError) {
+      setError(substituteError)
+      return
+    }
     if (!machineId || !prdNo || !resolvedStage || !employeeId || !shiftCode) {
       setError('Machine, PRD, Employee and Shift are all required to start.')
       return
@@ -336,6 +370,10 @@ export default function ProductionDataEntryScreen({ role }) {
         setter_employee_id: setterId || null,
         setting_time_min: settingTime,
         cycle_time_min: masterCycleTime,
+        // 040: planned_machine_id is set by the DB from the stage; the reason
+        // only when running on another machine.
+        substitute_reason: substituteNeeded ? substituteReason : null,
+        substitute_reason_note: substituteNeeded && substituteNote.trim() ? substituteNote.trim() : null,
       })
       setActiveLog(log)
       setLogHours([])
@@ -463,6 +501,22 @@ export default function ProductionDataEntryScreen({ role }) {
   }
 
   const earlierIncomplete = resolvedStage ? earlierIncompleteStage(prdAllStages, resolvedStage) : null
+  const plannedMachineId = activeLog?.planned_machine_id ?? resolvedStage?.machine_id ?? null
+  const substituteNeeded = !activeLog && substituteReasonRequired(machineId, resolvedStage?.machine_id)
+  const substituteError = substituteNeeded
+    ? validateSubstituteReason({ chosenId: machineId, plannedId: resolvedStage?.machine_id, reason: substituteReason, note: substituteNote })
+    : null
+  // Dropdown label: from the stage in focus (resolved, else the next stage);
+  // a machine only listed for another stage shows without "(planned)".
+  const focusSeq = resolvedStage?.seq ?? nextStageSeq
+  function optionLabel(id) {
+    const own = optionsBySeq[focusSeq]?.find((o) => o.machine_id === id)
+    if (own) return own.label
+    const other = Object.values(optionsBySeq).flat().find((o) => o.machine_id === id)
+    return other ? other.label.replace(' (planned)', '') : machineLabels[id] ?? id
+  }
+  const actualMachineText = (actualId) =>
+    `${machineLabels[actualId] ?? actualId}${plannedMachineId && plannedMachineId !== actualId ? ` (planned ${plannedMachineId})` : ''}`
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
@@ -516,7 +570,7 @@ export default function ProductionDataEntryScreen({ role }) {
               disabled={!!activeLog || !prdNo || eligibleMachineIds.length === 0}
               options={eligibleMachineIds.map((id) => ({
                 value: id,
-                label: `${machineLabels[id] ?? id}${id === nextStageMachineId ? ' (next stage)' : ''}`,
+                label: `${optionLabel(id)}${id === nextStageMachineId ? ' (next stage)' : ''}`,
               }))}
             />
           </Field>
@@ -536,7 +590,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <Lock size={14} className="mt-px shrink-0" aria-hidden="true" />
               <span>
                 <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
-                  {runningBanner({ stage: resolvedStage, machineLabel: machineLabels[activeLog.machine_id] ?? activeLog.machine_id })}
+                  {runningBanner({ stage: resolvedStage, machineLabel: actualMachineText(activeLog.machine_id) })}
                 </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · Machine{' '}
                 <strong>{machineLabels[activeLog.machine_id] ?? activeLog.machine_id}</strong> · started{' '}
@@ -566,6 +620,7 @@ export default function ProductionDataEntryScreen({ role }) {
             </Field>
             <Field label="Cycle Time (min)">
               <TextInput value={activeLog?.cycle_time_min ?? masterCycleTime ?? ''} disabled />
+              {cycleNote && !activeLog && <p className="mt-0.5 text-[11px] text-amber-700">{cycleNote}</p>}
             </Field>
             <Field label="Standard Qty / Hour">
               <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
@@ -611,6 +666,21 @@ export default function ProductionDataEntryScreen({ role }) {
                 shift any NEW hours get logged under, today or on a future day.
               </p>
             )}
+            {substituteNeeded && (
+              <div className="sm:col-span-3 grid grid-cols-1 gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 sm:grid-cols-3" data-testid="substitute-reason">
+                <p className="sm:col-span-3 text-[13px] font-medium text-amber-800">
+                  Substitute machine: {machineLabels[machineId] ?? machineId} instead of planned {machineLabels[resolvedStage.machine_id] ?? resolvedStage.machine_id} — reason required.
+                </p>
+                <Field label="Substitute Reason" required>
+                  <SelectInput value={substituteReason} onChange={(e) => setSubstituteReason(e.target.value)} options={SUBSTITUTE_REASONS} />
+                </Field>
+                {substituteReason === 'Other' && (
+                  <Field label="Reason (text)" required>
+                    <TextInput value={substituteNote} onChange={(e) => setSubstituteNote(e.target.value)} />
+                  </Field>
+                )}
+              </div>
+            )}
             {!activeLog && (
               <StageStartGuard
                 stage={resolvedStage}
@@ -624,7 +694,7 @@ export default function ProductionDataEntryScreen({ role }) {
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
+                disabled={starting || !!activeLog || !!substituteError || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}

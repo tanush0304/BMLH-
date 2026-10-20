@@ -113,6 +113,10 @@ export function buildShiftRows({
       log_date: logDate,
       shift_code: shiftCode,
       machine_id: log.machine_id ?? null,
+      // 040: planned machine (DB-set on insert; older logs fall back to the stage's)
+      planned_machine_id: log.planned_machine_id ?? stage?.machine_id ?? null,
+      substitute_reason: log.substitute_reason ?? null,
+      substitute_reason_note: log.substitute_reason_note ?? null,
       prd_no: log.prd_no,
       stage: stage ? stageLabel(stage) : '',
       operation: stage?.operation ?? '',
