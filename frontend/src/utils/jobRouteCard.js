@@ -124,6 +124,20 @@ export const JOB_ROUTE_CARD_COLUMNS = [
   { key: 'status', label: 'Production Status' },
 ]
 
+/** Columns left empty on the "Blank – for shop floor" print (filled in by hand). */
+export const BLANK_COLUMN_KEYS = new Set(['date', 'status'])
+
+/** Print variants of the Job Route Card. Default = blank (shop floor copy). */
+export const ROUTE_CARD_VARIANTS = [
+  { value: 'blank', label: 'Blank – for shop floor' },
+  { value: 'status', label: 'With current status' },
+]
+
+/** Cell value for a stage row; '' for the hand-filled columns on the blank variant. */
+export function routeCardCell(row, key, blank = false) {
+  return blank && BLANK_COLUMN_KEYS.has(key) ? '' : row[key]
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -132,19 +146,21 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
 }
 
-/** Print-window HTML laid out like BMLH's paper Job Route Card sheet. */
-export function jobRouteCardPrintHtml({ header, rows }) {
+/** Print-window HTML laid out like BMLH's paper Job Route Card sheet.
+ * blank: Date and Production Status left empty (headers + borders kept) with
+ * taller rows for handwriting; everything else as with the status copy. */
+export function jobRouteCardPrintHtml({ header, rows, blank = false }) {
   const templateKeys = new Set(TEMPLATE_COLUMNS.map((c) => c.key))
   const cell = (label, value) =>
     `<td class="lbl">${escapeHtml(label)}</td><td class="val">${escapeHtml(value)}</td>`
   const head = JOB_ROUTE_CARD_COLUMNS.map(
-    (c) => `<th class="${templateKeys.has(c.key) ? 'yel' : ''}">${escapeHtml(c.label)}</th>`
+    (c) => `<th class="${templateKeys.has(c.key) ? 'yel' : ''}${blank && BLANK_COLUMN_KEYS.has(c.key) ? ` hand-${c.key}` : ''}">${escapeHtml(c.label)}</th>`
   ).join('')
   const body = rows
     .map(
       (r) =>
         `<tr>${JOB_ROUTE_CARD_COLUMNS.map(
-          (c) => `<td class="${templateKeys.has(c.key) ? 'yel' : ''}">${escapeHtml(r[c.key])}</td>`
+          (c) => `<td class="${templateKeys.has(c.key) ? 'yel' : ''}">${escapeHtml(routeCardCell(r, c.key, blank))}</td>`
         ).join('')}</tr>`
     )
     .join('')
@@ -167,6 +183,9 @@ export function jobRouteCardPrintHtml({ header, rows }) {
       .stages { margin-top: 10px; border: 1.5px solid #000; }
       .stages th { font-weight: bold; background: #e6e6e6; }
       .stages .yel { background: #fff2b3; }
+      .stages.blank td { height: 34px; }
+      .stages.blank th.hand-date { width: 10%; }
+      .stages.blank th.hand-status { width: 16%; }
       * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     </style>
   </head>
@@ -177,16 +196,16 @@ export function jobRouteCardPrintHtml({ header, rows }) {
       <tr>${cell('PO Number', header.po_number)}${cell('Batch', header.batch)}${cell('', '')}</tr>
       <tr>${cell('Part Serial Number', header.part_serial_number)}${cell('Part Name', header.part_name)}${cell('Drawing Reference Number', header.part_drawing_reference_number)}</tr>
     </table>
-    <table class="stages"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    <table class="stages${blank ? ' blank' : ''}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
     <script>window.onload = () => window.print()</script>
   </body>
 </html>`
 }
 
 /** Opens the sheet in a print window; the browser's "Save as PDF" makes the PDF. */
-export function printJobRouteCard({ header, rows }) {
+export function printJobRouteCard({ header, rows, blank = false }) {
   const win = window.open('', '_blank')
   if (!win) return
-  win.document.write(jobRouteCardPrintHtml({ header, rows }))
+  win.document.write(jobRouteCardPrintHtml({ header, rows, blank }))
   win.document.close()
 }

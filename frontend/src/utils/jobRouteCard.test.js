@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildJobRouteCardRows, jobRouteCardPrintHtml, outsourcedStageLabel, outsourcedStageStatus, shiftsPlanned, templateRow } from './jobRouteCard'
+import { buildJobRouteCardRows, jobRouteCardPrintHtml, outsourcedStageLabel, outsourcedStageStatus, shiftsPlanned, templateRow, routeCardCell, ROUTE_CARD_VARIANTS } from './jobRouteCard'
 
 const jobWorkTypes = [{ job_work_code: 'HT', lead_time_days: 5 }]
 
@@ -80,5 +80,36 @@ describe('buildJobRouteCardRows', () => {
     expect(html).toContain('JC No: JC-007')
     expect(html).toContain('Shaft &lt;A&gt;')
     expect(html).toContain('No. of Shifts Planned')
+  })
+
+  const header = { jc_no: 'JC-007', prd_no: 'PRD-001', batch_qty: 100, shift_hours: 8, po_number: '5527000387', batch: 'Batch 1', part_serial_number: 'P-1', part_name: 'Rotor', part_drawing_reference_number: 'P-1-0-1' }
+  const rows = () => buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches })
+
+  it('blank print variant: no dates / statuses, every other field filled, headers kept, taller rows', () => {
+    const html = jobRouteCardPrintHtml({ header, rows: rows(), blank: true })
+    for (const v of ['2026-10-02', '2026-10-05', 'Completed', 'Received (300 of 500 back)', 'Pending']) expect(html).not.toContain(v)
+    for (const v of ['JC No: JC-007', 'PRD-001', '5527000387', 'Batch 1', 'P-1-0-1', 'Rotor', 'Stage 10 – Turning', 'CNC-01', 'Outsourced', '>9<', '>5<', '>2<', 'DC-001, DC-004']) expect(html).toContain(v)
+    expect(html).toContain('<th class=" hand-date">Date</th>')
+    expect(html).toContain('<th class=" hand-status">Production Status</th>')
+    expect(html).toContain('class="stages blank"')
+    expect(html).toContain('size: A4 landscape')
+  })
+
+  it('status print variant is unchanged (dates + statuses filled; default)', () => {
+    const html = jobRouteCardPrintHtml({ header, rows: rows() })
+    expect(html).toBe(jobRouteCardPrintHtml({ header, rows: rows(), blank: false }))
+    for (const v of ['2026-10-02', 'Completed', 'Received (300 of 500 back)', 'Pending']) expect(html).toContain(v)
+    expect(html).toContain('class="stages"')
+    expect(html).not.toContain('stages blank')
+    expect(html).toContain('<th class="">Date</th>')
+  })
+
+  it('routeCardCell blanks only Date and Production Status', () => {
+    const r = rows()[0]
+    expect(routeCardCell(r, 'date', true)).toBe('')
+    expect(routeCardCell(r, 'status', true)).toBe('')
+    expect(routeCardCell(r, 'machine', true)).toBe('CNC-01')
+    expect(routeCardCell(r, 'date', false)).toBe('2026-10-02')
+    expect(ROUTE_CARD_VARIANTS[0].value).toBe('blank')
   })
 })
