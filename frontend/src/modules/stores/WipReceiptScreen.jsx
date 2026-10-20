@@ -20,6 +20,7 @@ import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '..
 import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit, validateCeilingEdit } from '../../utils/stockEdit'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { stageAcceptedQty, wipReceiptAvailable, qtyOverLimitError } from '../../utils/qtyLimits'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -134,12 +135,25 @@ export default function WipReceiptScreen({ role }) {
   }
 
   // Available to receive into WIP from a stage: that stage's accepted
-  // output minus what has already been received from it.
+  // output minus what has already been received from it, minus what the
+  // next stage took from it directly (its consumption less WIP issued in).
   function availableToReceiveFor(stageId) {
-    const alreadyReceived = transactions
-      .filter((t) => t.transaction_type === 'Receipt' && String(t.nature_of_operation_stage_id) === String(stageId))
-      .reduce((sum, t) => sum + Number(t.qty ?? 0), 0)
-    return wipReceiptAvailable({ stageAccepted: stageAcceptedQty(stageAggregates, stageId), alreadyReceived })
+    const sumQty = (rows) => rows.reduce((sum, t) => sum + Number(t.qty ?? 0), 0)
+    const alreadyReceived = sumQty(
+      transactions.filter((t) => t.transaction_type === 'Receipt' && String(t.nature_of_operation_stage_id) === String(stageId))
+    )
+    const sorted = [...allStages].sort((a, b) => a.seq - b.seq)
+    const index = sorted.findIndex((s) => String(s.id) === String(stageId))
+    const next = index >= 0 ? sorted[index + 1] : undefined
+    const issuedIntoNext = next
+      ? sumQty(transactions.filter((t) => t.transaction_type === 'Issue' && String(t.target_stage_id) === String(next.id)))
+      : 0
+    return wipReceiptAvailable({
+      stageAccepted: stageAcceptedQty(stageAggregates, stageId),
+      alreadyReceived,
+      nextConsumed: next ? stageAggregates[next.id]?.consumed ?? 0 : 0,
+      issuedIntoNext,
+    })
   }
   const availableToReceive = form.stage_id ? availableToReceiveFor(form.stage_id) : null
 
@@ -191,7 +205,7 @@ export default function WipReceiptScreen({ role }) {
         await refreshBalancesAndHistory(receiptPrd)
       }
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }

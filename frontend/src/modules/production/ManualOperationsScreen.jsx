@@ -39,6 +39,7 @@ import { useAppUsers } from '../../components/StockEditPanel'
 import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -221,7 +222,7 @@ export default function ManualOperationsScreen({ role }) {
       setLogHours([])
       setTotals(null)
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setStarting(false)
     }
@@ -256,7 +257,7 @@ export default function ManualOperationsScreen({ role }) {
       const [saved, updated] = await Promise.all([addProductionLogHours(stamped), updateProductionLogHours(changes)])
       const updatedById = new Map(updated.map((u) => [u.id, u]))
       setLogHours((h) => [...h.map((x) => updatedById.get(x.id) ?? x), ...saved])
-      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -277,7 +278,7 @@ export default function ManualOperationsScreen({ role }) {
         employee_id: employeeId,
       })
       setLogHours((h) => [...h, saved])
-      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -346,7 +347,7 @@ export default function ManualOperationsScreen({ role }) {
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Manual Operations"
-        subtitle="Log De-Burring, Final Inspection & Final Dispatch"
+        subtitle="Log De-Burring, Final Inspection & Final Despatch"
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">

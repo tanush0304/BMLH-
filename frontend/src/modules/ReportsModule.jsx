@@ -13,6 +13,9 @@ import RawMaterialStatusScreen from './reports/RawMaterialStatusScreen'
 import CustomerOrderStatusScreen from './reports/CustomerOrderStatusScreen'
 import JobOrderStatusScreen from './reports/JobOrderStatusScreen'
 import QualityStatusScreen from './reports/QualityStatusScreen'
+import ComplaintStatusScreen from './reports/ComplaintStatusScreen'
+import { ChartTypeProvider } from '../components/reports/ChartTypeToggle'
+import ReportErrorBoundary from '../components/reports/ReportErrorBoundary'
 
 // Reports & Dashboard: the module opens a landing with the 9 report cards
 // (deck slide 18, ReportLanding); PO Summary / Production Schedule / Order Traceability (moved
@@ -23,15 +26,16 @@ const TABS = [
   { key: 'po-summary', component: CustomerPoSummaryScreen },
   { key: 'schedule', component: ProductionScheduleScreen },
   { key: 'traceability', component: OrderTraceabilityScreen },
-  { key: 'production-status', component: ProductionStatusScreen },
-  { key: 'daily-machine', component: DailyMachineScreen },
-  { key: 'downtime', component: DowntimeScreen },
-  { key: 'wip-status', component: WipStatusScreen },
-  { key: 'fg-inventory', component: FgInventoryScreen },
-  { key: 'rm-status', component: RawMaterialStatusScreen },
-  { key: 'customer-order-status', component: CustomerOrderStatusScreen },
-  { key: 'job-order-status', component: JobOrderStatusScreen },
-  { key: 'quality-status', component: QualityStatusScreen },
+  { key: 'production-status', component: ProductionStatusScreen, charts: true },
+  { key: 'daily-machine', component: DailyMachineScreen, charts: true },
+  { key: 'downtime', component: DowntimeScreen, charts: true },
+  { key: 'wip-status', component: WipStatusScreen, charts: true },
+  { key: 'fg-inventory', component: FgInventoryScreen, charts: true },
+  { key: 'rm-status', component: RawMaterialStatusScreen, charts: true },
+  { key: 'customer-order-status', component: CustomerOrderStatusScreen, charts: true },
+  { key: 'job-order-status', component: JobOrderStatusScreen, charts: true },
+  { key: 'quality-status', component: QualityStatusScreen, charts: true },
+  { key: 'complaint-status', component: ComplaintStatusScreen, charts: true },
 ]
 
 // activeMode carries a PRD into Order Traceability (Customer Order Status's
@@ -48,11 +52,20 @@ export default function ReportsModule({ activeTab, activeMode, role, onOpenScree
     )
   }
   const Screen = tab.component
-  return (
+  const screen = (
     <Screen
       key={activeMode ?? ''}
       initialPrdNo={activeMode ?? ''}
       onOpenTraceability={(prdNo) => onOpenScreen?.('traceability', prdNo)}
     />
+  )
+  // Chart pages: one Bar / Line choice for the whole page, Bar on every
+  // open (keyed by tab, so it resets when another report is opened).
+  const page = tab.charts ? <ChartTypeProvider key={tab.key}>{screen}</ChartTypeProvider> : screen
+  // A crash shows "This report couldn't load" + Back, not a white page.
+  return (
+    <ReportErrorBoundary key={`${tab.key}|${activeMode ?? ''}`} reportKey={tab.key} onBack={() => onOpenScreen?.(null)}>
+      {page}
+    </ReportErrorBoundary>
   )
 }

@@ -18,6 +18,7 @@ import { stageLabel } from '../../utils/stageLabel'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -162,7 +163,7 @@ export default function WipIssueScreen({ role }) {
         await refresh(issuePrd)
       }
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }

@@ -119,3 +119,22 @@ export async function listJobOrderStatus() {
   if (error) throw error
   return data
 }
+
+/** Supervisor/admin edit of an open DC (033). `patch` = dispatchEditPatch
+ * (qty, dispatch_date, vendor_id only); the DB checks the limits, recomputes
+ * expected_receipt_date, closes the DC when qty = received and stamps
+ * edited_by / edited_at / previous_qty. Throws the PostgREST error (code kept). */
+export async function updateDispatch(dcNo, patch) {
+  const { data, error } = await supabase.from('job order dispatch').update(patch).eq('dc_no', dcNo).select().single()
+  if (error) throw error
+  return data
+}
+
+/** Supervisor/admin edit of a receipt on an open DC (033). `patch` =
+ * receiptEditPatch (qty_received, receipt_date only -- the only columns
+ * granted). The DC closes when the edit makes it fully received. */
+export async function updateReceipt(id, patch) {
+  const { data, error } = await supabase.from('job order receipt').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}

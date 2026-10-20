@@ -37,6 +37,16 @@ export function landingGrid(count) {
   return { cols, rows: Math.ceil(count / cols) }
 }
 
+/** Grid column (lg, half-tile units: each tile spans 2) where tile `index`
+ * starts: the first tile of a short last row is pushed in by half a tile per
+ * missing tile, so that row sits centred (5 tiles -> 3 + 2 centred).
+ * 'auto' everywhere else. */
+export function tileColumnStart(index, count, cols) {
+  const remainder = count % cols
+  if (remainder === 0 || index !== count - remainder) return 'auto'
+  return cols - remainder + 1
+}
+
 // Tile size caps (px) and the gap -- the grid never grows past them, so a
 // module with 2 screens shows 2 normal-sized tiles, not 2 giant ones.
 const TILE_MAX_W = 380
@@ -51,6 +61,7 @@ export default function ModuleLanding({ title, subtitle = 'Select a screen to op
   const { cols, rows } = landingGrid(tiles.length)
   const gridStyle = {
     '--cols': cols,
+    '--half-cols': cols * 2,
     '--rows': rows,
     '--max-w': `${cols * TILE_MAX_W + (cols - 1) * GAP}px`,
     '--max-h': `${rows * TILE_MAX_H + (rows - 1) * GAP}px`,
@@ -64,10 +75,16 @@ export default function ModuleLanding({ title, subtitle = 'Select a screen to op
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#F5F7FA] px-4 py-5 sm:px-6 lg:py-6">
         <div
           style={gridStyle}
-          className="m-auto grid w-full max-w-[1200px] auto-rows-[260px] [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))] lg:h-full lg:max-h-[var(--max-h)] lg:max-w-[var(--max-w)] lg:auto-rows-auto lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))] lg:[grid-template-rows:repeat(var(--rows),minmax(170px,1fr))]"
+          className="m-auto grid w-full max-w-[1200px] auto-rows-[260px] [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))] lg:h-full lg:max-h-[var(--max-h)] lg:max-w-[var(--max-w)] lg:auto-rows-auto lg:[grid-template-columns:repeat(var(--half-cols),minmax(0,1fr))] lg:[grid-template-rows:repeat(var(--rows),minmax(170px,1fr))]"
         >
-          {tiles.map((tile) => (
-            <LandingTile key={tile.key} tile={tile} onSelect={onSelect} />
+          {tiles.map((tile, i) => (
+            <div
+              key={tile.key}
+              style={{ '--col-start': tileColumnStart(i, tiles.length, cols) }}
+              className="min-h-0 min-w-0 lg:[grid-column:var(--col-start)_/_span_2]"
+            >
+              <LandingTile tile={tile} onSelect={onSelect} />
+            </div>
           ))}
         </div>
       </main>

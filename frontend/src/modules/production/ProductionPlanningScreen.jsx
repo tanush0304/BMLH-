@@ -24,6 +24,7 @@ const LIST_COLUMNS = [
   { key: 'customer_order_no', label: 'PRD No' },
   { key: 'po_number', label: 'PO No' },
   { key: 'batch_label', label: 'Batch' },
+  { key: 'line_progress', label: 'PO Line Progress' },
   { key: 'customer_name', label: 'Customer Name' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
@@ -32,7 +33,7 @@ const LIST_COLUMNS = [
   { key: 'expected_delivery', label: 'Expected Delivery' },
   { key: 'available_rm_qty_snapshot', label: 'Available RM Qty', render: (r) => r.available_rm_qty_snapshot ?? 'Pending BOM' },
   { key: 'units_producible', label: 'Total Units Can Be Produced', render: (r) => r.units_producible ?? 'Pending BOM' },
-  { key: 'batch_qty', label: 'PRD (Batch) Qty' },
+  { key: 'prd_qty', label: 'PRD (Batch) Qty' },
   { key: 'status', label: 'Status', type: 'status' },
 ]
 
@@ -219,7 +220,7 @@ export default function ProductionPlanningScreen() {
   }
 
   async function handleCancelPrd(row) {
-    const reason = prompt(`Cancel ${row.prd_no} (${row.batch_qty} pcs)? Its qty goes back to the PO line. Reason:`)
+    const reason = prompt(`Cancel ${row.prd_no} (${row.prd_qty} pcs)? Its qty goes back to the PO line. Reason:`)
     if (reason == null) return
     if (!reason.trim()) {
       setError('A reason is required to cancel a PRD.')
@@ -231,7 +232,7 @@ export default function ProductionPlanningScreen() {
       if (viewedPrd === row.prd_no) setViewedPrd(null)
       if (routeCardPrd === row.prd_no) setRouteCardPrd(null)
       await refresh()
-      setNotice(`${row.prd_no} cancelled -- ${row.batch_qty} returned to PO ${row.po_number}.`)
+      setNotice(`${row.prd_no} cancelled -- ${row.prd_qty} returned to PO ${row.po_number}.`)
     } catch (e) {
       setError(e.message)
     }

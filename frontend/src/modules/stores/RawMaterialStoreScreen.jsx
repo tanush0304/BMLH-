@@ -25,6 +25,10 @@ import { unitsProducible, validateRmIssueQuantity } from '../../utils/rmStock'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import { canEditStock, stockEditPatch, validateRmIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
+import VoidEntryDialog, { VOID_COLUMN } from '../../components/VoidEntryDialog'
+import { voidEntry } from '../../data/queries/voidEntries'
+import { VOID_TYPES, isVoided, voidBlockReason, withVoidLabels, voidRowClass } from '../../utils/voidEntry'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 const EMPTY_ISSUE_FORM = {
   employee_id: '',
@@ -95,6 +99,9 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
   const appUsers = useAppUsers()
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
+  // Void (034): GRNs only, supervisor/admin.
+  const [voidingRow, setVoidingRow] = useState(null)
+  const [notice, setNotice] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -219,7 +226,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       setSavedDocNo({ issue: saved?.doc_no ?? '', receipt: '' })
       await refresh()
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -248,7 +255,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       setSavedDocNo({ issue: '', receipt: saved?.doc_no ?? '' })
       await refresh()
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -275,7 +282,26 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       current_stock: currentStockFor(t.raw_material_code),
     }))
 
-  const activeRows = withEditedLabels(mode === 'issue' ? issueRows : receiptRows, appUsers)
+  const activeRows = withVoidLabels(withEditedLabels(mode === 'issue' ? issueRows : receiptRows, appUsers), appUsers)
+
+  const canVoidHere = canEditStock(role) && mode === 'receipt'
+  const voidBlock = canVoidHere && selectedRow
+    ? voidBlockReason(VOID_TYPES.GRN, selectedRow, { closingStock: currentStockFor(selectedRow.raw_material_code) })
+    : null
+
+  async function handleVoid(reason) {
+    const row = voidingRow
+    try {
+      await voidEntry(VOID_TYPES.GRN, row.doc_no, reason)
+    } catch (e) {
+      return dbErrorMessage(e)
+    }
+    setVoidingRow(null)
+    setSelectedRow(null)
+    setNotice(`${row.doc_no} voided -- it no longer counts in stock.`)
+    await refresh()
+    return null
+  }
   const filteredRows = activeRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
@@ -287,7 +313,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
     )
   })
 
-  const activeColumns = [...(mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN]
+  const activeColumns = [...(mode === 'issue' ? ISSUE_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'receipt' ? [VOID_COLUMN] : [])]
   const listTitle = mode === 'issue' ? 'Raw Material & Consumables Issue List' : 'Raw Material & Consumables Receipt List'
   const exportName = mode === 'issue' ? 'rm_issue' : 'rm_receipt'
 
@@ -330,7 +356,11 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
         showEditDelete={canEditStock(role)}
         showDelete={false}
         onEdit={() => setEditingRow(selectedRow)}
-        canEdit={!!selectedRow && !editingRow}
+        canEdit={!!selectedRow && !editingRow && !isVoided(selectedRow)}
+        showVoid={canVoidHere}
+        onVoid={() => { setNotice(''); setVoidingRow(selectedRow) }}
+        canVoid={!!selectedRow && !editingRow && !voidBlock}
+        voidTitle={voidBlock ?? undefined}
         onNew={handleReset}
         onSave={handleSave}
         onClear={handleReset}
@@ -344,6 +374,13 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}
           </div>
+        )}
+        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {voidBlock && selectedRow && !editingRow && (
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Void unavailable: {voidBlock}</div>
+        )}
+        {voidingRow && (
+          <VoidEntryDialog docNo={voidingRow.doc_no} onConfirm={handleVoid} onCancel={() => setVoidingRow(null)} />
         )}
 
         {mode === 'issue' ? (
@@ -501,7 +538,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
           error={null}
           rowKey="id"
           selectedKey={selectedRow?.id}
-          onRowClick={(r) => !editingRow && setSelectedRow(r)}
+          onRowClick={(r) => { if (!editingRow) { setSelectedRow(r); setNotice('') } }}
+          rowClassName={voidRowClass}
           searchValue={search}
           onSearchChange={setSearch}
         />

@@ -7,6 +7,7 @@ import { listProducts } from '../data/queries/products'
 import { listJobWorkTypes } from '../data/queries/jobWorkTypes'
 import { listJobOrderStatus } from '../data/queries/jobOrders'
 import { listMachines } from '../data/queries/machines'
+import { orderLineProgress } from '../utils/batchSplit'
 import {
   JOB_ROUTE_CARD_COLUMNS,
   TEMPLATE_COLUMNS,
@@ -57,14 +58,15 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
         setHeader({
           jc_no: card.jc_no ?? '',
           prd_no: prdNo,
-          batch_qty: card.batch_qty ?? '',
+          // This PRD's qty (030); the card's own batch_qty is informational only.
+          batch_qty: order?.prd_qty ?? card.batch_qty ?? '',
           shift_hours: card.shift_hours ?? '',
           part_serial_number: order?.part_serial_number ?? '',
           part_name: product?.part_name ?? '',
           part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
           // 030: PO line + which batch of it this PRD is
           po_number: order?.po_number ?? '',
-          batch: order ? `${order.batch_no} of ${order.batch_count} (PO line ${order.order_qty})` : '',
+          batch: order ? `Batch ${order.batch_no} (PO line: ${orderLineProgress(order)})` : '',
         })
         setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines }))
       } catch (e) {

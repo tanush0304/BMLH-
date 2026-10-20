@@ -480,7 +480,7 @@ export default function CustomerOrderScreen() {
                 <ClipboardList size={12} className="text-bmlhnavy shrink-0" />
                 <h2 className="text-[11px] font-semibold text-bmlhnavy truncate">Line Items</h2>
                 <span className="ml-auto pl-2 text-[10px] text-gray-500 font-normal whitespace-nowrap truncate">
-                  One PRD will be generated per line
+                  PRDs are created at Production Planning
                 </span>
               </div>
               <div className="flex flex-col gap-2 p-2">

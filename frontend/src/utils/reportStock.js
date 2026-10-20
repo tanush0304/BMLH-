@@ -108,3 +108,50 @@ export function dominantUom(rows, uomKey = 'unit_of_measurement') {
   for (const [u, c] of counts) if (!best || c > best[1]) best = [u, c]
   return best ? best[0] : null
 }
+
+/**
+ * FG Inventory "Order Fulfilment (by qty)" donut, per PO line (030: a line's
+ * PRDs together fill its order qty). For the lines in `lineIds`, summed over
+ * ALL their PRDs, with `txns` = FG transactions up to the report's To:
+ *   dispatched    = dispatched so far
+ *   inStock       = received - dispatched (still in FG)
+ *   yetToProduce  = line order qty - received, never below 0
+ * `master` rows ("finished goods master") give prd_no -> order_line_id and
+ * the line's order_quantity.
+ */
+export function orderFulfilment(master, txns, lineIds, { inType, outType }) {
+  const lineOfPrd = new Map()
+  const lineQty = new Map()
+  for (const m of master) {
+    if (!lineIds.has(m.order_line_id)) continue
+    lineOfPrd.set(m.prd_no, m.order_line_id)
+    lineQty.set(m.order_line_id, Number(m.order_quantity) || 0)
+  }
+  const received = new Map()
+  let dispatched = 0
+  let receivedTotal = 0
+  for (const t of txns) {
+    const line = lineOfPrd.get(t.prd_no)
+    if (line == null) continue
+    const qty = Number(t.qty) || 0
+    if (t.transaction_type === inType) {
+      received.set(line, (received.get(line) ?? 0) + qty)
+      receivedTotal += qty
+    } else if (t.transaction_type === outType) dispatched += qty
+  }
+  let yetToProduce = 0
+  for (const [line, qty] of lineQty) yetToProduce += Math.max(0, qty - (received.get(line) ?? 0))
+  const inStock = receivedTotal - dispatched
+  return { dispatched, inStock, yetToProduce, total: dispatched + inStock + yetToProduce }
+}
+
+/** Raw Material Status filters on one RM (an RM Master row): every set
+ * filter must match -- Supplier (one of its linked suppliers), RM Type, UOM,
+ * RM Code. Blank filters are ignored. */
+export function rmMatchesFilters(rm, { supplier, rmType, uom, rmCode } = {}) {
+  if (supplier && !(rm.supplier_names ?? '').split(', ').includes(supplier)) return false
+  if (rmType && rm.rm_type !== rmType) return false
+  if (uom && rm.unit_of_measurement !== uom) return false
+  if (rmCode && rm.raw_material_code !== rmCode) return false
+  return true
+}

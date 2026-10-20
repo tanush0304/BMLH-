@@ -12,9 +12,9 @@ const COLUMNS = [
   { key: 'order_quantity', label: 'Order Quantity', numeric: true },
   { key: 'opening_stock', label: 'Opening Stock', numeric: true },
   { key: 'receipts', label: 'Receipts', numeric: true },
-  { key: 'units_ready_to_despatch', label: 'No. Units Ready to Dispatch', numeric: true },
-  { key: 'quantity_despatched', label: 'Quantity Dispatched', numeric: true },
-  { key: 'balance_to_be_despatched', label: 'Balance to be Dispatched', numeric: true },
+  { key: 'units_ready_to_despatch', label: 'No. Units Ready to Despatch', numeric: true },
+  { key: 'quantity_despatched', label: 'Quantity Despatched', numeric: true },
+  { key: 'balance_to_be_despatched', label: 'Balance to be Despatched', numeric: true },
 ]
 
 export default function FinishedGoodsMaster() {

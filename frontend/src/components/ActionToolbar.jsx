@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FieldLegend } from './FormSection'
-import { Plus, Save, Pencil, Trash2, X, Printer, ChevronDown, FileSpreadsheet, FileText } from 'lucide-react'
+import { Plus, Save, Pencil, Trash2, X, Printer, ChevronDown, FileSpreadsheet, FileText, Ban } from 'lucide-react'
 
 // Client-deck toolbar: New (green) . Save (blue) . Edit / Delete / Clear (grey)
 // . Print (Excel / PDF). Searching lives in each screen's RecordsList. Behaviour is unchanged from the old toolbar:
@@ -11,6 +11,7 @@ const BTN =
 const BTN_GREEN = `${BTN} bg-[#1E9E4A] text-white hover:bg-[#17843D] disabled:hover:bg-[#1E9E4A]`
 const BTN_BLUE = `${BTN} bg-[#1669E0] text-white hover:bg-[#0F57C2] disabled:hover:bg-[#1669E0]`
 const BTN_GREY = `${BTN} bg-[#8C98A8] text-white hover:bg-[#76828F] disabled:hover:bg-[#8C98A8]`
+const BTN_RED = `${BTN} bg-[#C62828] text-white hover:bg-[#A61F1F] disabled:hover:bg-[#C62828]`
 const BTN_LIGHT = `${BTN} min-w-[120px] border border-[#A9C6EE] bg-[#E6F0FD] text-[#0B2A5B] hover:bg-[#D6E6FB] disabled:hover:bg-[#E6F0FD]`
 
 export default function ActionToolbar({
@@ -30,6 +31,11 @@ export default function ActionToolbar({
   canSave = true,
   canEdit = true,
   canDelete = true,
+  // Void (034): supervisor/admin on RM Receipt / Jobwork Dispatch / FG Dispatch.
+  showVoid = false,
+  onVoid,
+  canVoid = true,
+  voidTitle,
   showExport = true,
   onExportExcel,
   onExportPdf,
@@ -63,6 +69,11 @@ export default function ActionToolbar({
           {showEditDelete && (
             <button type="button" className={BTN_GREY} onClick={onEdit} disabled={!canEdit}>
               <Pencil size={16} /> Edit
+            </button>
+          )}
+          {showVoid && (
+            <button type="button" className={BTN_RED} onClick={onVoid} disabled={!canVoid} title={voidTitle}>
+              <Ban size={16} /> Void
             </button>
           )}
           {showDelete && (

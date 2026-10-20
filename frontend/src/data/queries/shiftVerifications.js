@@ -60,3 +60,13 @@ export async function setShiftVerification({ logId, logDate, shiftCode, status, 
   if (error) throw error
   return data
 }
+
+/** One hour row of a closed log corrected in Shift Verification (035).
+ * `patch` = correctionPatch (editable fields that changed, nothing else);
+ * the DB guard checks role / Rejected shift / knock-on / planned qty and
+ * stamps edited_by / edited_at / previous_qty_*. Throws the PostgREST error. */
+export async function updateHourCorrection(id, patch) {
+  const { data, error } = await supabase.from('production log hours').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}

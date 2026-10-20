@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText } from './reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText, dcTableStatusLabel, dcStatusCellText } from './reportOrders'
 
 describe('customer orders', () => {
   const orders = [
@@ -63,5 +63,19 @@ describe('job orders', () => {
   it('describes a stage as "N of M back"', () => {
     expect(stageBackText({ dc_count: 2, received_qty: 300, sent_qty: 500 })).toBe('300 of 500 back')
     expect(stageBackText({ dc_count: 0, received_qty: 0, sent_qty: 0 })).toBe('Not sent')
+  })
+})
+
+describe('dcTableStatusLabel (Job Order dashboard table label)', () => {
+  it('shows Closed Short as "Partially Received (Closed)"', () => {
+    expect(dcTableStatusLabel('Closed Short')).toBe('Partially Received (Closed)')
+  })
+  it('leaves every other status as stored', () => {
+    for (const s of ['Sent', 'Partially Received', 'Received', 'Overdue']) expect(dcTableStatusLabel(s)).toBe(s)
+  })
+  it('cell / Excel / PDF text uses the same label, with (Overdue) when late', () => {
+    expect(dcStatusCellText('Closed Short', false)).toBe('Partially Received (Closed)')
+    expect(dcStatusCellText('Partially Received', true)).toBe('Partially Received (Overdue)')
+    expect(dcStatusCellText('Sent', false)).toBe('Sent')
   })
 })

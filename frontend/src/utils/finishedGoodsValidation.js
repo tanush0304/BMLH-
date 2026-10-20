@@ -6,7 +6,7 @@ export function parsePositiveQuantity(value) {
 export function validateDispatchQuantity(value, physicalStock, orderBalance) {
   const quantity = parsePositiveQuantity(value)
   if (quantity === null) {
-    return { quantity: null, error: 'Dispatch quantity must be a finite number greater than zero.' }
+    return { quantity: null, error: 'Despatch quantity must be a finite number greater than zero.' }
   }
 
   const availableStock = parseNonNegativeFinite(physicalStock)
@@ -18,9 +18,9 @@ export function validateDispatchQuantity(value, physicalStock, orderBalance) {
   const maximumAllowed = Math.min(availableStock, remainingOrderQuantity)
   if (quantity > maximumAllowed) {
     if (availableStock <= remainingOrderQuantity) {
-      return { quantity: null, error: 'Dispatch quantity cannot exceed physical FG stock for this PRD.' }
+      return { quantity: null, error: 'Despatch quantity cannot exceed physical FG stock for this PRD.' }
     }
-    return { quantity: null, error: 'Dispatch quantity cannot exceed the remaining order quantity for this PRD.' }
+    return { quantity: null, error: 'Despatch quantity cannot exceed the remaining order quantity for this PRD.' }
   }
 
   return { quantity, error: null }

@@ -8,6 +8,7 @@ import {
   byMachine,
   searchRows,
   machineRows,
+  machineView,
   changePct,
   changePoints,
   dailyCategoryMatrix,
@@ -159,5 +160,24 @@ describe('trendBuckets', () => {
       ['2026-09', 30, 60, 'M2026-09'],
       ['2026-10', 9, 69, 'M2026-10'],
     ])
+  })
+})
+
+describe('machineView (Daily Machine filter)', () => {
+  const rows = [
+    { machine_id: 'MC-1', machine_category: 'CNC', log_date: '2026-10-16', produced: 10 },
+    { machine_id: 'MC-2', machine_category: 'VMC', log_date: '2026-10-16', produced: 5 },
+  ]
+  const categories = ['CNC', 'VMC', 'Grinding']
+  const machines = [{ machine_id: 'MC-1', category: 'CNC' }, { machine_id: 'MC-2', category: 'VMC' }, { machine_id: 'MC-3', category: '' }]
+
+  it('All (no machine) keeps every row and category', () => {
+    expect(machineView(rows, categories, machines, '')).toEqual({ rows, categories })
+  })
+  it('a machine keeps only its rows and its category', () => {
+    expect(machineView(rows, categories, machines, 'MC-2')).toEqual({ rows: [rows[1]], categories: ['VMC'] })
+  })
+  it('a machine with no rows still gets its (or Uncategorised) card', () => {
+    expect(machineView(rows, categories, machines, 'MC-3')).toEqual({ rows: [], categories: ['Uncategorised'] })
   })
 })

@@ -6,6 +6,7 @@ import {
   decisionText,
   isShiftLocked,
   formatStamp,
+  markRejectedPending,
 } from './shiftVerification'
 import { computeLiveLogTotals } from './productionReport'
 
@@ -117,5 +118,19 @@ describe('computeLiveLogTotals with edited saved rows', () => {
     ]
     const t = computeLiveLogTotals({ savedHours: saved, draftRows: [{ id: 2, qty_produced: 4 }, { qty_produced: 1 }] })
     expect(t.total_produced).toBe(15)
+  })
+})
+
+describe('markRejectedPending', () => {
+  it('puts only the saved Rejected shift back to Pending, reason cleared', () => {
+    const rows = [
+      { log_date: '2026-10-15', shift_code: 'SHIFT-B', status: 'Rejected', reject_reason: 'wrong qty' },
+      { log_date: '2026-10-15', shift_code: 'SHIFT-A', status: 'Approved', reject_reason: null },
+      { log_date: '2026-10-14', shift_code: 'SHIFT-B', status: 'Rejected', reject_reason: 'other day' },
+    ]
+    const out = markRejectedPending(rows, '2026-10-15', 'SHIFT-B')
+    expect(out[0]).toMatchObject({ status: 'Pending', reject_reason: null })
+    expect(out[1]).toBe(rows[1])
+    expect(out[2]).toBe(rows[2])
   })
 })

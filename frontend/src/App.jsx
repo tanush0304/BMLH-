@@ -14,7 +14,7 @@ import StoresModule from './modules/stores/StoresModule'
 import { ModuleThemeProvider } from './components/ModuleTheme'
 import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
-import { NAV_ITEMS } from './utils/constants'
+import { NAV_ITEMS, isModuleRestricted } from './utils/constants'
 import { authTransition } from './utils/authTransition'
 
 // Lazy: Reports pulls in Recharts, which the other modules don't need.
@@ -124,7 +124,7 @@ function App() {
 
   // Modules with `roles` in NAV_ITEMS (Masters, Reports & Dashboard) are
   // supervisor/admin only; anyone else who reaches one gets a notice.
-  const restricted = NAV_ITEMS.find((item) => item.key === activeKey)?.roles?.includes(role) === false
+  const restricted = isModuleRestricted(activeKey, role)
 
   let content
   const themeKey = activeKey
@@ -142,7 +142,7 @@ function App() {
       />
     )
   else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
-  else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
+  else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
   else if (activeKey === 'stores') content = (
       <StoresModule
         activeTab={activeSubKey}

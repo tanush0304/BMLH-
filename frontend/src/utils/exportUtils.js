@@ -1,12 +1,14 @@
 /** One CSV field: always quoted, embedded quotes doubled, so commas, quotes
  * and line breaks inside a value never shift columns. */
+import { exportCellValue } from './statusLabels'
+
 export function csvField(value) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }
 
 export function buildCsv(columns, rows) {
   const header = columns.map((c) => csvField(c.label)).join(',')
-  const body = rows.map((r) => columns.map((c) => csvField(r[c.key])).join(','))
+  const body = rows.map((r) => columns.map((c) => csvField(exportCellValue(c, r))).join(','))
   return [header, ...body].join('\n')
 }
 
@@ -29,7 +31,7 @@ export function exportToPdf(columns, rows, title, filename) {
 
   const headerHtml = columns.map((c) => `<th>${c.label}</th>`).join('')
   const rowsHtml = rows
-    .map((r) => `<tr>${columns.map((c) => `<td>${r[c.key] ?? ''}</td>`).join('')}</tr>`)
+    .map((r) => `<tr>${columns.map((c) => `<td>${exportCellValue(c, r) ?? ''}</td>`).join('')}</tr>`)
     .join('')
 
   win.document.write(`

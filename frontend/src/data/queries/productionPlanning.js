@@ -1,8 +1,9 @@
-import { listCustomerOrders, listProductionOrders, joinPrdsToLines } from './customerOrders'
+import { listCustomerOrders, listProductionOrders, listProductionOrderCancellations, joinPrdsToLines } from './customerOrders'
 import { listCustomers } from './customers'
 import { listProducts } from './products'
 import { listRouteCards, listAllStages } from './routeCards'
 import { derivePlanStatus } from '../../utils/calculations'
+import { orderLineProgress } from '../../utils/batchSplit'
 
 /** PO lines with qty still to plan (migration 030: a line is planned in
  * batches, one PRD each, possibly over several sessions). Each line carries
@@ -28,15 +29,16 @@ export function linesWithPlanning(lines, prds) {
 /** Production Planning List: one row per PRD (route card), joined to its PO
  * line / customer / product, Status derived from its stages. */
 export async function listProductionPlans() {
-  const [cards, lines, prds, customers, products, allStages] = await Promise.all([
+  const [cards, lines, prds, cancellations, customers, products, allStages] = await Promise.all([
     listRouteCards(),
     listCustomerOrders(),
     listProductionOrders(),
+    listProductionOrderCancellations(),
     listCustomers(),
     listProducts(),
     listAllStages(),
   ])
-  const byPrd = new Map(joinPrdsToLines(prds, lines).map((o) => [o.prd_no, o]))
+  const byPrd = new Map(joinPrdsToLines(prds, lines, cancellations).map((o) => [o.prd_no, o]))
 
   const stagesByPrd = new Map()
   for (const s of allStages) {
@@ -53,7 +55,8 @@ export async function listProductionPlans() {
       ...card,
       customer_order_no: card.prd_no,
       po_number: order?.po_number ?? '',
-      batch_label: order ? `${order.batch_no} of ${order.batch_count}` : '',
+      batch_label: order ? `Batch ${order.batch_no}` : '',
+      line_progress: order ? orderLineProgress(order) : '',
       customer_name: customer?.customer_name ?? '',
       part_serial_number: order?.part_serial_number ?? '',
       part_name: product?.part_name ?? '',

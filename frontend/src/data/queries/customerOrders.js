@@ -40,19 +40,39 @@ export async function listProductionOrders() {
   return data
 }
 
+/** Cancelled PRDs (030): their numbers are never re-used. */
+export async function listProductionOrderCancellations() {
+  const { data, error } = await supabase.from('production order cancellations').select('*')
+  if (error) throw error
+  return data
+}
+
 /** One row per PRD with its PO line's fields -- the shape screens used to
  * get from "customer orders" when one line was one PRD: prd_no, customer,
  * PO, part, order_qty (the LINE's qty) plus prd_qty (this batch), batch_no,
- * order_line_id. Stage 1 of a PRD is capped by prd_qty. */
+ * order_line_id. Stage 1 of a PRD is capped by prd_qty. Also the line's
+ * progress for batch labels: line_active_count, line_cancelled_count,
+ * line_planned_qty. */
 export async function listOrdersByPrd() {
-  const [lines, prds] = await Promise.all([listCustomerOrders(), listProductionOrders()])
-  return joinPrdsToLines(prds, lines)
+  const [lines, prds, cancellations] = await Promise.all([
+    listCustomerOrders(),
+    listProductionOrders(),
+    listProductionOrderCancellations(),
+  ])
+  return joinPrdsToLines(prds, lines, cancellations)
 }
 
-export function joinPrdsToLines(prds, lines) {
+export function joinPrdsToLines(prds, lines, cancellations = []) {
   const byLine = new Map(lines.map((l) => [l.order_line_id, l]))
-  const batchCount = new Map()
-  for (const p of prds) batchCount.set(p.order_line_id, (batchCount.get(p.order_line_id) ?? 0) + 1)
+  const count = (rows) => {
+    const m = new Map()
+    for (const r of rows) m.set(r.order_line_id, (m.get(r.order_line_id) ?? 0) + 1)
+    return m
+  }
+  const activeCount = count(prds)
+  const cancelledCount = count(cancellations)
+  const plannedQty = new Map()
+  for (const p of prds) plannedQty.set(p.order_line_id, (plannedQty.get(p.order_line_id) ?? 0) + Number(p.prd_qty))
   return prds
     .filter((p) => byLine.has(p.order_line_id))
     .map((p) => {
@@ -63,7 +83,9 @@ export function joinPrdsToLines(prds, lines) {
         prd_no: p.prd_no,
         prd_qty: Number(p.prd_qty),
         batch_no: p.batch_no,
-        batch_count: batchCount.get(p.order_line_id),
+        line_active_count: activeCount.get(p.order_line_id),
+        line_cancelled_count: cancelledCount.get(p.order_line_id) ?? 0,
+        line_planned_qty: plannedQty.get(p.order_line_id),
         order_line_id: p.order_line_id,
       }
     })

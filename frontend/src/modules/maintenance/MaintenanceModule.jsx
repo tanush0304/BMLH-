@@ -11,7 +11,7 @@ const TABS = [
 
 // Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
 // 'maintenance' subItems) -- this just maps the active key to a screen.
-export default function MaintenanceModule({ activeTab, onSelect }) {
+export default function MaintenanceModule({ activeTab, role, onSelect }) {
   // No screen selected (module clicked in the sidebar / main menu): landing tiles.
   if (!activeTab) {
     return (
@@ -24,5 +24,5 @@ export default function MaintenanceModule({ activeTab, onSelect }) {
   }
   const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
-  return <Screen />
+  return <Screen role={role} />
 }

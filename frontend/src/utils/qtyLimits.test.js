@@ -33,6 +33,13 @@ describe('E2E #5: WIP Receipt ceiling', () => {
     expect(wipReceiptAvailable({ stageAccepted: 20, alreadyReceived: 0 })).toBe(20)
     expect(wipReceiptAvailable({ stageAccepted: 20, alreadyReceived: 18 })).toBe(2)
     expect(wipReceiptAvailable({ stageAccepted: 20, alreadyReceived: 25 })).toBe(0)
+    // The next stage already took pieces straight from this stage.
+    expect(wipReceiptAvailable({ stageAccepted: 48, alreadyReceived: 0, nextConsumed: 48, issuedIntoNext: 0 })).toBe(0)
+    expect(wipReceiptAvailable({ stageAccepted: 48, alreadyReceived: 0, nextConsumed: 30, issuedIntoNext: 0 })).toBe(18)
+    // What WIP issued into the next stage was not taken from this stage directly.
+    expect(wipReceiptAvailable({ stageAccepted: 48, alreadyReceived: 5, nextConsumed: 48, issuedIntoNext: 5 })).toBe(0)
+    expect(wipReceiptAvailable({ stageAccepted: 48, alreadyReceived: 10, nextConsumed: 40, issuedIntoNext: 5 })).toBe(3)
+    expect(wipReceiptAvailable({ stageAccepted: 10, alreadyReceived: 0, nextConsumed: 3, issuedIntoNext: 8 })).toBe(10)
   })
   it('blocks 25 > 20', () => {
     expect(qtyOverLimitError(25, 20, 'Qty', 'available to receive')).toBe('Qty (25) is more than available to receive (20).')

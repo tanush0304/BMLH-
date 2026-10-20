@@ -27,7 +27,7 @@ const MODULES = [
   {
     key: 'customer-order',
     title: 'Customer Orders',
-    description: 'Manage customer enquiries, quotations, sales orders and dispatch.',
+    description: 'Manage customer enquiries, quotations, sales orders and despatch.',
     icon: ClipboardList,
     color: 'purple',
   },

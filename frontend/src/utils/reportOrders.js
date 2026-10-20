@@ -1,4 +1,5 @@
 // Pure logic for the R4 reports: Customer Order Status and Job Order Status.
+import { displayStatus } from './statusLabels'
 
 function num(v) {
   const n = Number(v)
@@ -77,6 +78,19 @@ export function monthlyPoVsDispatch(lines, dispatches, months) {
 // Sent / Partially Received / Received / Closed Short. Overdue is a separate
 // flag (open DC past its expected receipt date), not a status.
 export const DC_CLOSED_STATUSES = ['Received', 'Closed Short']
+
+// Display-only label for the Job Order Status DASHBOARD TABLE (client demo,
+// 2026-10-17): the DB status 'Closed Short' (031) is shown as "Partially
+// Received (Closed)", so it never reads like an open partial DC. The stored value, filters, KPIs and the donut are unchanged.
+// Now the app-wide label (utils/statusLabels.js displayStatus).
+export const dcTableStatusLabel = displayStatus
+
+/** Status cell text of that table -- also what its Excel / PDF export writes
+ * (ReportTable exports each column's `format`). */
+export function dcStatusCellText(status, overdue) {
+  const label = dcTableStatusLabel(status)
+  return overdue ? `${label} (Overdue)` : label
+}
 
 export const isDcClosed = (row) => DC_CLOSED_STATUSES.includes(row.status)
 

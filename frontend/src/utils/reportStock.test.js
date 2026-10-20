@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stockMovement, dailyBalance, dailyMovement, topN, sumByUom, dominantUom } from './reportStock'
+import { stockMovement, dailyBalance, dailyMovement, topN, sumByUom, dominantUom, orderFulfilment, rmMatchesFilters } from './reportStock'
 
 const T = (transaction_type, qty, transaction_date, key = 'A') => ({ transaction_type, qty, transaction_date, key })
 
@@ -45,5 +45,52 @@ describe('helpers', () => {
     const rows = [{ unit_of_measurement: 'Kg', q: 2.25 }, { unit_of_measurement: 'Nos', q: 5 }, { unit_of_measurement: 'Kg', q: 1 }]
     expect(sumByUom(rows, 'q')).toEqual([{ uom: 'Nos', value: 5 }, { uom: 'Kg', value: 3.3 }])
     expect(dominantUom(rows)).toBe('Kg')
+  })
+})
+
+describe('orderFulfilment', () => {
+  const master = [
+    { prd_no: 'PRD-1', order_line_id: 1, order_quantity: 1600 },
+    { prd_no: 'PRD-2', order_line_id: 1, order_quantity: 1600 },
+    { prd_no: 'PRD-3', order_line_id: 2, order_quantity: 100 },
+    { prd_no: 'PRD-4', order_line_id: 3, order_quantity: 50 },
+  ]
+  const F = (prd_no, transaction_type, qty) => ({ prd_no, transaction_type, qty })
+  const txns = [
+    F('PRD-1', 'Production Receipt', 40), F('PRD-1', 'Dispatch', 40),
+    F('PRD-2', 'Production Receipt', 48), F('PRD-2', 'Dispatch', 30),
+    F('PRD-3', 'Production Receipt', 120), F('PRD-3', 'Dispatch', 100),
+    F('PRD-4', 'Production Receipt', 50),
+  ]
+  const opts = { inType: 'Production Receipt', outType: 'Dispatch' }
+  it('sums per PO line over all its PRDs; yet to produce never below 0', () => {
+    expect(orderFulfilment(master, txns, new Set([1, 2]), opts)).toEqual({
+      dispatched: 170, // 40 + 30 + 100
+      inStock: 38, // 18 on line 1 + 20 on line 2
+      yetToProduce: 1512, // line 1: 1600 - 88; line 2 received more than ordered -> 0
+      total: 1720,
+    })
+  })
+  it('only the given lines (customer filter)', () => {
+    expect(orderFulfilment(master, txns, new Set([3]), opts)).toEqual({ dispatched: 0, inStock: 50, yetToProduce: 0, total: 50 })
+    expect(orderFulfilment(master, txns, new Set(), opts).total).toBe(0)
+  })
+})
+
+describe('rmMatchesFilters (Raw Material Status filters)', () => {
+  const rm = { raw_material_code: 'RM-001', rm_type: 'Bar', unit_of_measurement: 'Kg', supplier_names: 'Tata Steel, Jindal' }
+  it('passes with no filters', () => {
+    expect(rmMatchesFilters(rm, {})).toBe(true)
+    expect(rmMatchesFilters(rm)).toBe(true)
+  })
+  it('RM Code matches only that code', () => {
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-001' })).toBe(true)
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-002' })).toBe(false)
+  })
+  it('combines with Supplier, RM Type and UOM (all must match)', () => {
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-001', supplier: 'Jindal', rmType: 'Bar', uom: 'Kg' })).toBe(true)
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-001', supplier: 'Other' })).toBe(false)
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-001', rmType: 'Plate' })).toBe(false)
+    expect(rmMatchesFilters(rm, { rmCode: 'RM-001', uom: 'Nos' })).toBe(false)
   })
 })

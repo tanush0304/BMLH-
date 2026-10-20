@@ -42,16 +42,19 @@ export function ReportCard({ tile, onSelect }) {
 }
 
 /**
- * Reports & Dashboard landing: the 9 report cards, 3 x 3 on wide screens
- * (each row a third of the space left under the header, so the grid fits
- * 1440 x 900 without scrolling), 2 columns on narrower screens, 1 on phones.
+ * Reports & Dashboard landing: the report cards (9 from the deck + Customer
+ * Complaint), 3 per row on wide screens. Each row is a third of the height
+ * left under the header (min 170px) -- the card size from when there were 9
+ * cards -- so the 10th card starts a 4th row of the same size and the page
+ * scrolls instead of every card shrinking. 2 columns on narrower screens,
+ * 1 on phones.
  */
 export default function ReportLanding({ title, subtitle = 'Operations, production, quality and inventory at a glance.', tiles, onSelect }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={title} subtitle={subtitle} />
       <main className="min-h-0 flex-1 overflow-y-auto bg-[#F5F7FA] p-4 sm:p-5">
-        <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-4 [grid-auto-rows:190px] md:grid-cols-2 xl:h-full xl:grid-cols-3 xl:[grid-auto-rows:minmax(170px,1fr)]">
+        <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-4 [grid-auto-rows:190px] md:grid-cols-2 xl:h-full xl:grid-cols-3 xl:[grid-auto-rows:max(170px,calc((100%_-_2rem)/3))]">
           {tiles.map((tile) => (
             <ReportCard key={tile.key} tile={tile} onSelect={onSelect} />
           ))}

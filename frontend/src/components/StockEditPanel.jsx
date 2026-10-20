@@ -6,6 +6,7 @@ import { listAppUsers } from '../data/queries/appUsers'
 import { listEmployees } from '../data/queries/employees'
 import { supabase } from '../lib/supabaseClient'
 import { editedLabel } from '../utils/stockEdit'
+import { dbErrorMessage } from '../utils/dbErrors'
 
 /**
  * Supervisor/admin edit of one existing Stores row. Only qty, date, remarks
@@ -44,7 +45,7 @@ export default function StockEditPanel({
       const message = await onSave(draft)
       if (message) setError(message)
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }

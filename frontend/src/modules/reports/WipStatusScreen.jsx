@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from 'recharts'
+import { ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { Boxes, Settings, Package, ArrowRight, CircleCheck, BarChart3, PieChart as PieIcon, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -25,6 +26,7 @@ const balanceClass = (v) => (v > 0 ? 'bg-amber-100' : 'bg-green-100')
  * stock). Filters: PRD, Type of Operation.
  */
 export default function WipStatusScreen() {
+  const chartType = useChartType()
   const r = useReportPeriod({ prdNo: '', operation: '' })
   const [txns, setTxns] = useState([])
   const [orders, setOrders] = useState([])
@@ -146,32 +148,41 @@ export default function WipStatusScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0}>
-            <BarChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
-              <Bar dataKey="value" name="Balance WIP (Nos)">
-                {byOperation.map((x, i) => <Cell key={x.label} fill={SERIES[i % SERIES.length]} />)}
-                <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'value',
+                dataKey: 'value',
+                name: 'Balance WIP (Nos)',
+                children: [
+                  ...byOperation.map((x, i) => <Cell key={x.label} fill={SERIES[i % SERIES.length]} />),
+                  <LabelList key="label" dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />,
+                ],
+              })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} raw>
             <DonutChart data={donut} centre={{ caption: 'Total WIP', total: formatQty(kpi.balance), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
 
-          <ChartCard title={`WIP Trend (Last ${trendDays.length} Days)`} icon={TrendingUp} loading={loading} empty={empty}>
-            <LineChart data={trend} margin={{ top: 20, right: 12, left: 0, bottom: 0 }}>
+          <ChartCard title={`WIP Status (Last ${trendDays.length} Days)`} icon={TrendingUp} loading={loading} empty={empty}>
+            <ComposedChart data={trend} margin={{ top: 20, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
-              <Line dataKey="balance" name="WIP Quantity (Nos)" stroke={CHART_COLORS.blue} strokeWidth={2.5} dot={{ r: 3.5 }}>
-                <LabelList dataKey="balance" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />
-              </Line>
-            </LineChart>
+              {series(chartType, {
+                key: 'balance',
+                dataKey: 'balance',
+                name: 'WIP Quantity (Nos)',
+                color: CHART_COLORS.blue,
+                children: <LabelList dataKey="balance" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />,
+              })}
+            </ComposedChart>
           </ChartCard>
         </div>
 

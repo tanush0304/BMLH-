@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { BarChart3, Target, ShieldX, Cog } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportDayBar from '../../components/reports/ReportDayBar'
@@ -10,7 +11,10 @@ import { listProductionHours } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
 import { todayISO } from '../../utils/dates'
 import { addDays, shortDate, displayDate } from '../../utils/reportPeriods'
-import { machineRows, totals, dailyCategoryMatrix, machineCategories, changePct, changePoints } from '../../utils/reportAggregates'
+import { machineRows, totals, dailyCategoryMatrix, machineCategories, machineView, changePct, changePoints } from '../../utils/reportAggregates'
+import { Field } from '../../components/FormSection'
+import SearchableSelect from '../../components/SearchableSelect'
+import { machineOptionLabel } from '../../utils/machineLabel'
 
 const DAYS_SHOWN = 5
 
@@ -26,9 +30,12 @@ const rejClass = (v) => (v == null ? '' : v <= 2 ? 'bg-green-100' : v <= 5 ? 'bg
  * Manual Operations logs (no machine) are left out.
  */
 export default function DailyMachineScreen() {
+  const chartType = useChartType()
   const [date, setDate] = useState(todayISO())
   const [reloadKey, setReloadKey] = useState(0)
-  const [rows, setRows] = useState([])
+  const [allRows, setRows] = useState([])
+  // Machine filter: '' = All (one card per category, as before).
+  const [machineId, setMachineId] = useState('')
   const [machines, setMachines] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -50,12 +57,14 @@ export default function DailyMachineScreen() {
     }
   }, [date, reloadKey])
 
-  const categories = useMemo(() => {
+  const allCategories = useMemo(() => {
     const fromMaster = machineCategories(machines)
     // A category only in the logs (e.g. a machine since recategorised) still shows.
-    for (const r of rows) if (!fromMaster.includes(r.machine_category)) fromMaster.push(r.machine_category)
+    for (const r of allRows) if (!fromMaster.includes(r.machine_category)) fromMaster.push(r.machine_category)
     return fromMaster
-  }, [machines, rows])
+  }, [machines, allRows])
+  const { rows, categories } = useMemo(() => machineView(allRows, allCategories, machines, machineId), [allRows, allCategories, machines, machineId])
+  const selectedMachine = machines.find((m) => m.machine_id === machineId)
 
   const days = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(date, i - (DAYS_SHOWN - 1))), [date])
   const matrix = useMemo(() => dailyCategoryMatrix(rows, days, categories), [rows, days, categories])
@@ -107,7 +116,17 @@ export default function DailyMachineScreen() {
       <PageHeader title="Daily Machine Wise Dashboard" subtitle="Right Material | Right Quantity | Right Production" />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        <ReportDayBar date={date} onDateChange={setDate} onRefresh={() => setReloadKey((k) => k + 1)} loading={loading} />
+        <ReportDayBar date={date} onDateChange={setDate} onRefresh={() => setReloadKey((k) => k + 1)} loading={loading}>
+          <Field label="Machine" width="short" className="max-w-[260px]">
+            <SearchableSelect
+              value={machineId}
+              onChange={(e) => setMachineId(e.target.value)}
+              options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
+              placeholder="All Machines"
+              aria-label="Machine"
+            />
+          </Field>
+        </ReportDayBar>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
 
@@ -161,11 +180,13 @@ export default function DailyMachineScreen() {
         {/* One card per category in the data; up to 4 per row on wide screens. */}
         <div className={`grid grid-cols-1 gap-2 md:grid-cols-2 ${categories.length >= 4 ? 'xl:grid-cols-4' : categories.length === 3 ? 'xl:grid-cols-3' : ''}`}>
           {categories.map((c, i) => {
-            const colour = categoryColor(i)
-            const lineColour = categoryLineColor(i)
+            // Keep each category's colour when a machine narrows the view.
+            const ci = Math.max(0, allCategories.indexOf(c))
+            const colour = categoryColor(ci)
+            const lineColour = categoryLineColor(ci)
             const data = matrix.map((d) => ({ label: shortDate(d.date), produced: d.byCategory[c].produced, efficiency: d.byCategory[c].efficiency_pct }))
             return (
-              <ChartCard key={c} title={c} headerColor={colour} loading={loading} empty={data.every((d) => d.produced === 0)} height={230}>
+              <ChartCard key={c} title={selectedMachine ? `${machineOptionLabel(selectedMachine)} · ${c}` : c} headerColor={colour} loading={loading} empty={data.every((d) => d.produced === 0)} height={230}>
                 <ComposedChart data={data} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="label" tick={AXIS_TICK} />
@@ -173,9 +194,14 @@ export default function DailyMachineScreen() {
                   <YAxis yAxisId="eff" orientation="right" tick={AXIS_TICK} width={40} unit="%" />
                   <Tooltip formatter={(v, name) => (name === 'Efficiency %' ? (v == null ? '—' : `${v}%`) : formatQty(v))} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar yAxisId="qty" dataKey="produced" name="Production (Nos)" fill={colour}>
-                    <LabelList dataKey="produced" position="top" style={{ fontSize: 11 }} formatter={(v) => (v ? v : '')} />
-                  </Bar>
+                  {series(chartType, {
+                    key: 'produced',
+                    yAxisId: 'qty',
+                    dataKey: 'produced',
+                    name: 'Production (Nos)',
+                    color: colour,
+                    children: <LabelList dataKey="produced" position="top" style={{ fontSize: 11 }} formatter={(v) => (v ? v : '')} />,
+                  })}
                   <Line yAxisId="eff" dataKey="efficiency" name="Efficiency %" stroke={lineColour} strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
               </ChartCard>

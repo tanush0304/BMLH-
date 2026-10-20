@@ -60,13 +60,18 @@ export function listProductionSetup({ from, to, prdNo, machineId, shiftCode }) {
 }
 
 /** Every ledger row up to `to` (opening needs everything before the period). */
-function ledgerUpTo(table, to) {
-  return fetchAll(() => supabase.from(table).select('*').lte('transaction_date', to).order('id'))
+// `voidable`: the table has 034's voided_at -- voided rows count in no report.
+function ledgerUpTo(table, to, { voidable = false } = {}) {
+  return fetchAll(() => {
+    let q = supabase.from(table).select('*').lte('transaction_date', to)
+    if (voidable) q = q.is('voided_at', null)
+    return q.order('id')
+  })
 }
 
 export const listWipTransactionsUpTo = (to) => ledgerUpTo('wip transactions', to)
-export const listFgTransactionsUpTo = (to) => ledgerUpTo('finished goods transactions', to)
-export const listRmTransactionsUpTo = (to) => ledgerUpTo('raw material transactions', to)
+export const listFgTransactionsUpTo = (to) => ledgerUpTo('finished goods transactions', to, { voidable: true })
+export const listRmTransactionsUpTo = (to) => ledgerUpTo('raw material transactions', to, { voidable: true })
 
 /** "finished goods master" (015): one row per PRD with customer, part, UoM, order qty. */
 export const listFgMasterRows = () => fetchAll(() => supabase.from('finished goods master').select('*').order('prd_no'))
@@ -114,3 +119,16 @@ export async function listReadingsForLogs(logIds) {
   }
   return out
 }
+
+/** "customer complaints" (027) with complaint_date from..to -- the Customer
+ * Complaint report (read-only; RLS lets authenticated users select). */
+export const listComplaintsForReport = ({ from, to }) =>
+  fetchAll(() =>
+    supabase
+      .from('customer complaints')
+      .select('id, complaint_no, complaint_date, customer_id, part_serial_number, defect_problem, severity, status')
+      .gte('complaint_date', from)
+      .lte('complaint_date', to)
+      .order('complaint_date')
+      .order('id')
+  )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Wrench, ClipboardCheck } from 'lucide-react'
+import { Wrench, ClipboardCheck, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -17,12 +17,17 @@ import {
   createMaintenanceLog,
   addMaintenanceLogItem,
   listRecentMaintenanceLogs,
+  listMaintenanceLogItems,
+  updateMaintenanceLog,
+  updateMaintenanceLogItem,
 } from '../../data/queries/maintenanceLogs'
+import { canEditStock } from '../../utils/stockEdit'
+import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 
 // Type of Maintenance options, per the client's Maintenance Module sheet.
 const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly']
 
-export default function ChecklistEntryScreen() {
+export default function ChecklistEntryScreen({ role }) {
   const [machines, setMachines] = useState([])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -39,8 +44,12 @@ export default function ChecklistEntryScreen() {
   const [activeLog, setActiveLog] = useState(null)
   const [itemResults, setItemResults] = useState({})
   const [starting, setStarting] = useState(false)
-  const [savingItemId, setSavingItemId] = useState(null)
+  const [savingItems, setSavingItems] = useState(false)
   const [search, setSearch] = useState('')
+  // Supervisor/admin edit of a saved visit (032): header + its saved items.
+  const appUsers = useAppUsers()
+  const [selectedLog, setSelectedLog] = useState(null)
+  const [editingLog, setEditingLog] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -110,31 +119,71 @@ export default function ChecklistEntryScreen() {
     setItemResults((r) => ({ ...r, [itemId]: { ...r[itemId], [field]: value } }))
   }
 
-  async function handleSaveItem(itemId) {
-    const result = itemResults[itemId] ?? {}
-    if (!result.condition) {
-      setError('Pick OK / Not OK before saving a checklist item.')
+  // Toolbar Save: starts the visit first; once started, saves every checklist
+  // row that has a Condition and is not saved yet (one insert per row).
+  async function handleSave() {
+    if (!activeLog) return handleStartVisit()
+    const pending = checklistItems.filter((item) => !itemResults[item.id]?.saved)
+    const ready = pending.filter((item) => itemResults[item.id]?.condition)
+    if (ready.length === 0) {
+      setError(pending.length === 0 ? 'Every checklist item is already saved.' : 'Pick OK / Not OK on at least one checklist item before saving.')
       return
     }
-    setSavingItemId(itemId)
+    setSavingItems(true)
     setError(null)
     try {
-      await addMaintenanceLogItem({
-        maintenance_log_id: activeLog.id,
-        checklist_item_id: itemId,
-        condition: result.condition,
-        observation: result.observation || null,
-        action_taken: result.action_taken || null,
-      })
-      updateItemResult(itemId, 'saved', true)
+      for (const item of ready) {
+        const result = itemResults[item.id]
+        await addMaintenanceLogItem({
+          maintenance_log_id: activeLog.id,
+          checklist_item_id: item.id,
+          condition: result.condition,
+          observation: result.observation || null,
+          action_taken: result.action_taken || null,
+        })
+        updateItemResult(item.id, 'saved', true)
+      }
     } catch (e) {
       setError(e.message)
     } finally {
-      setSavingItemId(null)
+      setSavingItems(false)
     }
   }
 
-  const filteredRecentLogs = recentLogs.filter((l) => {
+  // New / Clear: back to an empty visit form (a started visit and its saved
+  // items stay in the DB). Engineer and Shift are kept.
+  function handleClear() {
+    setSelectedLog(null)
+    setEditingLog(null)
+    setMachineId('')
+    setLogDate('')
+    setMaintenanceType('')
+    setActiveLog(null)
+    setChecklistItems([])
+    setItemResults({})
+    setError(null)
+  }
+
+  async function handleSaveEdit(header, items, originalItems) {
+    if (!header.employee_id || !header.shift_code) return 'Engineer and Shift are required.'
+    const log = editingLog
+    if (header.employee_id !== log.employee_id || header.shift_code !== log.shift_code || (header.maintenance_type || null) !== (log.maintenance_type || null)) {
+      await updateMaintenanceLog(log.id, { employee_id: header.employee_id, shift_code: header.shift_code, maintenance_type: header.maintenance_type || null })
+    }
+    for (const item of items) {
+      const before = originalItems.find((o) => o.id === item.id)
+      const patch = { condition: item.condition, observation: item.observation?.trim() || null, action_taken: item.action_taken?.trim() || null }
+      if (patch.condition !== before.condition || patch.observation !== (before.observation || null) || patch.action_taken !== (before.action_taken || null)) {
+        await updateMaintenanceLogItem(item.id, patch)
+      }
+    }
+    setEditingLog(null)
+    setSelectedLog(null)
+    setRecentLogs((await listRecentMaintenanceLogs()) ?? [])
+    return null
+  }
+
+  const filteredRecentLogs = withEditedLabels(recentLogs, appUsers).filter((l) => {
     if (!search) return true
     return l.machine_id?.toLowerCase().includes(search.toLowerCase())
   })
@@ -150,8 +199,17 @@ export default function ChecklistEntryScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Maintenance Checklist Entry" subtitle="One Visit, Several Checklist Items" />
+      {/* Edit (supervisor/admin, 032) corrects a saved visit; no Delete. */}
       <ActionToolbar
-        showCrudButtons={false}
+        showEditDelete={canEditStock(role)}
+        showDelete={false}
+        onEdit={() => setEditingLog(selectedLog)}
+        canEdit={!!selectedLog && !editingLog}
+        onNew={handleClear}
+        onSave={handleSave}
+        onClear={handleClear}
+        saving={starting || savingItems}
+        saveLabel={activeLog ? 'Save Checklist' : 'Start Visit'}
         onExportExcel={() => exportToCsv(logColumns, filteredRecentLogs, 'maintenance_visits.csv')}
         onExportPdf={() => exportToPdf(logColumns, filteredRecentLogs, 'Recent Maintenance Visits', 'maintenance_visits')}
       />
@@ -183,15 +241,6 @@ export default function ChecklistEntryScreen() {
               options={MAINTENANCE_TYPES}
             />
           </Field>
-          <div className="flex items-end">
-            <button
-              onClick={handleStartVisit}
-              disabled={starting || !!activeLog}
-              className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
-            >
-              {activeLog ? 'Visit Started' : starting ? 'Starting...' : 'Start Visit'}
-            </button>
-          </div>
           {machineId && checklistItems.length === 0 && (
             <p className="text-sm text-gray-400 sm:col-span-4">No checklist items defined for this machine yet.</p>
           )}
@@ -233,13 +282,9 @@ export default function ChecklistEntryScreen() {
                         disabled={result.saved}
                       />
                     </Field>
-                    <button
-                      onClick={() => handleSaveItem(item.id)}
-                      disabled={result.saved || savingItemId === item.id}
-                      className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-                    >
-                      {result.saved ? 'Saved' : 'Save'}
-                    </button>
+                    <span className={`pb-2 text-xs font-medium ${result.saved ? 'text-green-700' : 'text-gray-400'}`}>
+                      {result.saved ? 'Saved' : 'Not saved'}
+                    </span>
                   </div>
                 )
               })}
@@ -247,8 +292,125 @@ export default function ChecklistEntryScreen() {
           </div>
         )}
 
-        <RecordsList title="Recent Maintenance Visits" columns={logColumns} rows={filteredRecentLogs} loading={loading} rowKey="id" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by Machine ID..." />
+        {editingLog && (
+          <VisitEditPanel
+            log={editingLog}
+            machines={machines}
+            employees={employees}
+            shifts={shifts}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingLog(null)}
+          />
+        )}
+
+        <RecordsList
+          title="Recent Maintenance Visits"
+          columns={[...logColumns, EDITED_COLUMN]}
+          rows={filteredRecentLogs}
+          loading={loading}
+          rowKey="id"
+          selectedKey={selectedLog?.id}
+          onRowClick={(r) => !editingLog && setSelectedLog(r)}
+          searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by Machine ID..." />
       </div>
     </div>
+  )
+}
+
+/** Supervisor/admin correction of one saved visit: Engineer, Shift, Type and
+ * each saved checklist item's Condition / Observation / Action Taken.
+ * Machine and Date stay as saved (the DB refuses changing them, 032).
+ * onSave(header, items, originalItems) returns an error or null. */
+function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) {
+  const [header, setHeader] = useState({ employee_id: log.employee_id ?? '', shift_code: log.shift_code ?? '', maintenance_type: log.maintenance_type ?? '' })
+  const [original, setOriginal] = useState([])
+  const [items, setItems] = useState([])
+  const [names, setNames] = useState(new Map())
+  const [loadingItems, setLoadingItems] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    Promise.all([listMaintenanceLogItems(log.id), listChecklistItemsForMachine(log.machine_id)])
+      .then(([rows, checklist]) => {
+        if (!active) return
+        setOriginal(rows)
+        setItems(rows.map((r) => ({ ...r, observation: r.observation ?? '', action_taken: r.action_taken ?? '' })))
+        setNames(new Map(checklist.map((c) => [c.id, c.checklist_item])))
+      })
+      .catch((e) => active && setError(e.message))
+      .finally(() => active && setLoadingItems(false))
+    return () => {
+      active = false
+    }
+  }, [log])
+
+  const setItem = (id, key, value) => setItems((list) => list.map((x) => (x.id === id ? { ...x, [key]: value } : x)))
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      const message = await onSave(header, items, original)
+      if (message) setError(message)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const machine = machines.find((m) => m.machine_id === log.machine_id)
+
+  return (
+    <FormSection icon={Pencil} title="Edit Maintenance Visit" subtitle="Supervisor / admin correction -- recorded with who and when" columns={4}>
+      {error && <div className="sm:col-span-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+      <Field label="Machine">
+        <TextInput value={machine ? machineOptionLabel(machine) : log.machine_id} disabled />
+      </Field>
+      <Field label="Date">
+        <TextInput value={log.log_date ?? ''} disabled />
+      </Field>
+      <Field label="Maintenance Engineer" required>
+        <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
+      </Field>
+      <Field label="Shift" required>
+        <SelectInput value={header.shift_code} onChange={(e) => setHeader((h) => ({ ...h, shift_code: e.target.value }))} options={shifts.map((s) => s.shift_code)} />
+      </Field>
+      <Field label="Type of Maintenance">
+        <SelectInput value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={MAINTENANCE_TYPES} />
+      </Field>
+      <div className="sm:col-span-4 divide-y divide-gray-100 rounded border border-gray-200 bg-white">
+        {loadingItems ? (
+          <p className="p-3 text-sm text-gray-400">Loading checklist items...</p>
+        ) : items.length === 0 ? (
+          <p className="p-3 text-sm text-gray-400">No checklist items were saved on this visit.</p>
+        ) : (
+          items.map((item) => (
+            <div key={item.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 p-3 items-end">
+              <p className="text-sm font-medium text-gray-700">{names.get(item.checklist_item_id) ?? `Item ${item.checklist_item_id}`}</p>
+              <Field label="Condition">
+                <SelectInput value={item.condition} onChange={(e) => setItem(item.id, 'condition', e.target.value)} options={['OK', 'Not OK']} />
+              </Field>
+              <Field label="Observation">
+                <TextInput value={item.observation} onChange={(e) => setItem(item.id, 'observation', e.target.value)} />
+              </Field>
+              <Field label="Action Taken">
+                <TextInput value={item.action_taken} onChange={(e) => setItem(item.id, 'action_taken', e.target.value)} />
+              </Field>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="sm:col-span-4 flex items-center gap-2 pt-1">
+        <button type="button" onClick={handleSave} disabled={saving || loadingItems} className="rounded bg-bmlhblue px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+        <button type="button" onClick={onCancel} disabled={saving} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700">
+          Cancel
+        </button>
+      </div>
+    </FormSection>
   )
 }

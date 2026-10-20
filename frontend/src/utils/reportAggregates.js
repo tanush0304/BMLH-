@@ -167,6 +167,17 @@ export function dailyCategoryMatrix(rows, days, categories) {
   })
 }
 
+/** Daily Machine "Machine" filter: no machine = every row and category
+ * (unchanged view); a machine = only its rows, and only its category (from
+ * Machines Master, else from its rows, else 'Uncategorised'). */
+export function machineView(rows, categories, machines, machineId) {
+  if (!machineId) return { rows, categories }
+  const mine = rows.filter((r) => r.machine_id === machineId)
+  const master = machines.find((m) => m.machine_id === machineId)
+  const category = master ? master.category || 'Uncategorised' : mine[0]?.machine_category ?? 'Uncategorised'
+  return { rows: mine, categories: [category] }
+}
+
 /** Machines-master categories in display order (master order, de-duplicated),
  * plus 'Uncategorised' when any machine has none. */
 export function machineCategories(machines) {

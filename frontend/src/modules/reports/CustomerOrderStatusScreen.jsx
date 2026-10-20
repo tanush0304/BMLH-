@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { FileText, Package, Truck, BarChart3, CircleCheck, Eye, PieChart as PieIcon } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -24,6 +25,7 @@ const STATUS_TONES = { Closed: 'green', Open: 'red' }
  * Order Traceability for the PRD. Filter: Customer.
  */
 export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
+  const chartType = useChartType()
   const r = useReportPeriod({ customerId: '' })
   const [orders, setOrders] = useState([])
   const [dispatches, setDispatches] = useState([])
@@ -89,7 +91,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     { key: 'drawing', label: 'Drawing Ref No' },
     { key: 'order_qty', label: 'PO Qty (Nos)', align: 'right', format: formatQty },
     { key: 'prd_list', label: 'PRDs', format: (v) => v || 'Not planned' },
-    { key: 'dispatched', label: 'Quantity Dispatched (Nos)', align: 'right', format: formatQty },
+    { key: 'dispatched', label: 'Quantity Despatched (Nos)', align: 'right', format: formatQty },
     { key: 'status', label: 'Status', render: (row) => <ReportBadge status={row.status} tones={STATUS_TONES} /> },
     {
       key: 'action',
@@ -123,27 +125,35 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         <KpiCardRow columns={5}>
           <KpiCard label="Total POs" value={formatQty(po.total)} icon={FileText} tone="blue" loading={loading} />
           <KpiCard label="Total PO Quantity" value={formatQty(totalQty)} unit="Nos" icon={Package} tone="green" loading={loading} />
-          <KpiCard label="Total Quantity Dispatched" value={formatQty(totalDispatched)} unit="Nos" icon={Truck} tone="orange" loading={loading} />
+          <KpiCard label="Total Quantity Despatched" value={formatQty(totalDispatched)} unit="Nos" icon={Truck} tone="orange" loading={loading} />
           <KpiCard label="Open POs" value={formatQty(po.open)} sub={`PO Qty: ${formatQty(po.openQty)} Nos`} icon={BarChart3} tone="purple" loading={loading} />
           <KpiCard label="Closed POs" value={formatQty(po.closed)} sub={`PO Qty: ${formatQty(po.closedQty)} Nos`} icon={CircleCheck} tone="red" loading={loading} />
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">
-            <ChartCard title="PO Order Vs Qty Dispatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
-              <BarChart data={monthly} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+            <ChartCard title="PO Order Vs Qty Despatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
+              <ComposedChart data={monthly} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                 <XAxis dataKey="label" tick={AXIS_TICK} />
                 <YAxis tick={AXIS_TICK} width={48} allowDecimals={false} />
                 <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="po" name="PO Quantity" fill={CHART_COLORS.blue}>
-                  <LabelList dataKey="po" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
-                </Bar>
-                <Bar dataKey="dispatched" name="Quantity Dispatched" fill={CHART_COLORS.green}>
-                  <LabelList dataKey="dispatched" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
-                </Bar>
-              </BarChart>
+                {series(chartType, {
+                  key: 'po',
+                  dataKey: 'po',
+                  name: 'PO Quantity',
+                  color: CHART_COLORS.blue,
+                  children: <LabelList dataKey="po" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />,
+                })}
+                {series(chartType, {
+                  key: 'dispatched',
+                  dataKey: 'dispatched',
+                  name: 'Quantity Despatched',
+                  color: CHART_COLORS.green,
+                  children: <LabelList dataKey="dispatched" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />,
+                })}
+              </ComposedChart>
             </ChartCard>
           </div>
           <ChartCard title="PO Status (By Quantity)" icon={PieIcon} loading={loading} empty={totalQty === 0} height={270} raw>

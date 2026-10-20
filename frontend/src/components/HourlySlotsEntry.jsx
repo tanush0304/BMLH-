@@ -283,7 +283,7 @@ export default function HourlySlotsEntry({
     'w-16 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30'
 
   return (
-    <fieldset disabled={readOnly} className="space-y-2 min-w-0">
+    <div className="space-y-2 min-w-0">
       {readOnly && readOnlyReason && (
         <div className="rounded border border-green-200 bg-green-50 px-3 py-1.5 text-xs text-green-800">{readOnlyReason}</div>
       )}
@@ -324,6 +324,9 @@ export default function HourlySlotsEntry({
         </div>
       )}
 
+      {/* Only the grid is locked: the history table above (and its Correct
+          button) must stay usable while the grid shows an Approved shift. */}
+      <fieldset disabled={readOnly} className="space-y-2 min-w-0">
       {capped && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded">
           This shift needs more than 12 hourly slots -- showing the first 12 only (production log hours allows up to
@@ -516,7 +519,8 @@ export default function HourlySlotsEntry({
           Add Hour {nextExtraSlot <= 12 ? nextExtraSlot : ''}
         </button>
       </div>
-    </fieldset>
+      </fieldset>
+    </div>
   )
 }
 

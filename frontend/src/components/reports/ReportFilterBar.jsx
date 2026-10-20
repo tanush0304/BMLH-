@@ -1,6 +1,7 @@
 import { CalendarDays, Search, RotateCcw } from 'lucide-react'
 import { Field, TextInput, SelectInput } from '../FormSection'
 import SearchableSelect from '../SearchableSelect'
+import ChartTypeToggle from './ChartTypeToggle'
 import { PERIOD_PRESETS } from '../../utils/reportPeriods'
 
 /**
@@ -29,13 +30,14 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
             <SearchableSelect
               value={f.value}
               onChange={(e) => f.onChange(e.target.value)}
-              options={f.options}
+              options={withCurrentValue(f.options, f.value)}
               placeholder={`All ${f.allLabel ?? f.label}s`}
               aria-label={f.label}
             />
           </Field>
         ))}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
+          <ChartTypeToggle />
           <button
             type="button"
             onClick={onSearch}
@@ -55,4 +57,13 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
       </div>
     </section>
   )
+}
+
+// Options built from the loaded data can drop the picked value (e.g. a PRD
+// with nothing in the period) -- keep it listed so it still shows and its
+// clear (x) stays available.
+function withCurrentValue(options = [], value) {
+  if (value === '' || value == null) return options
+  const has = options.some((o) => String(typeof o === 'object' ? o.value : o) === String(value))
+  return has ? options : [...options, typeof options[0] === 'object' ? { value, label: String(value) } : value]
 }

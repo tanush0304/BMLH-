@@ -54,7 +54,7 @@ export const NAV_ITEMS = [
     label: 'Jobwork',
     roles: ['supervisor', 'admin'],
     subItems: [
-      { key: 'dispatch', label: 'Dispatch' },
+      { key: 'dispatch', label: 'Despatch' },
       { key: 'receipt', label: 'Receipt' },
     ],
   },
@@ -95,7 +95,7 @@ export const NAV_ITEMS = [
     // Production Schedule / Order Traceability (moved here from Customer
     // Orders and Production) stay in the sidebar only (landing: false).
     subItems: [
-      { key: 'customer-order-status', label: 'Customer Order Status', description: 'Track customer orders, PO quantities and dispatch status.' },
+      { key: 'customer-order-status', label: 'Customer Order Status', description: 'Track customer orders, PO quantities and despatch status.' },
       { key: 'job-order-status', label: 'Job Order Status', description: 'Monitor job orders, progress and completion status.' },
       { key: 'production-status', label: 'Production Status', description: 'View production plan vs actual, output and efficiency.' },
       { key: 'daily-machine', label: 'Daily Machine Status', description: 'Check real-time machine running, idle and setup status.' },
@@ -103,7 +103,9 @@ export const NAV_ITEMS = [
       { key: 'quality-status', label: 'Quality Status', description: 'Track inspection results, rejections and quality trends.' },
       { key: 'wip-status', label: 'WIP Status', description: 'Monitor work-in-progress inventory across stages.' },
       { key: 'rm-status', label: 'Raw Material Status', description: 'View raw material stock levels, consumption and reorder status.' },
-      { key: 'fg-inventory', label: 'Finished Goods Status', description: 'Track finished goods inventory and dispatch status.' },
+      { key: 'fg-inventory', label: 'Finished Goods Status', description: 'Track finished goods inventory and despatch status.' },
+      // Added after the client demo (2026-10-17) -- not on deck slide 18.
+      { key: 'complaint-status', label: 'Customer Complaint Status', description: 'Track complaints by customer, defect, part and severity.' },
       { key: 'po-summary', label: 'PO Summary', landing: false },
       { key: 'schedule', label: 'Production Schedule', landing: false },
       { key: 'traceability', label: 'Order Traceability', landing: false },
@@ -124,14 +126,14 @@ export function subItemLabel(topKey, subKey) {
 // Stores landing: RM and FG each have one combined screen with Issue/Receipt
 // (Dispatch/Receipt) tabs, so they get two tiles each that open that screen
 // with the matching tab pre-selected (`mode` = the screen's own tab key).
+// Raw Material Requisition has no tile -- sidebar only.
 export const STORES_LANDING_TILES = [
   { key: 'rm-receipt', label: 'Raw Material Receipt', subKey: 'rm', mode: 'receipt' },
   { key: 'rm-issue', label: 'Raw Material Issue', subKey: 'rm', mode: 'issue' },
   { key: 'wip-receipt', label: 'WIP Receipt', subKey: 'wip-receipt' },
   { key: 'wip-issue', label: 'WIP Issue', subKey: 'wip-issue' },
   { key: 'fg-receipt', label: 'Finished Goods Receipt', subKey: 'fg', mode: 'production-receipt' },
-  { key: 'fg-despatch', label: 'Finished Goods Dispatch', subKey: 'fg', mode: 'dispatch' },
-  { key: 'rm-requisition', label: 'Raw Material Requisition', subKey: 'rm-requisition' },
+  { key: 'fg-despatch', label: 'Finished Goods Despatch', subKey: 'fg', mode: 'dispatch' },
 ]
 
 export const STATUS_COLORS = {
@@ -160,6 +162,13 @@ export const STATUS_COLORS = {
   Approved: 'bg-green-100 text-green-800',
   Rejected: 'bg-red-100 text-red-800',
   'No entry': 'bg-gray-100 text-gray-600',
+}
+
+/** True when a module lists `roles` in NAV_ITEMS and `role` is not one of
+ * them (Masters, Customer Orders, Jobwork, Reports & Dashboard): App shows
+ * "Supervisor or admin access required." instead of the module. */
+export function isModuleRestricted(moduleKey, role) {
+  return NAV_ITEMS.find((item) => item.key === moduleKey)?.roles?.includes(role) === false
 }
 
 /** A sub-screen is visible to `role` unless it lists `roles` without it. */

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { Settings, Hourglass, PieChart as PieIcon, BarChart3, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -33,6 +34,7 @@ const fmtPct = (v) => (v == null ? '—' : `${v.toFixed(1)} %`)
  * date + shift. Manual Operations logs (no machine) are left out.
  */
 export default function DowntimeScreen() {
+  const chartType = useChartType()
   const r = useReportPeriod(EMPTY_FILTERS)
   const { applied, filters } = r
 
@@ -111,16 +113,21 @@ export default function DowntimeScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
-            <BarChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
               <YAxis tick={AXIS_TICK} width={40} />
               <Tooltip formatter={(v) => `${fmtHrs(v)} Hrs`} />
-              <Bar dataKey="hours" name="Hours Lost">
-                {typeData.map((t) => <Cell key={t.key} fill={t.color} />)}
-                <LabelList dataKey="hours" position="top" style={{ fontSize: 11 }} formatter={(v) => (v ? v.toFixed(1) : '')} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'hours',
+                dataKey: 'hours',
+                name: 'Hours Lost',
+                children: [
+                  ...typeData.map((t) => <Cell key={t.key} fill={t.color} />),
+                  <LabelList key="label" dataKey="hours" position="top" style={{ fontSize: 11 }} formatter={(v) => (v ? v.toFixed(1) : '')} />,
+                ],
+              })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260} raw>
@@ -132,16 +139,14 @@ export default function DowntimeScreen() {
           </ChartCard>
 
           <ChartCard title="Trend of Downtime Hours" icon={TrendingUp} loading={loading} empty={empty} height={260}>
-            <LineChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
               <YAxis tick={AXIS_TICK} width={40} />
               <Tooltip formatter={(v) => `${fmtHrs(v)} Hrs`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {DOWNTIME_TYPES.map((t, i) => (
-                <Line key={t.key} dataKey={t.key} name={t.label} stroke={TYPE_COLORS[i]} strokeWidth={2} dot={false} />
-              ))}
-            </LineChart>
+              {DOWNTIME_TYPES.map((t, i) => series(chartType, { key: t.key, dataKey: t.key, name: t.label, color: TYPE_COLORS[i] }))}
+            </ComposedChart>
           </ChartCard>
         </div>
 

@@ -16,7 +16,8 @@ export async function listLogHoursForLogIds(logIds) {
 }
 
 export async function listDispatchesForPrd(prdNo) {
-  const { data, error } = await supabase.from('job order dispatch').select('*').eq('prd_no', prdNo)
+  // Voided DCs (034) count nowhere -- not in stage availability either.
+  const { data, error } = await supabase.from('job order dispatch').select('*').eq('prd_no', prdNo).is('voided_at', null)
   if (error) throw error
   return data
 }

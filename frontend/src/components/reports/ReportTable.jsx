@@ -175,6 +175,7 @@ const BADGE = {
 }
 
 /** Status badge for report tables; `tones` maps status -> green / amber / red / blue / slate. */
-export function ReportBadge({ status, tones }) {
-  return <span className={`inline-block min-w-[78px] rounded border px-2 py-0.5 text-center text-[12px] font-semibold ${BADGE[tones[status]] ?? BADGE.amber}`}>{status}</span>
+/** `status` picks the colour; `label` (optional) is the text shown. */
+export function ReportBadge({ status, tones, label }) {
+  return <span className={`inline-block min-w-[78px] rounded border px-2 py-0.5 text-center text-[12px] font-semibold ${BADGE[tones[status]] ?? BADGE.amber}`}>{label ?? status}</span>
 }

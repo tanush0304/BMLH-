@@ -1,7 +1,9 @@
 import { computeQualityResult } from '../../utils/qualityResult'
 import { useEffect, useState } from 'react'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
@@ -12,7 +14,17 @@ import EmployeeSelect from '../../components/EmployeeSelect'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { listMachines } from '../../data/queries/machines'
-import { listPrdsWithRouteCard, createQualityLog, createQualityLogReadings, listQualityInspectionHistory } from '../../data/queries/qualityLogs'
+import {
+  listPrdsWithRouteCard,
+  createQualityLog,
+  createQualityLogReadings,
+  listQualityInspectionHistory,
+  updateQualityLog,
+  updateQualityLogReading,
+} from '../../data/queries/qualityLogs'
+import { canEditStock } from '../../utils/stockEdit'
+import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import { employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { stagesEligibleForMachine } from '../../utils/machineEligibility'
@@ -25,6 +37,7 @@ const HISTORY_COLUMNS = [
   { key: 'prd_no', label: 'PRD' },
   { key: 'machine_id', label: 'Machine' },
   { key: 'operation', label: 'Operation' },
+  { key: 'inspected_by', label: 'Inspected By' },
   { key: 'quality_parameter', label: 'Parameter' },
   { key: 'observed_value', label: 'Observed Value' },
   { key: 'result', label: 'Result', type: 'status' },
@@ -37,7 +50,7 @@ const HISTORY_COLUMNS = [
  * computeQualityResult (utils/qualityResult.js) mirrors that view's CASE
  * so what the user sees while typing matches what is derived after save.
  */
-export default function QualityInspectionScreen() {
+export default function QualityInspectionScreen({ role }) {
   const [step, setStep] = useState('header')
 
   const [employees, setEmployees] = useState([])
@@ -58,6 +71,12 @@ export default function QualityInspectionScreen() {
   const [readingRows, setReadingRows] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+
+  // Supervisor/admin edit of a saved inspection (032): a history row picks
+  // its inspection; Edit opens every reading of it.
+  const appUsers = useAppUsers()
+  const [selectedRow, setSelectedRow] = useState(null)
+  const [editingLogId, setEditingLogId] = useState(null)
 
   async function refreshLookups() {
     setLoading(true)
@@ -242,7 +261,45 @@ export default function QualityInspectionScreen() {
     }
   }
 
-  const filteredHistory = history.filter((r) => {
+  // New / Clear: back to an empty header (Employee and Shift are kept).
+  function handleClear() {
+    setEditingLogId(null)
+    setSelectedRow(null)
+    const { employee_id, shift_code } = header
+    resetHeader()
+    setHeader({ ...EMPTY_HEADER, employee_id, shift_code })
+    setReadingRows([])
+    setSaveError(null)
+    setStep('header')
+  }
+
+  const historyRows = withEditedLabels(history, appUsers).map((r) => ({
+    ...r,
+    inspected_by: employeeLabelForId(r.employee_id, employees),
+  }))
+  const editingRows = editingLogId ? history.filter((r) => r.quality_log_id === editingLogId) : []
+
+  async function handleSaveEdit({ employee_id, shift_code, values }) {
+    const first = editingRows[0]
+    if (!employee_id || !shift_code) return 'Employee and Shift are required.'
+    for (const r of editingRows) {
+      const v = values[r.reading_id]
+      if (v === '' || v === undefined || !Number.isFinite(Number(v))) return `Enter a number for ${r.quality_parameter}.`
+    }
+    if (employee_id !== first.employee_id || shift_code !== first.shift_code) {
+      await updateQualityLog(editingLogId, { employee_id, shift_code })
+    }
+    for (const r of editingRows) {
+      const v = Number(values[r.reading_id])
+      if (v !== Number(r.observed_value)) await updateQualityLogReading(r.reading_id, { observed_value: v })
+    }
+    setEditingLogId(null)
+    setSelectedRow(null)
+    await refreshLookups()
+    return null
+  }
+
+  const filteredHistory = historyRows.filter((r) => {
     if (!historySearch) return true
     const q = historySearch.toLowerCase()
     return (
@@ -256,6 +313,22 @@ export default function QualityInspectionScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Quality Inspection" subtitle="Define Quality Parameters  |  Maintain Standards  |  Ensure Product Excellence" />
+      {/* Save = Submit on the header step, Save Inspection on the readings
+          step. Edit (supervisor/admin, 032) corrects a saved inspection; no Delete. */}
+      <ActionToolbar
+        showEditDelete={canEditStock(role)}
+        showDelete={false}
+        onEdit={() => setEditingLogId(selectedRow?.quality_log_id ?? null)}
+        canEdit={!!selectedRow && !editingLogId}
+        onNew={handleClear}
+        onSave={step === 'header' ? handleSubmitHeader : handleSaveReadings}
+        onClear={handleClear}
+        canSave={step === 'header' || readingRows.length > 0}
+        saving={submitting || saving}
+        saveLabel={step === 'header' ? 'Submit' : 'Save Inspection'}
+        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, filteredHistory, 'quality_inspections.csv')}
+        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredHistory, 'Quality Inspection History', 'quality_inspections')}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
@@ -316,15 +389,6 @@ export default function QualityInspectionScreen() {
                 No stage of this product is set up for this machine in Cycle Time Master.
               </p>
             )}
-            <div className="flex items-end">
-              <button
-                onClick={handleSubmitHeader}
-                disabled={submitting}
-                className="bg-bmlhblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-[#163d70]"
-              >
-                {submitting ? 'Loading...' : 'Submit'}
-              </button>
-            </div>
           </FormSection>
         )}
 
@@ -393,27 +457,30 @@ export default function QualityInspectionScreen() {
                     })}
                   </tbody>
                 </table>
-                <div className="p-3">
-                  <button
-                    onClick={handleSaveReadings}
-                    disabled={saving}
-                    className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
-                  >
-                    {saving ? 'Saving...' : 'Save Inspection'}
-                  </button>
-                </div>
               </div>
             )}
           </div>
         )}
 
+        {editingLogId && editingRows.length > 0 && (
+          <InspectionEditPanel
+            rows={editingRows}
+            employees={employees}
+            shifts={shifts}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingLogId(null)}
+          />
+        )}
+
         <RecordsList
           title="Quality Inspection History"
-          columns={HISTORY_COLUMNS}
+          columns={[...HISTORY_COLUMNS, EDITED_COLUMN]}
           rows={filteredHistory}
           loading={loading}
           error={null}
           rowKey="reading_id"
+          selectedKey={selectedRow?.reading_id}
+          onRowClick={(r) => !editingLogId && setSelectedRow(r)}
           searchValue={historySearch}
           onSearchChange={setHistorySearch}
           searchPlaceholder="Search by PRD / Machine / Parameter..."
@@ -421,5 +488,104 @@ export default function QualityInspectionScreen() {
         <div className="text-xs text-gray-500 px-1">Total Records: {filteredHistory.length}</div>
       </div>
     </div>
+  )
+}
+
+/** Supervisor/admin correction of one saved inspection: Employee, Shift and
+ * every reading's Observed Value; PRD / machine / operation / date stay as
+ * saved (the DB refuses changing them, 032). onSave returns an error or null. */
+function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
+  const first = rows[0]
+  const [employeeId, setEmployeeId] = useState(first.employee_id ?? '')
+  const [shiftCode, setShiftCode] = useState(first.shift_code ?? '')
+  const [values, setValues] = useState(() => Object.fromEntries(rows.map((r) => [r.reading_id, String(r.observed_value ?? '')])))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      const message = await onSave({ employee_id: employeeId, shift_code: shiftCode, values })
+      if (message) setError(message)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <FormSection icon={Pencil} title="Edit Inspection" subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
+      {error && <div className="sm:col-span-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+      <Field label="Production Order (PRD No)">
+        <AutoFillBox value={first.prd_no} />
+      </Field>
+      <Field label="Machine">
+        <AutoFillBox value={first.machine_id} />
+      </Field>
+      <Field label="Type of Operation">
+        <AutoFillBox value={first.operation} />
+      </Field>
+      <Field label="Date">
+        <AutoFillBox value={first.log_date} />
+      </Field>
+      <Field label="Employee" required>
+        <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
+      </Field>
+      <Field label="Shift" required>
+        <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name }))} />
+      </Field>
+      <div className="sm:col-span-3 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-50 text-bmlhnavy text-left">
+              <th className="px-3 py-1.5 font-semibold">Parameter</th>
+              <th className="px-3 py-1.5 font-semibold">Standard</th>
+              <th className="px-3 py-1.5 font-semibold">Upper Tol.</th>
+              <th className="px-3 py-1.5 font-semibold">Lower Tol.</th>
+              <th className="px-3 py-1.5 font-semibold">Observed Value</th>
+              <th className="px-3 py-1.5 font-semibold">Certification</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const noLimit = r.standard === null || r.standard === undefined
+              return (
+                <tr key={r.reading_id} className="border-t border-gray-100">
+                  <td className="px-3 py-1">{r.quality_parameter}</td>
+                  <td className="px-3 py-1 text-gray-500">{r.standard ?? '—'}</td>
+                  <td className="px-3 py-1 text-gray-500">{r.upper_tolerance ?? '—'}</td>
+                  <td className="px-3 py-1 text-gray-500">{r.lower_tolerance ?? '—'}</td>
+                  <td className="px-3 py-1">
+                    <input
+                      type="number"
+                      value={values[r.reading_id]}
+                      onChange={(e) => setValues((v) => ({ ...v, [r.reading_id]: e.target.value }))}
+                      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+                    />
+                  </td>
+                  <td className="px-3 py-1">
+                    {noLimit ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">No limit set</span>
+                    ) : (
+                      <StatusPill status={computeQualityResult(r.standard, r.upper_tolerance, r.lower_tolerance, values[r.reading_id])} />
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="sm:col-span-3 flex items-center gap-2 pt-1">
+        <button type="button" onClick={handleSave} disabled={saving} className="rounded bg-bmlhblue px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+        <button type="button" onClick={onCancel} disabled={saving} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700">
+          Cancel
+        </button>
+      </div>
+    </FormSection>
   )
 }

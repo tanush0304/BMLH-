@@ -44,6 +44,8 @@ export default function RecordsList({
   searchValue = '',
   onSearchChange,
   searchPlaceholder = 'Search in list...',
+  // Extra classes per row's cells (e.g. strike-through on a VOID row).
+  rowClassName,
 }) {
   const [expanded, setExpanded] = useState(false)
   const [sort, setSort] = useState(null) // { key, dir: 1 | -1 }
@@ -145,7 +147,7 @@ export default function RecordsList({
                   >
                     <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>
                     {columns.map((col) => (
-                      <td key={col.key} className={`whitespace-nowrap px-3 py-1.5 ${isQuantityColumn(col) ? NUM_HIGHLIGHT_CLASS : 'text-slate-800'}`}>
+                      <td key={col.key} className={`whitespace-nowrap px-3 py-1.5 ${isQuantityColumn(col) ? NUM_HIGHLIGHT_CLASS : 'text-slate-800'} ${rowClassName?.(row) ?? ''}`}>
                         {col.type === 'status' ? (
                           <StatusPill status={row[col.key]} />
                         ) : col.render ? (

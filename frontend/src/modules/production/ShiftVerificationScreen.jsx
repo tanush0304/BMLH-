@@ -29,6 +29,20 @@ import { employeeLabelForId } from '../../utils/employeeLabel'
 import { acceptedFromHour } from '../../utils/qtyLimits'
 import { totalIdle } from '../../utils/productionReport'
 import { SHIFT_STATUSES, buildShiftRows, filterShiftRows, approveBlockedReason } from '../../utils/shiftVerification'
+import { updateHourCorrection } from '../../data/queries/shiftVerifications'
+import { IDLE_CATEGORIES } from '../../utils/productionReport'
+import {
+  CORRECTION_FIELDS,
+  canCorrectRole,
+  correctBlockedReason,
+  correctionChanges,
+  correctionError,
+  saveCorrection,
+  correctedByText,
+  editedHourTitle,
+} from '../../utils/shiftCorrection'
+
+const draftFromHour = (h) => Object.fromEntries(CORRECTION_FIELDS.map((k) => [k, h[k] ?? (k === 'remarks' ? '' : 0)]))
 
 const MACHINE_COLUMNS = [
   { key: 'machine', label: 'Machine' },
@@ -64,7 +78,7 @@ const MANUAL_COLUMNS = [
 // Print: both sections in one sheet; manual rows show "Manual" as machine.
 const EXPORT_COLUMNS = [{ key: 'section', label: 'Section' }, ...MACHINE_COLUMNS]
 
-export default function ShiftVerificationScreen() {
+export default function ShiftVerificationScreen({ role }) {
   const appUsers = useAppUsers()
   const [shifts, setShifts] = useState([])
   const [machines, setMachines] = useState([])
@@ -88,6 +102,9 @@ export default function ShiftVerificationScreen() {
   const [selectedKey, setSelectedKey] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [acting, setActing] = useState(false)
+  // 035: correcting a Rejected shift of a closed log (hour id -> draft).
+  const [drafts, setDrafts] = useState(null)
+  const [correctSaving, setCorrectSaving] = useState(false)
 
   useEffect(() => {
     Promise.all([listShifts(), listMachines(), listEmployees(), listAllStages(), listOrdersByPrd(), listProducts(), getCurrentUserId()])
@@ -124,6 +141,7 @@ export default function ShiftVerificationScreen() {
 
   useEffect(() => {
     setSelectedKey(null)
+    setDrafts(null)
     setRejectReason('')
     setNotice(null)
     loadShift(logDate, shiftCode)
@@ -148,6 +166,65 @@ export default function ShiftVerificationScreen() {
 
   const selected = [...machineRows, ...manualRows].find((r) => r.key === selectedKey) ?? null
   const blockedReason = selected ? approveBlockedReason(selected, currentUserId) : null
+  const showCorrect = canCorrectRole(role) && Boolean(selected?.log_id) && !selected?.log_is_open && selected?.status !== 'Approved'
+  const correctBlock = showCorrect ? correctBlockedReason(selected, role, currentUserId) : null
+  const correcting = Boolean(drafts && selected)
+  const correctedBy = selected ? correctedByText(selected, appUsers) : ''
+
+  function selectRow(r) {
+    if (correcting) return
+    setSelectedKey(r.key)
+    setRejectReason('')
+  }
+
+  function startCorrect() {
+    setNotice(null)
+    setError(null)
+    setDrafts(Object.fromEntries(selected.hourRows.map((h) => [h.id, draftFromHour(h)])))
+  }
+
+  function setDraft(id, key, value) {
+    setDrafts((d) => ({ ...d, [id]: { ...d[id], [key]: value } }))
+  }
+
+  async function saveCorrectionRows() {
+    const problem = correctionError(selected.hourRows, drafts)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    const changes = correctionChanges(selected.hourRows, drafts)
+    if (changes.length === 0) {
+      setError('Nothing changed.')
+      return
+    }
+    setCorrectSaving(true)
+    setError(null)
+    const { saved, failed } = await saveCorrection(changes, updateHourCorrection)
+    setCorrectSaving(false)
+    // Reload first: loadShift clears the error banner, so the result goes after it.
+    await loadShift(logDate, shiftCode)
+    if (failed) {
+      setError(
+        `Hour ${failed.hour_slot} was not saved: ${failed.message}` +
+          (saved.length ? ` (hours ${saved.join(', ')} were saved -- the shift is now Pending and only you can continue).` : '')
+      )
+    } else {
+      setDrafts(null)
+      setNotice(`Corrected hours ${saved.join(', ')} -- the shift is Pending and needs another supervisor/admin to approve.`)
+    }
+  }
+
+  // Live totals while correcting (saved values overlaid with the drafts).
+  const gridHours = selected ? selected.hourRows.map((h) => (correcting ? { ...h, ...drafts[h.id] } : h)) : []
+  const n = (v) => Number(v || 0)
+  const totals = {
+    produced: gridHours.reduce((s, h) => s + n(h.qty_produced), 0),
+    rejected: gridHours.reduce((s, h) => s + n(h.qty_rejected), 0),
+    rework: gridHours.reduce((s, h) => s + n(h.qty_rework), 0),
+    accepted: gridHours.reduce((s, h) => s + acceptedFromHour(h), 0),
+    idle: gridHours.reduce((s, h) => s + (totalIdle(h) || 0), 0),
+  }
 
   async function decide(status) {
     if (!selected?.log_id) return
@@ -234,10 +311,7 @@ export default function ShiftVerificationScreen() {
               loading={loading}
               rowKey="key"
               selectedKey={selectedKey}
-              onRowClick={(r) => {
-                setSelectedKey(r.key)
-                setRejectReason('')
-              }}
+              onRowClick={selectRow}
               searchValue={searchMachines}
               onSearchChange={setSearchMachines}
               searchPlaceholder="Search machine / PRD / operator..."
@@ -249,10 +323,7 @@ export default function ShiftVerificationScreen() {
               loading={loading}
               rowKey="key"
               selectedKey={selectedKey}
-              onRowClick={(r) => {
-                setSelectedKey(r.key)
-                setRejectReason('')
-              }}
+              onRowClick={selectRow}
               searchValue={searchManual}
               onSearchChange={setSearchManual}
               searchPlaceholder="Search operation / PRD / operator..."
@@ -281,9 +352,88 @@ export default function ShiftVerificationScreen() {
                     Rejected: {selected.reject_reason} <span className="text-gray-500">({selected.decided_by}, {selected.decided_at})</span>
                   </span>
                 )}
+                {correctedBy && <span className="text-amber-700">{correctedBy}</span>}
+                {showCorrect && !correcting && (
+                  <button
+                    type="button"
+                    onClick={startCorrect}
+                    disabled={Boolean(correctBlock)}
+                    title={correctBlock ?? undefined}
+                    className="rounded bg-bmlhblue px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                  >
+                    Correct
+                  </button>
+                )}
+                {showCorrect && correctBlock && <span className="text-xs text-amber-700">{correctBlock}</span>}
+                {selected.log_id && selected.log_is_open && selected.status === 'Rejected' && (
+                  <span className="text-xs text-gray-500">Log still open -- the operator corrects it in Production Data Entry / Manual Operations.</span>
+                )}
               </div>
 
-              {selected.hourRows.length > 0 && (
+              {correcting && (
+                <div className="bg-white border border-amber-300 rounded-md overflow-x-auto">
+                  <p className="px-2 py-1.5 text-xs text-amber-800 bg-amber-50 border-b border-amber-200">
+                    Correcting a closed log. Saved hours stamp you as the corrector; another supervisor or admin must then approve.
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600 text-left">
+                        <th className="px-2 py-1.5 font-medium">Hour</th>
+                        <th className="px-2 py-1.5 font-medium">Produced</th>
+                        <th className="px-2 py-1.5 font-medium">Rejected</th>
+                        <th className="px-2 py-1.5 font-medium">Rework</th>
+                        <th className="px-2 py-1.5 font-medium">Accepted</th>
+                        {IDLE_CATEGORIES.map((c) => (
+                          <th key={c.key} className="px-2 py-1.5 font-medium">{c.label}</th>
+                        ))}
+                        <th className="px-2 py-1.5 font-medium">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gridHours.map((h) => (
+                        <tr key={h.id} className="border-t border-gray-100 text-gray-700">
+                          <td className="px-2 py-1">{h.hour_slot}</td>
+                          {['qty_produced', 'qty_rejected', 'qty_rework'].map((k) => (
+                            <td key={k} className="px-1 py-1">
+                              <input type="number" min="0" aria-label={`Hour ${h.hour_slot} ${k}`} value={drafts[h.id][k]} onChange={(e) => setDraft(h.id, k, e.target.value)} className="w-16 rounded border border-gray-300 px-1 py-0.5" />
+                            </td>
+                          ))}
+                          <td className="px-2 py-1 num-highlight">{acceptedFromHour(h)}</td>
+                          {IDLE_CATEGORIES.map((c) => (
+                            <td key={c.key} className="px-1 py-1">
+                              <input type="number" min="0" aria-label={`Hour ${h.hour_slot} ${c.label}`} value={drafts[h.id][c.key]} onChange={(e) => setDraft(h.id, c.key, e.target.value)} className="w-12 rounded border border-gray-300 px-1 py-0.5" />
+                            </td>
+                          ))}
+                          <td className="px-1 py-1">
+                            <input value={drafts[h.id].remarks ?? ''} onChange={(e) => setDraft(h.id, 'remarks', e.target.value)} className="w-32 rounded border border-gray-300 px-1 py-0.5" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-gray-200 bg-gray-50 font-medium text-gray-700">
+                        <td className="px-2 py-1">Total</td>
+                        <td className="px-2 py-1 num-highlight">{totals.produced}</td>
+                        <td className="px-2 py-1 num-highlight">{totals.rejected}</td>
+                        <td className="px-2 py-1 num-highlight">{totals.rework}</td>
+                        <td className="px-2 py-1 num-highlight">{totals.accepted}</td>
+                        <td className="px-2 py-1" colSpan={IDLE_CATEGORIES.length}>Idle {totals.idle} min</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <div className="flex gap-2 p-2">
+                    <button type="button" onClick={saveCorrectionRows} disabled={correctSaving} className="rounded bg-bmlhblue px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+                      {correctSaving ? 'Saving...' : 'Save Correction'}
+                    </button>
+                    <button type="button" onClick={() => { setDrafts(null); setError(null) }} disabled={correctSaving} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!correcting && selected.hourRows.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-md overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -296,6 +446,7 @@ export default function ShiftVerificationScreen() {
                         <th className="px-2 py-1.5 font-medium">Accepted</th>
                         <th className="px-2 py-1.5 font-medium">Idle (min)</th>
                         <th className="px-2 py-1.5 font-medium">Remarks</th>
+                        <th className="px-2 py-1.5 font-medium">Edited</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -309,6 +460,13 @@ export default function ShiftVerificationScreen() {
                           <td className="px-2 py-1 num-highlight">{acceptedFromHour(h)}</td>
                           <td className="px-2 py-1">{totalIdle(h) || 0}</td>
                           <td className="px-2 py-1">{h.remarks ?? ''}</td>
+                          <td className="px-2 py-1">
+                            {h.edited_at && (
+                              <span title={editedHourTitle(h, appUsers)} className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                                Edited
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -321,13 +479,14 @@ export default function ShiftVerificationScreen() {
                         <td className="px-2 py-1 num-highlight">{selected.accepted}</td>
                         <td className="px-2 py-1">{selected.idle_min}</td>
                         <td />
+                        <td />
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               )}
 
-              {selected.log_id && selected.status !== 'Approved' && (
+              {selected.log_id && selected.status !== 'Approved' && !correcting && (
                 <div className="flex flex-wrap items-end gap-3">
                   <Field label="Reject Reason" width="long">
                     <TextInput value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />

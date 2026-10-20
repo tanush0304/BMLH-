@@ -20,9 +20,13 @@ export function acceptedFromHour(hour) {
   return Math.max(0, num(hour?.qty_produced) - num(hour?.qty_rejected) - num(hour?.qty_rework))
 }
 
-/** WIP Receipt: a stage's accepted qty minus what has already been received into WIP from it. */
-export function wipReceiptAvailable({ stageAccepted, alreadyReceived }) {
-  return Math.max(0, num(stageAccepted) - num(alreadyReceived))
+/** WIP Receipt: a stage's accepted qty minus what has already been received
+ * into WIP from it, minus what the NEXT stage took directly from it (its
+ * consumption -- log planned qty / jobwork dispatched -- less what WIP
+ * issued into it). Never below 0. */
+export function wipReceiptAvailable({ stageAccepted, alreadyReceived, nextConsumed = 0, issuedIntoNext = 0 }) {
+  const takenDirectly = Math.max(0, num(nextConsumed) - num(issuedIntoNext))
+  return Math.max(0, num(stageAccepted) - num(alreadyReceived) - takenDirectly)
 }
 
 /** FG Receipt: both ceilings and the binding one. By production = this PRD's

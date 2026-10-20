@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Cell } from 'recharts'
+import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Cell } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { Boxes, Truck, Warehouse, ArrowDownToLine, ArrowUpRight, PackageCheck, BarChart3, Users, PieChart as PieIcon } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -11,7 +12,7 @@ import { listRmTransactionsUpTo, listRmStockMasterRows } from '../../data/querie
 import { listSuppliers } from '../../data/queries/suppliers'
 import { displayDate, previousRange } from '../../utils/reportPeriods'
 import { changePct } from '../../utils/reportAggregates'
-import { stockMovement, topN, sumByUom, dominantUom } from '../../utils/reportStock'
+import { stockMovement, topN, sumByUom, dominantUom, rmMatchesFilters } from '../../utils/reportStock'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#64748B']
 const partsClass = (v) => (v == null ? '' : v <= 0 ? 'bg-red-100' : 'bg-green-100')
@@ -34,7 +35,8 @@ function moveFor(movement, materials, code) {
  * (cost_per_unit source unconfirmed). Filters: Supplier, RM Type, UoM.
  */
 export default function RawMaterialStatusScreen() {
-  const r = useReportPeriod({ supplier: '', rmType: '', uom: '' })
+  const chartType = useChartType()
+  const r = useReportPeriod({ supplier: '', rmType: '', uom: '', rmCode: '' })
   const [txns, setTxns] = useState([])
   const [master, setMaster] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -68,14 +70,8 @@ export default function RawMaterialStatusScreen() {
   }, [master])
 
   const scopedCodes = useMemo(() => {
-    const { supplier, rmType, uom } = r.applied
     const set = new Set()
-    for (const [code, rm] of materials) {
-      if (supplier && !(rm.supplier_names ?? '').split(', ').includes(supplier)) continue
-      if (rmType && rm.rm_type !== rmType) continue
-      if (uom && rm.unit_of_measurement !== uom) continue
-      set.add(code)
-    }
+    for (const [code, rm] of materials) if (rmMatchesFilters(rm, r.applied)) set.add(code)
     return set
   }, [materials, r.applied])
 
@@ -175,6 +171,11 @@ export default function RawMaterialStatusScreen() {
   const allRms = [...materials.values()]
   const typeOptions = [...new Set(allRms.map((x) => x.rm_type).filter(Boolean))].sort()
   const uomOptions = [...new Set(allRms.map((x) => x.unit_of_measurement).filter(Boolean))].sort()
+  // RM Code options from RM Master, narrowed by the other (not yet applied) filters.
+  const rmCodeOptions = allRms
+    .filter((x) => rmMatchesFilters(x, { ...r.filters, rmCode: '' }))
+    .map((x) => ({ value: x.raw_material_code, label: x.raw_material_name ? `${x.raw_material_code} – ${x.raw_material_name}` : x.raw_material_code }))
+    .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }))
   const supplierOptions = [...new Set(allRms.flatMap((x) => (x.supplier_names ? x.supplier_names.split(', ') : [])))].sort()
 
   const columns = [
@@ -203,6 +204,7 @@ export default function RawMaterialStatusScreen() {
             { key: 'supplier', label: 'Supplier', value: r.filters.supplier, onChange: r.setFilter('supplier'), options: supplierOptions },
             { key: 'type', label: 'RM Type', value: r.filters.rmType, onChange: r.setFilter('rmType'), options: typeOptions },
             { key: 'uom', label: 'UOM', allLabel: 'UoM', value: r.filters.uom, onChange: r.setFilter('uom'), options: uomOptions },
+            { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
           ]}
         />
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
@@ -218,30 +220,35 @@ export default function RawMaterialStatusScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260}>
-            <BarChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={48} />
               <Tooltip formatter={(v) => `${formatQty(v)} ${chartUom ?? ''}`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="opening" name="Opening Stock" fill={CHART_COLORS.blue} />
-              <Bar dataKey="receipts" name="Receipts" fill={CHART_COLORS.green} />
-              <Bar dataKey="issues" name="Issues" fill={CHART_COLORS.orange} />
-              <Bar dataKey="closing" name="Closing Stock" fill={CHART_COLORS.purple} />
-            </BarChart>
+              {series(chartType, { key: 'opening', dataKey: 'opening', name: 'Opening Stock', color: CHART_COLORS.blue })}
+              {series(chartType, { key: 'receipts', dataKey: 'receipts', name: 'Receipts', color: CHART_COLORS.green })}
+              {series(chartType, { key: 'issues', dataKey: 'issues', name: 'Issues', color: CHART_COLORS.orange })}
+              {series(chartType, { key: 'closing', dataKey: 'closing', name: 'Closing Stock', color: CHART_COLORS.purple })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title={`Receipts by Supplier (Top 5)${unitLabel}`} icon={Users} loading={loading} empty={bySupplier.length === 0} height={260}>
-            <BarChart data={bySupplier} layout="vertical" margin={{ top: 4, right: 44, left: 8, bottom: 0 }}>
+            <ComposedChart data={bySupplier} layout="vertical" margin={{ top: 4, right: 44, left: 8, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
               <XAxis type="number" tick={AXIS_TICK} />
               <YAxis type="category" dataKey="label" tick={AXIS_TICK} width={110} />
               <Tooltip formatter={(v) => `${formatQty(v)} ${chartUom ?? ''}`} />
-              <Bar dataKey="value" name="Receipts">
-                {bySupplier.map((x, i) => <Cell key={x.label} fill={SERIES[i % SERIES.length]} />)}
-                <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'value',
+                dataKey: 'value',
+                name: 'Receipts',
+                children: [
+                  ...bySupplier.map((x, i) => <Cell key={x.label} fill={SERIES[i % SERIES.length]} />),
+                  <LabelList key="label" dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />,
+                ],
+              })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="RM Type wise Material Availability (Parts)" icon={PieIcon} loading={loading} empty={partsByType.length === 0} height={260} raw>

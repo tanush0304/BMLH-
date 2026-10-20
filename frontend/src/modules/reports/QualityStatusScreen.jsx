@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea, ReferenceLine } from 'recharts'
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea, ReferenceLine } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { FileText, CircleCheck, CircleX, CircleHelp, BarChart3, TrendingUp, PieChart as PieIcon, Ruler } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -13,7 +14,8 @@ import { listMachines } from '../../data/queries/machines'
 import { listShifts } from '../../data/queries/shifts'
 import { listEmployees } from '../../data/queries/employees'
 import { machineOptionLabel } from '../../utils/machineLabel'
-import { sortedEmployeeOptions } from '../../utils/employeeLabel'
+import { sortedEmployeeOptions, employeeLabelForId } from '../../utils/employeeLabel'
+import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
@@ -34,19 +36,20 @@ const SELECT = 'input-dropdown min-w-0 max-w-[140px] rounded border px-2 py-1 te
  * chart: one part + one parameter, observed values against the tolerance band.
  */
 export default function QualityStatusScreen() {
+  const chartType = useChartType()
   const r = useReportPeriod({ prdNo: '', parameter: '', machineId: '', shiftCode: '', employeeId: '' })
   const [inspections, setInspections] = useState([])
   const [readings, setReadings] = useState([])
   const [hours, setHours] = useState([])
-  const [opts, setOpts] = useState({ orders: [], machines: [], shifts: [], employees: [] })
+  const [opts, setOpts] = useState({ orders: [], machines: [], shifts: [], employees: [], qualityParams: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [chartPart, setChartPart] = useState('')
   const [chartParam, setChartParam] = useState('')
 
   useEffect(() => {
-    Promise.all([listOrdersByPrd(), listMachines(), listShifts(), listEmployees()])
-      .then(([orders, machines, shifts, employees]) => setOpts({ orders, machines, shifts, employees }))
+    Promise.all([listOrdersByPrd(), listMachines(), listShifts(), listEmployees(), listQualityParameters()])
+      .then(([orders, machines, shifts, employees, qualityParams]) => setOpts({ orders, machines, shifts, employees, qualityParams }))
       .catch((e) => setError(e.message))
   }, [])
 
@@ -113,19 +116,20 @@ export default function QualityStatusScreen() {
   const part = parts.includes(chartPart) ? chartPart : parts[0] ?? ''
   const paramsForPart = [...(partParams.get(part) ?? [])].sort()
   const chartParameter = paramsForPart.includes(chartParam) ? chartParam : (param && paramsForPart.includes(param) ? param : paramsForPart[0] ?? '')
-  const series = useMemo(
+  // Not `series`: that name is the Bar/Line helper imported above.
+  const paramSeries = useMemo(
     () => parameterSeries(readings, inspectionById, partForPrd, part, chartParameter).map((p, n) => ({ ...p, n: n + 1, label: shortDate(p.date) })),
     [readings, inspectionById, partForPrd, part, chartParameter]
   )
-  const band = series.find((p) => p.min != null)
+  const band = paramSeries.find((p) => p.min != null)
   const yDomain = useMemo(() => {
-    const vals = series.flatMap((p) => [p.observed, p.min, p.max]).filter((v) => v != null)
+    const vals = paramSeries.flatMap((p) => [p.observed, p.min, p.max]).filter((v) => v != null)
     if (vals.length === 0) return ['auto', 'auto']
     const lo = Math.min(...vals)
     const hi = Math.max(...vals)
     const pad = (hi - lo || Math.abs(hi) * 0.01 || 1) * 0.25
     return [lo - pad, hi + pad]
-  }, [series])
+  }, [paramSeries])
 
   // Table: one row per reading; an inspection without readings gets one row.
   const pieces = useMemo(() => piecesByInspectionKey(hours), [hours])
@@ -144,6 +148,7 @@ export default function QualityStatusScreen() {
         machine_category: i.machine_category,
         log_date: i.log_date,
         shift_code: i.shift_code,
+        employee: employeeLabelForId(i.employee_id, opts.employees) || '—',
         inspection_result: i.inspection_result,
         pieces: pieces.get(inspectionKey(i)) ?? null,
       }
@@ -163,10 +168,18 @@ export default function QualityStatusScreen() {
       }
     }
     return out
-  }, [scopedInspections, scopedReadings, pieces])
+  }, [scopedInspections, scopedReadings, pieces, opts.employees])
 
-  const prdOptions = [...new Set(inspections.map((i) => i.prd_no))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-  const paramOptions = [...new Set(readings.map((x) => x.quality_parameter))].sort()
+  const prdOptions = [...new Set(opts.orders.map((o) => o.prd_no).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  // With a Machine picked: every parameter Quality Master defines for that
+  // machine; otherwise the parameters measured in the loaded inspections.
+  const paramOptions = [
+    ...new Set(
+      r.filters.machineId
+        ? opts.qualityParams.filter((p) => p.machine_id === r.filters.machineId).map((p) => p.quality_parameter)
+        : readings.map((x) => x.quality_parameter)
+    ),
+  ].filter(Boolean).sort()
 
   const columns = [
     { key: 'prd_no', label: 'PRD No' },
@@ -175,6 +188,7 @@ export default function QualityStatusScreen() {
     { key: 'machine_category', label: 'Type of Machine' },
     { key: 'log_date', label: 'Date', format: displayDate },
     { key: 'shift_code', label: 'Shift' },
+    { key: 'employee', label: 'Inspected By' },
     { key: 'parameter', label: 'Quality Parameter' },
     { key: 'target', label: 'Target', align: 'right', format: fmtNum },
     { key: 'tolerance', label: 'Tolerance Band' },
@@ -193,8 +207,15 @@ export default function QualityStatusScreen() {
           loading={loading}
           filters={[
             { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+            {
+              key: 'machine',
+              label: 'Machine',
+              value: r.filters.machineId,
+              // A new machine has its own parameter list: clear the old pick.
+              onChange: (v) => { r.setFilter('machineId')(v); r.setFilter('parameter')('') },
+              options: opts.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })),
+            },
             { key: 'param', label: 'Quality Parameter', allLabel: 'Parameter', value: r.filters.parameter, onChange: r.setFilter('parameter'), options: paramOptions },
-            { key: 'machine', label: 'Machine', value: r.filters.machineId, onChange: r.setFilter('machineId'), options: opts.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
             { key: 'shift', label: 'Shift', value: r.filters.shiftCode, onChange: r.setFilter('shiftCode'), options: opts.shifts.map((s) => s.shift_code) },
             { key: 'operator', label: 'Operator', value: r.filters.employeeId, onChange: r.setFilter('employeeId'), options: sortedEmployeeOptions(opts.employees) },
           ]}
@@ -218,9 +239,9 @@ export default function QualityStatusScreen() {
               <YAxis yAxisId="y" orientation="right" tick={AXIS_TICK} width={40} unit="%" domain={[0, 100]} />
               <Tooltip formatter={(v, name) => (name === 'Yield %' ? (v == null ? '—' : `${v}%`) : v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar yAxisId="n" dataKey="accepted" name="Accepted" stackId="i" fill={CHART_COLORS.green} />
-              <Bar yAxisId="n" dataKey="rejected" name="Rejected" stackId="i" fill={CHART_COLORS.red} />
-              <Bar yAxisId="n" dataKey="noReadings" name="No readings" stackId="i" fill={CHART_COLORS.amber} />
+              {series(chartType, { key: 'accepted', yAxisId: 'n', dataKey: 'accepted', name: 'Accepted', stackId: 'i', color: CHART_COLORS.green })}
+              {series(chartType, { key: 'rejected', yAxisId: 'n', dataKey: 'rejected', name: 'Rejected', stackId: 'i', color: CHART_COLORS.red })}
+              {series(chartType, { key: 'noReadings', yAxisId: 'n', dataKey: 'noReadings', name: 'No readings', stackId: 'i', color: CHART_COLORS.amber })}
               <Line yAxisId="y" dataKey="yield_pct" name="Yield %" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3 }} connectNulls />
             </ComposedChart>
           </ChartCard>
@@ -238,7 +259,7 @@ export default function QualityStatusScreen() {
             title="Parameter Analysis"
             icon={Ruler}
             loading={loading}
-            empty={series.length === 0}
+            empty={paramSeries.length === 0}
             height={270}
             actions={
               <div className="flex gap-1.5">
@@ -251,11 +272,11 @@ export default function QualityStatusScreen() {
               </div>
             }
           >
-            <ComposedChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <ComposedChart data={paramSeries} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="n" tick={AXIS_TICK} tickFormatter={(n) => series[n - 1]?.label ?? ''} minTickGap={12} />
+              <XAxis dataKey="n" tick={AXIS_TICK} tickFormatter={(n) => paramSeries[n - 1]?.label ?? ''} minTickGap={12} />
               <YAxis tick={AXIS_TICK} width={52} domain={yDomain} tickFormatter={fmtNum} />
-              <Tooltip labelFormatter={(n) => displayDate(series[n - 1]?.date)} formatter={(v, name) => [fmtNum(v), name]} />
+              <Tooltip labelFormatter={(n) => displayDate(paramSeries[n - 1]?.date)} formatter={(v, name) => [fmtNum(v), name]} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {band && <ReferenceArea y1={band.min} y2={band.max} fill={CHART_COLORS.green} fillOpacity={0.15} stroke="none" />}
               {band && <ReferenceLine y={band.max} stroke={CHART_COLORS.red} strokeDasharray="4 3" label={{ value: 'Upper', position: 'insideTopRight', fontSize: 10, fill: CHART_COLORS.red }} />}
@@ -279,7 +300,7 @@ export default function QualityStatusScreen() {
           loading={loading}
           error={null}
           rowKey="key"
-          searchKeys={['prd_no', 'stage', 'machine', 'parameter', 'inspection_result']}
+          searchKeys={['prd_no', 'stage', 'machine', 'employee', 'parameter', 'inspection_result']}
           searchPlaceholder="Search by PRD No / Operation / Machine / Parameter..."
           exportTitle={`Quality Status Report – ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
           exportName="quality_status_report"

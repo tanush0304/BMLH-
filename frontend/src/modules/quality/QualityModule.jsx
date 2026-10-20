@@ -20,5 +20,5 @@ export default function QualityModule({ activeTab, activeMode, role, onSelect })
   if (activeTab === 'complaint') {
     return <CustomerComplaintScreen key={activeMode ?? ''} initialMode={activeMode || undefined} role={role} />
   }
-  return <QualityInspectionScreen />
+  return <QualityInspectionScreen role={role} />
 }

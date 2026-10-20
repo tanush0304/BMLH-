@@ -49,6 +49,10 @@ export function decisionText(verification, appUsers = []) {
 export function approveBlockedReason(row, currentUserId) {
   if (!row?.log_id) return 'No entry to approve.'
   if (row.status === 'Approved') return 'Already approved.'
+  // 035 correction: the corrector became the entrant (028), so the DB refuses too.
+  if (currentUserId && (row.hourRows ?? []).some((h) => h.edited_at && h.edited_by === currentUserId)) {
+    return 'You corrected this shift -- another supervisor or admin must approve it.'
+  }
   if (currentUserId && row.enteredBy.includes(currentUserId)) {
     return "You entered this shift's data -- another supervisor must approve it."
   }
@@ -102,6 +106,10 @@ export function buildShiftRows({
     logRows.push({
       key: verificationKey(log.id, logDate, shiftCode),
       log_id: log.id,
+      // 035: Correct is offered only on a closed log; the reset time of a
+      // Pending row bounds the current correction.
+      log_is_open: log.is_open !== false,
+      verification_updated_at: v?.updated_at ?? null,
       log_date: logDate,
       shift_code: shiftCode,
       machine_id: log.machine_id ?? null,
@@ -189,4 +197,14 @@ export function filterShiftRows(rows, { machineId = '', employeeId = '', status 
  * for admin (the DB lets admin through too). */
 export function isShiftLocked(verification, role) {
   return verification?.status === 'Approved' && role !== 'admin'
+}
+
+/** The 028 trigger's effect, applied locally: saving hours in a Rejected
+ * shift puts it back to Pending with the reason cleared. */
+export function markRejectedPending(rows, logDate, shift) {
+  return rows.map((v) =>
+    v.log_date === logDate && v.shift_code === shift && v.status === 'Rejected'
+      ? { ...v, status: 'Pending', reject_reason: null, rejected_by: null, rejected_at: null }
+      : v
+  )
 }

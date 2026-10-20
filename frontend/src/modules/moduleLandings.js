@@ -1,4 +1,4 @@
-import { ClipboardPlus, Route } from 'lucide-react'
+import { Route } from 'lucide-react'
 import { NAV_ITEMS, STORES_LANDING_TILES, canSeeSubItem } from '../utils/constants'
 import productionPlanningTile from '../assets/tiles/production_planning.webp'
 import productionEntryTile from '../assets/tiles/production_entry.webp'
@@ -72,7 +72,6 @@ const TILE_ART = {
     'wip-issue': { img: wipIssueTile, bg: '#EEEAFE' },
     'fg-receipt': { img: fgReceiptTile, bg: '#FFE5E9' },
     'fg-despatch': { img: fgDespatchTile, bg: '#E2FAFD' },
-    'rm-requisition': { icon: ClipboardPlus },
   },
   // Reports (deck slide 18): illustration cropped from each card, the card's
   // pastel bg, and its accent (title / pill colour).
@@ -86,6 +85,8 @@ const TILE_ART = {
     'wip-status': { img: reportWipTile, bg: '#FDF6D9', accent: '#8A5300' },
     'rm-status': { img: reportRawMaterialTile, bg: '#DCEFFE', accent: '#1E3A8A' },
     'fg-inventory': { img: reportFinishedGoodsTile, bg: '#F3E8FD', accent: '#6D28D9' },
+    // Not on the deck: reuses the Quality landing's Customer Complaint picture.
+    'complaint-status': { img: customerComplaintTile, bg: '#FFF4E5', accent: '#B45309' },
   },
 }
 

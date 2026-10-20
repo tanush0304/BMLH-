@@ -28,6 +28,10 @@ import { canEditStock, stockEditPatch, validateFgDispatchEdit, validateReceiptEd
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { fgReceiptLimits, lastStage, stageAcceptedQty, qtyOverLimitError } from '../../utils/qtyLimits'
+import VoidEntryDialog, { VOID_COLUMN } from '../../components/VoidEntryDialog'
+import { voidEntry } from '../../data/queries/voidEntries'
+import { VOID_TYPES, isVoided, voidBlockReason, withVoidLabels, voidRowClass } from '../../utils/voidEntry'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -46,7 +50,7 @@ const EMPTY_RECEIPT_FORM = {
 }
 
 const DISPATCH_COLUMNS = [
-  { key: 'doc_no', label: 'Dispatch No' },
+  { key: 'doc_no', label: 'Despatch No' },
   { key: 'transaction_date', label: 'Date' },
   { key: 'employee_id', label: 'Employee ID' },
   { key: 'employee_name', label: 'Employee Name' },
@@ -56,7 +60,7 @@ const DISPATCH_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
-  { key: 'qty', label: 'Dispatch Qty (Nos)' },
+  { key: 'qty', label: 'Despatch Qty (Nos)' },
   { key: 'balance_to_dispatch', label: 'Balance Qty (Nos)' },
   { key: 'order_status', label: 'Order Status', type: 'status' },
   { key: 'eway_bill_no', label: 'E-way Bill / ESUGAM No.' },
@@ -96,6 +100,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
   const appUsers = useAppUsers()
   const [selectedRow, setSelectedRow] = useState(null)
   const [editingRow, setEditingRow] = useState(null)
+  // Void (034): FG dispatches only, supervisor/admin.
+  const [voidingRow, setVoidingRow] = useState(null)
+  const [notice, setNotice] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -231,7 +238,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
   async function handleSaveDispatch() {
     const f = dispatchForm
     if (!f.employee_id || !f.shift_code || !f.prd_no || !f.qty || !f.transaction_date) {
-      setError('Employee Name, Shift, Production Order Number, Dispatch Quantity and Date are all required.')
+      setError('Employee Name, Shift, Production Order Number, Despatch Quantity and Date are all required.')
       return
     }
     if (!selectedDispatchOrder?.part_serial_number) {
@@ -265,7 +272,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
       setSavedDocNo({ dispatch: saved?.doc_no ?? '', receipt: '' })
       await refresh()
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -312,7 +319,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
       setSavedDocNo({ dispatch: '', receipt: saved?.doc_no ?? '' })
       await refresh()
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -338,7 +345,24 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     .filter((t) => t.transaction_type === 'Production Receipt')
     .map((t) => ({ ...t, employee_name: employeeName(t.employee_id) }))
 
-  const activeRows = withEditedLabels(mode === 'dispatch' ? dispatchRows : receiptRows, appUsers)
+  const activeRows = withVoidLabels(withEditedLabels(mode === 'dispatch' ? dispatchRows : receiptRows, appUsers), appUsers)
+
+  const canVoidHere = canEditStock(role) && mode === 'dispatch'
+  const voidBlock = canVoidHere && selectedRow ? voidBlockReason(VOID_TYPES.FGD, selectedRow) : null
+
+  async function handleVoid(reason) {
+    const row = voidingRow
+    try {
+      await voidEntry(VOID_TYPES.FGD, row.doc_no, reason)
+    } catch (e) {
+      return dbErrorMessage(e)
+    }
+    setVoidingRow(null)
+    setSelectedRow(null)
+    setNotice(`${row.doc_no} voided -- ${row.qty} back in FG stock and on the order balance.`)
+    await refresh()
+    return null
+  }
   const filteredRows = activeRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
@@ -350,9 +374,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     )
   })
 
-  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN]
-  const listTitle = mode === 'dispatch' ? 'Finished Goods Dispatch List' : 'Finished Goods Production Receipt List'
-  const exportName = mode === 'dispatch' ? 'fg_dispatch' : 'fg_production_receipt'
+  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'dispatch' ? [VOID_COLUMN] : [])]
+  const listTitle = mode === 'dispatch' ? 'Finished Goods Despatch List' : 'Finished Goods Production Receipt List'
+  const exportName = mode === 'dispatch' ? 'fg_despatch' : 'fg_production_receipt'
 
   const handleSave = mode === 'dispatch' ? handleSaveDispatch : handleSaveReceipt
 
@@ -366,7 +390,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
 
       <div className="flex items-center gap-1 bg-white border-b border-gray-200 px-6 pt-2">
         {[
-          { key: 'dispatch', label: 'Dispatch' },
+          { key: 'dispatch', label: 'Despatch' },
           { key: 'production-receipt', label: 'Production Receipt' },
         ].map((t) => (
           <button
@@ -393,7 +417,11 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
         showEditDelete={canEditStock(role)}
         showDelete={false}
         onEdit={() => setEditingRow(selectedRow)}
-        canEdit={!!selectedRow && !editingRow}
+        canEdit={!!selectedRow && !editingRow && !isVoided(selectedRow)}
+        showVoid={canVoidHere}
+        onVoid={() => { setNotice(''); setVoidingRow(selectedRow) }}
+        canVoid={!!selectedRow && !editingRow && !voidBlock}
+        voidTitle={voidBlock ?? undefined}
         onNew={handleReset}
         onSave={handleSave}
         onClear={handleReset}
@@ -408,10 +436,17 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             {error}
           </div>
         )}
+        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {voidBlock && selectedRow && !editingRow && (
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Void unavailable: {voidBlock}</div>
+        )}
+        {voidingRow && (
+          <VoidEntryDialog docNo={voidingRow.doc_no} onConfirm={handleVoid} onCancel={() => setVoidingRow(null)} />
+        )}
 
         {mode === 'dispatch' ? (
-          <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Dispatch Details" subtitle="Dispatch to customer" columns={2}>
-            <Field label="Dispatch No">
+          <FormSection icon={PackageCheck} title="Stores Module - Finished Goods Despatch Details" subtitle="Despatch to customer" columns={2}>
+            <Field label="Despatch No">
               <TextInput value={savedDocNo.dispatch || '(auto-generated on save)'} readOnly />
             </Field>
             <Field label="Employee ID" required>
@@ -442,7 +477,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             <Field label="Date" required>
               <TextInput type="date" value={dispatchForm.transaction_date} onChange={handleDispatchField('transaction_date')} />
             </Field>
-            <Field label="Dispatch Quantity" required>
+            <Field label="Despatch Quantity" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
@@ -464,7 +499,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
                 options={orders.map((o) => o.prd_no)}
               />
             </Field>
-            <Field label="Balance Quantity to be dispatched">
+            <Field label="Balance Quantity to be despatched">
               <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
             </Field>
 
@@ -488,7 +523,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
-              "Employee ID" picks who's physically dispatching the goods (Employee Master); the account you're
+              "Employee ID" picks who's physically despatching the goods (Employee Master); the account you're
               logged in as is recorded automatically.
             </p>
           </FormSection>
@@ -566,12 +601,12 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
           <StockEditPanel
             row={editingRow}
             info={[
-              { label: editingRow.transaction_type === 'Dispatch' ? 'Dispatch No' : 'Receipt No', value: editingRow.doc_no },
+              { label: editingRow.transaction_type === 'Dispatch' ? 'Despatch No' : 'Receipt No', value: editingRow.doc_no },
               { label: 'Transaction Type', value: editingRow.transaction_type },
               { label: 'Production Order (PRD No)', value: editingRow.prd_no },
               { label: 'Part Serial Number', value: editingRow.part_serial_number },
             ]}
-            qtyLabel={editingRow.transaction_type === 'Dispatch' ? 'Dispatch Quantity' : 'Quantity Received'}
+            qtyLabel={editingRow.transaction_type === 'Dispatch' ? 'Despatch Quantity' : 'Quantity Received'}
             onSave={handleSaveEdit}
             onCancel={() => setEditingRow(null)}
           />
@@ -585,7 +620,8 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
           error={null}
           rowKey="id"
           selectedKey={selectedRow?.id}
-          onRowClick={(r) => !editingRow && setSelectedRow(r)}
+          onRowClick={(r) => { if (!editingRow) { setSelectedRow(r); setNotice('') } }}
+          rowClassName={voidRowClass}
           searchValue={search}
           onSearchChange={setSearch}
         />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PackageCheck, Ban } from 'lucide-react'
+import { PackageCheck, Ban, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
@@ -10,9 +10,21 @@ import usePartForPrd from '../../utils/usePartForPrd'
 import { listVendors } from '../../data/queries/vendors'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import RecordsList from '../../components/RecordsList'
-import { createReceipt, closeDispatchShort, listJobOrderStatus, listReceipts } from '../../data/queries/jobOrders'
+import { createReceipt, closeDispatchShort, listJobOrderStatus, listReceipts, updateReceipt } from '../../data/queries/jobOrders'
 import { canEditStock } from '../../utils/stockEdit'
-import { dcBalance, receiptQtyError, closeShortReasonError, openDcLabel } from '../../utils/jobwork'
+import { statusSearchText } from '../../utils/statusLabels'
+import {
+  dcBalance,
+  receiptQtyError,
+  closeShortReasonError,
+  openDcLabel,
+  receiptEditBlockReason,
+  receiptEditMax,
+  receiptEditError,
+  receiptEditPatch,
+  jobworkDbErrorMessage,
+} from '../../utils/jobwork'
+import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 
 // One row per receipt (JR number); a DC can have several since migration 031.
 const LIST_COLUMNS = [
@@ -53,6 +65,14 @@ export default function JobOrderReceiptScreen({ role }) {
   const [search, setSearch] = useState('')
 
   const canCloseShort = canEditStock(role)
+  const canEdit = canEditStock(role)
+  const appUsers = useAppUsers()
+  const [selectedRow, setSelectedRow] = useState(null)
+  // Edit (033): receipt being edited + its draft.
+  const [editingRow, setEditingRow] = useState(null)
+  const [editDraft, setEditDraft] = useState({ qty_received: '', receipt_date: '' })
+  const [editError, setEditError] = useState(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -89,6 +109,7 @@ export default function JobOrderReceiptScreen({ role }) {
 
   function selectDc(value) {
     setDcNo(value)
+    setSelectedRow(null)
     setSavedReceiptNo('')
     setQtyReceived('')
     setShortReason('')
@@ -149,7 +170,41 @@ export default function JobOrderReceiptScreen({ role }) {
   }
 
   const dcByNo = useMemo(() => new Map(dcRows.map((d) => [d.dc_no, d])), [dcRows])
-  const receiptRows = receipts.map((r) => {
+  const selectedBlockReason = selectedRow ? receiptEditBlockReason(selectedRow, dcByNo.get(selectedRow.dc_no)) : null
+  const editingDc = editingRow ? dcByNo.get(editingRow.dc_no) : null
+
+  function handleEdit() {
+    if (!selectedRow || selectedBlockReason) return
+    setEditingRow(selectedRow)
+    setEditDraft({ qty_received: String(selectedRow.qty_received ?? ''), receipt_date: selectedRow.receipt_date ?? '' })
+    setEditError(null)
+    setNotice('')
+  }
+
+  async function handleSaveEdit() {
+    const row = editingRow
+    const problem = receiptEditError(editDraft, row, editingDc)
+    if (problem) {
+      setEditError(problem)
+      return
+    }
+    setEditSaving(true)
+    setEditError(null)
+    try {
+      await updateReceipt(row.id, receiptEditPatch(editDraft))
+      const closes = Number(editDraft.qty_received) === receiptEditMax(row, editingDc)
+      setEditingRow(null)
+      setSelectedRow(null)
+      setNotice(closes ? `${row.receipt_no} updated -- ${row.dc_no} fully received and closed.` : `${row.receipt_no} updated.`)
+      await refresh()
+    } catch (e) {
+      setEditError(jobworkDbErrorMessage(e))
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const receiptRows = withEditedLabels(receipts, appUsers).map((r) => {
     const dc = dcByNo.get(r.dc_no)
     return {
       ...r,
@@ -163,26 +218,64 @@ export default function JobOrderReceiptScreen({ role }) {
   const filteredRows = receiptRows.filter((r) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return [r.dc_no, r.receipt_no, r.prd_no, r.vendor_label].some((v) => v?.toLowerCase().includes(q))
+    return [r.dc_no, r.receipt_no, r.prd_no, r.vendor_label].some((v) => v?.toLowerCase().includes(q)) || statusSearchText(r.dc_status).includes(q)
   })
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Job Order Receipt" subtitle="Batch Coming Back From a Vendor" />
+      {/* Edit: supervisor/admin, receipts of an open DC only (033). Never Delete. */}
       <ActionToolbar
-        showCrudButtons={false}
+        showEditDelete={canEdit}
+        showDelete={false}
+        onEdit={handleEdit}
+        canEdit={!!selectedRow && !editingRow && !selectedBlockReason}
+        onNew={() => { selectDc(''); setReceiptDate('') }}
+        onSave={handleSave}
+        onClear={() => { selectDc(''); setReceiptDate('') }}
+        canSave={!!selectedDc}
+        saving={saving}
+        saveLabel="Record Receipt"
         onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRows, 'jobwork_receipts.csv')}
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRows, 'Jobwork Receipts', 'jobwork_receipts')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
         {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {canEdit && selectedBlockReason && !editingRow && (
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Edit unavailable: {selectedBlockReason}</div>
+        )}
+
+        {editingRow && (
+          <FormSection icon={Pencil} title={`Edit Receipt ${editingRow.receipt_no}`} subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
+            {editError && <div className="sm:col-span-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{editError}</div>}
+            <Field label="DC No"><AutoFillBox value={editingRow.dc_no} /></Field>
+            <Field label="DC Sent / Received"><AutoFillBox value={editingDc ? `${Number(editingDc.qty)} / ${Number(editingDc.qty_received ?? 0)}` : ''} /></Field>
+            <Field label="DC Status">
+              <div className="flex h-[34px] items-center">{editingDc ? <StatusPill status={editingDc.status} /> : <AutoFillBox value="" />}</div>
+            </Field>
+            <Field label={`Qty Received (max ${receiptEditMax(editingRow, editingDc)} (DC balance))`} required>
+              <TextInput type="number" value={editDraft.qty_received} onChange={(e) => setEditDraft((d) => ({ ...d, qty_received: e.target.value }))} />
+            </Field>
+            <Field label="Receipt Date" required>
+              <TextInput type="date" value={editDraft.receipt_date} onChange={(e) => setEditDraft((d) => ({ ...d, receipt_date: e.target.value }))} />
+            </Field>
+            <div className="flex sm:col-span-3 items-center gap-2 pt-1">
+              <button type="button" onClick={handleSaveEdit} disabled={editSaving} className="rounded bg-bmlhblue px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button type="button" onClick={() => { setEditingRow(null); setEditError(null) }} disabled={editSaving} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700">
+                Cancel
+              </button>
+            </div>
+          </FormSection>
+        )}
 
         <FormSection icon={PackageCheck} title="1. Receipt Details" subtitle="Batch returned from a vendor -- part or all of a DC" columns={3}>
           <Field label="Receipt No">
             <TextInput value={savedReceiptNo || '(auto-generated on save)'} readOnly />
           </Field>
-          <Field label="Dispatch (DC No)" required>
+          <Field label="Despatch (DC No)" required>
             <SearchableSelect
               value={dcNo}
               onChange={(e) => selectDc(e.target.value)}
@@ -210,7 +303,7 @@ export default function JobOrderReceiptScreen({ role }) {
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
-          <Field label="Dispatched Qty">
+          <Field label="Despatched Qty">
             <AutoFillBox value={selectedDc?.qty ?? ''} unit={selectedDc ? 'Nos' : undefined} />
           </Field>
           <Field label="Received So Far">
@@ -228,15 +321,6 @@ export default function JobOrderReceiptScreen({ role }) {
           <Field label="Receipt Date" required>
             <TextInput type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} disabled={!selectedDc} />
           </Field>
-          <div className="flex items-end">
-            <button
-              onClick={handleSave}
-              disabled={saving || !selectedDc}
-              className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
-            >
-              {saving ? 'Recording...' : 'Record Receipt'}
-            </button>
-          </div>
           {openDcs.length === 0 && !loading && <p className="text-sm text-gray-400 sm:col-span-3">No DCs are waiting for receipt.</p>}
         </FormSection>
 
@@ -260,7 +344,14 @@ export default function JobOrderReceiptScreen({ role }) {
           </FormSection>
         )}
 
-        <RecordsList title="Jobwork Receipts" columns={LIST_COLUMNS} rows={filteredRows} loading={loading} rowKey="receipt_no" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by Receipt No / DC No / PRD No / Vendor..." />
+        <RecordsList
+          title="Jobwork Receipts"
+          columns={[...LIST_COLUMNS, EDITED_COLUMN]}
+          rows={filteredRows}
+          loading={loading}
+          selectedKey={selectedRow?.receipt_no}
+          onRowClick={(r) => { if (!editingRow) { setSelectedRow(r); setNotice('') } }}
+          rowKey="receipt_no" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by Receipt No / DC No / PRD No / Vendor / Status..." />
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { ClipboardList, Package, Settings, BarChart3, ShieldX, RefreshCw, TrendingUp, Gauge, Recycle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -50,6 +51,7 @@ const SEARCH_KEYS = ['prd_no', 'operation', 'machine_name', 'machine_id']
  * "report production hours" (029). Filters apply on Search.
  */
 export default function ProductionStatusScreen() {
+  const chartType = useChartType()
   const r = useReportPeriod(EMPTY_FILTERS)
   const applied = r.applied
   const [rows, setRows] = useState([])
@@ -128,39 +130,43 @@ export default function ProductionStatusScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard title={`Produced vs Standard (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
-            <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
               <YAxis tick={AXIS_TICK} width={48} />
               <Tooltip formatter={(v) => formatQty(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="standard" name="Standard Qty" fill={CHART_COLORS.blue} />
-              <Bar dataKey="produced" name="Produced Qty" fill={CHART_COLORS.green} />
-            </BarChart>
+              {series(chartType, { key: 'standard', dataKey: 'standard', name: 'Standard Qty', color: CHART_COLORS.blue })}
+              {series(chartType, { key: 'produced', dataKey: 'produced', name: 'Produced Qty', color: CHART_COLORS.green })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty}>
-            <BarChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={40} unit="%" />
               <Tooltip formatter={(v) => fmtPct(v)} />
-              <Bar dataKey="efficiency_pct" name="Efficiency %" fill={CHART_COLORS.purple}>
-                <LabelList dataKey="efficiency_pct" position="top" formatter={(v) => (v == null ? '' : `${Math.round(v)}%`)} style={{ fontSize: 11 }} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'efficiency',
+                dataKey: 'efficiency_pct',
+                name: 'Efficiency %',
+                color: CHART_COLORS.purple,
+                children: <LabelList dataKey="efficiency_pct" position="top" formatter={(v) => (v == null ? '' : `${Math.round(v)}%`)} style={{ fontSize: 11 }} />,
+              })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty}>
-            <BarChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={40} allowDecimals={false} />
               <Tooltip formatter={(v) => formatQty(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="rejected" name="Reject Quantity" fill={CHART_COLORS.red} />
-              <Bar dataKey="rework" name="Rework Quantity" fill={CHART_COLORS.amber} />
-            </BarChart>
+              {series(chartType, { key: 'rejected', dataKey: 'rejected', name: 'Reject Quantity', color: CHART_COLORS.red })}
+              {series(chartType, { key: 'rework', dataKey: 'rework', name: 'Rework Quantity', color: CHART_COLORS.amber })}
+            </ComposedChart>
           </ChartCard>
         </div>
 

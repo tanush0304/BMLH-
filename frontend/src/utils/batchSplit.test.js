@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { suggestSplit, validateSplit } from './batchSplit'
+import { suggestSplit, validateSplit, lineProgressLabel } from './batchSplit'
 
 describe('suggestSplit', () => {
   it('splits by the master batch size, last batch = remainder', () => {
@@ -30,5 +30,16 @@ describe('validateSplit', () => {
     const r = validateSplit(rows([800, 800], 2), 1600, 500)
     expect(r.errors).toEqual([])
     expect(r.warnings[0]).toMatch(/800, 800 is above .* \(500\)/)
+  })
+})
+
+describe('lineProgressLabel', () => {
+  it('shows active, cancelled (only when any) and planned of the line qty', () => {
+    expect(lineProgressLabel({ activeCount: 3, cancelledCount: 1, plannedQty: 200, orderQty: 1600 })).toBe(
+      '3 active · 1 cancelled · 200 of 1600 planned'
+    )
+    expect(lineProgressLabel({ activeCount: 2, cancelledCount: 0, plannedQty: 100, orderQty: 1600 })).toBe(
+      '2 active · 100 of 1600 planned'
+    )
   })
 })

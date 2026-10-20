@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
+import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { FileText, Settings, Hourglass, Truck, BarChart3, PieChart as PieIcon, Users } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
@@ -12,7 +13,7 @@ import { listVendors } from '../../data/queries/vendors'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { todayISO } from '../../utils/dates'
 import { displayDate } from '../../utils/reportPeriods'
-import { jobOrderRows, jobOrderCounts } from '../../utils/reportOrders'
+import { jobOrderRows, jobOrderCounts, dcTableStatusLabel, dcStatusCellText } from '../../utils/reportOrders'
 import { topN } from '../../utils/reportStock'
 
 const STATUS_TONES = { Received: 'green', 'Closed Short': 'slate', 'Partially Received': 'blue', Sent: 'amber', Overdue: 'red' }
@@ -28,6 +29,7 @@ const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
  * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type).
  */
 export default function JobOrderStatusScreen() {
+  const chartType = useChartType()
   const r = useReportPeriod({ prdNo: '', vendorId: '', jobWorkCode: '' })
   const [raw, setRaw] = useState([])
   const [vendors, setVendors] = useState([])
@@ -87,7 +89,7 @@ export default function JobOrderStatusScreen() {
 
   const donut = [
     { key: 'Received', label: 'Received', value: counts.received, color: CHART_COLORS.green },
-    { key: 'Closed Short', label: 'Closed Short', value: counts.closedShort, color: '#64748B' },
+    { key: 'Closed Short', label: dcTableStatusLabel('Closed Short'), value: counts.closedShort, color: '#64748B' },
     { key: 'Partially Received', label: 'Partially Received', value: counts.partial, color: CHART_COLORS.blue },
     { key: 'Sent', label: 'Sent', value: counts.sent, color: CHART_COLORS.amber },
   ]
@@ -101,7 +103,7 @@ export default function JobOrderStatusScreen() {
     { key: 'operation', label: 'Type of Operation' },
     { key: 'vendor_name', label: 'Vendor Name' },
     { key: 'qty', label: 'Quantity (Nos)', align: 'right', format: formatQty },
-    { key: 'dispatch_date', label: 'Date of Dispatch', format: dateText },
+    { key: 'dispatch_date', label: 'Date of Despatch', format: dateText },
     { key: 'std_lead', label: 'Standard Lead Time (Days)', align: 'right', format: formatQty },
     { key: 'expected_receipt_date', label: 'Expected Receipt', format: dateText },
     { key: 'receipt_date', label: 'Date of Receipt', format: dateText },
@@ -113,10 +115,11 @@ export default function JobOrderStatusScreen() {
     {
       key: 'status',
       label: 'Status',
-      format: (v, row) => (row?.overdue ? `${v} (Overdue)` : v),
+      // Display label only: 'Closed Short' shows as "Partially Received (Closed)" here.
+      format: (v, row) => dcStatusCellText(v, row?.overdue),
       render: (row) => (
         <span className="inline-flex flex-wrap gap-1">
-          <ReportBadge status={row.status} tones={STATUS_TONES} />
+          <ReportBadge status={row.status} tones={STATUS_TONES} label={dcTableStatusLabel(row.status)} />
           {row.overdue && <ReportBadge status="Overdue" tones={STATUS_TONES} />}
         </span>
       ),
@@ -146,20 +149,28 @@ export default function JobOrderStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Job Orders - Dispatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
-            <BarChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
+            <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="dispatched" name="Quantity Dispatched" fill={CHART_COLORS.green}>
-                <LabelList dataKey="dispatched" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
-              </Bar>
-              <Bar dataKey="pending" name="Quantity Pending" fill={CHART_COLORS.blue}>
-                <LabelList dataKey="pending" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'dispatched',
+                dataKey: 'dispatched',
+                name: 'Quantity Despatched',
+                color: CHART_COLORS.green,
+                children: <LabelList dataKey="dispatched" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />,
+              })}
+              {series(chartType, {
+                key: 'pending',
+                dataKey: 'pending',
+                name: 'Quantity Pending',
+                color: CHART_COLORS.blue,
+                children: <LabelList dataKey="pending" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={(v) => (v ? formatQty(v) : '')} />,
+              })}
+            </ComposedChart>
           </ChartCard>
 
           <ChartCard title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={rows.length === 0} height={260} raw>
@@ -167,15 +178,19 @@ export default function JobOrderStatusScreen() {
           </ChartCard>
 
           <ChartCard title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>
-            <BarChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
-              <Bar dataKey="value" name="Pending Quantity (Nos)" fill={CHART_COLORS.orange}>
-                <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />
-              </Bar>
-            </BarChart>
+              {series(chartType, {
+                key: 'value',
+                dataKey: 'value',
+                name: 'Pending Quantity (Nos)',
+                color: CHART_COLORS.orange,
+                children: <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />,
+              })}
+            </ComposedChart>
           </ChartCard>
         </div>
 
@@ -188,7 +203,7 @@ export default function JobOrderStatusScreen() {
           rowKey="dc_no"
           searchKeys={['prd_no', 'dc_no', 'vendor_name', 'operation', 'status']}
           searchPlaceholder="Search by PRD No / Job Order No / Vendor / Operation..."
-          exportTitle={`Job Order Status Report – dispatched ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
+          exportTitle={`Job Order Status Report – despatched ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
           exportName="job_order_status_report"
         />
       </div>

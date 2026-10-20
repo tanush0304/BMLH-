@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { NAV_ITEMS, STORES_LANDING_TILES, subItemLabel } from '../utils/constants'
+import { NAV_ITEMS, STORES_LANDING_TILES, subItemLabel, isModuleRestricted } from '../utils/constants'
 import { landingTiles } from './moduleLandings'
 import ProductionModule from './production/ProductionModule'
 import CustomerOrderModule from './customerOrder/CustomerOrderModule'
@@ -16,6 +16,9 @@ import CustomerComplaintScreen from './quality/complaints/CustomerComplaintScree
 import ProductionScheduleScreen from './production/ProductionScheduleScreen'
 import RawMaterialStoreScreen from './stores/RawMaterialStoreScreen'
 import FinishedGoodsStoreScreen from './stores/FinishedGoodsStoreScreen'
+import ComplaintStatusScreen from './reports/ComplaintStatusScreen'
+import { ChartTypeProvider } from '../components/reports/ChartTypeToggle'
+import ReportErrorBoundary from '../components/reports/ReportErrorBoundary'
 
 const subLabels = (key) => NAV_ITEMS.find((n) => n.key === key).subItems.map((s) => s.label)
 
@@ -39,10 +42,10 @@ describe('module landing tiles', () => {
     expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])
   })
 
-  it('Stores has 7 tiles; RM and FG tiles open the combined screen on the right tab', () => {
+  it('Stores has 6 tiles (Raw Material Requisition is sidebar only); RM and FG tiles open the combined screen on the right tab', () => {
     const tiles = landingTiles('stores')
     expect(tiles.map((t) => t.label)).toEqual(STORES_LANDING_TILES.map((t) => t.label))
-    expect(tiles).toHaveLength(7)
+    expect(tiles).toHaveLength(6)
     const route = Object.fromEntries(tiles.map((t) => [t.key, [t.subKey, t.mode ?? null]]))
     expect(route).toEqual({
       'rm-receipt': ['rm', 'receipt'],
@@ -51,7 +54,6 @@ describe('module landing tiles', () => {
       'wip-issue': ['wip-issue', null],
       'fg-receipt': ['fg', 'production-receipt'],
       'fg-despatch': ['fg', 'dispatch'],
-      'rm-requisition': ['rm-requisition', null],
     })
     expect(tiles.filter((t) => t.img)).toHaveLength(6)
   })
@@ -138,17 +140,35 @@ describe('Quality', () => {
 })
 
 describe('Reports & Dashboard', () => {
-  const REPORTS = ['Customer Order Status', 'Job Order Status', 'Production Status', 'Daily Machine Status', 'Machine Downtime', 'Quality Status', 'WIP Status', 'Raw Material Status', 'Finished Goods Status']
+  const REPORTS = ['Customer Order Status', 'Job Order Status', 'Production Status', 'Daily Machine Status', 'Machine Downtime', 'Quality Status', 'WIP Status', 'Raw Material Status', 'Finished Goods Status', 'Customer Complaint Status']
 
-  it('opens a landing with the 9 report cards in deck order', () => {
+  it('opens a landing with the 9 deck report cards, then Customer Complaint', () => {
     const el = ReportsModule({ activeTab: null, role: 'operator' })
     expect(el.type).toBe(ReportLanding)
     expect(el.props.tiles.map((t) => t.label)).toEqual(REPORTS)
     expect(el.props.tiles.every((t) => t.img && t.bg && t.accent && t.description)).toBe(true)
     expect(el.props.tiles.map((t) => t.label).join(' ')).not.toMatch(/Downtine|despatch/i)
   })
-  it('keeps the moved reports sidebar-only, after the 9', () => {
+  it('keeps the moved reports sidebar-only, after the report cards', () => {
     expect(subLabels('dashboard')).toEqual([...REPORTS, 'PO Summary', 'Production Schedule', 'Order Traceability'])
-    expect(ReportsModule({ activeTab: 'schedule' }).type).toBe(ProductionScheduleScreen)
+    const schedule = ReportsModule({ activeTab: 'schedule' })
+    expect(schedule.type).toBe(ReportErrorBoundary)
+    expect(schedule.props.children.type).toBe(ProductionScheduleScreen)
+  })
+
+  it('Customer Complaint report: picture card, chart page (Bar default), supervisor/admin only', () => {
+    const tile = ReportsModule({ activeTab: null, role: 'supervisor' }).props.tiles.find((t) => t.key === 'complaint-status')
+    expect(tile).toMatchObject({ subKey: 'complaint-status', label: 'Customer Complaint Status' })
+    expect(tile.img && tile.bg && tile.accent && tile.description).toBeTruthy()
+
+    const el = ReportsModule({ activeTab: 'complaint-status' })
+    expect(el.type).toBe(ReportErrorBoundary)
+    expect(el.props.children.type).toBe(ChartTypeProvider)
+    expect(el.props.children.props.children.type).toBe(ComplaintStatusScreen)
+
+    // The whole Reports module is role-gated (App's guard), so is this report.
+    expect(isModuleRestricted('dashboard', 'operator')).toBe(true)
+    expect(isModuleRestricted('dashboard', 'supervisor')).toBe(false)
+    expect(isModuleRestricted('dashboard', 'admin')).toBe(false)
   })
 })

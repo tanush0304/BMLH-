@@ -44,6 +44,7 @@ import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/production
 import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
+import { dbErrorMessage } from '../../utils/dbErrors'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -300,7 +301,7 @@ export default function ProductionDataEntryScreen({ role }) {
       setLogHours([])
       setTotals(null)
     } catch (e) {
-      setError(e.message)
+      setError(dbErrorMessage(e))
     } finally {
       setStarting(false)
     }
@@ -338,7 +339,7 @@ export default function ProductionDataEntryScreen({ role }) {
       const [saved, updated] = await Promise.all([addProductionLogHours(stamped), updateProductionLogHours(changes)])
       const updatedById = new Map(updated.map((u) => [u.id, u]))
       setLogHours((h) => [...h.map((x) => updatedById.get(x.id) ?? x), ...saved])
-      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -359,7 +360,7 @@ export default function ProductionDataEntryScreen({ role }) {
         employee_id: employeeId,
       })
       setLogHours((h) => [...h, saved])
-      await Promise.all([refreshAfterHourSave(), shiftCheck.reload()])
+      await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
     } finally {

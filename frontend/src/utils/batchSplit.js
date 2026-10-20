@@ -39,3 +39,24 @@ export function validateSplit(rows, remaining, batchSize) {
   const planned = rows.filter((r) => r.plan).map((r) => num(r.qty))
   return { errors, warnings, total, planned, plannedTotal: planned.reduce((a, b) => a + b, 0) }
 }
+
+/** PO line progress for a PRD's batch label: active PRDs, cancelled ones
+ * (only when any) and qty planned -> "3 active · 1 cancelled · 200 of 1600
+ * planned". batch_no is never re-used after a cancel, so it is shown on its
+ * own ("Batch 4") instead of "n of N". */
+export function lineProgressLabel({ activeCount, cancelledCount, plannedQty, orderQty }) {
+  const parts = [`${num(activeCount)} active`]
+  if (num(cancelledCount) > 0) parts.push(`${num(cancelledCount)} cancelled`)
+  parts.push(`${num(plannedQty)} of ${num(orderQty)} planned`)
+  return parts.join(' · ')
+}
+
+/** lineProgressLabel for a listOrdersByPrd() row. */
+export function orderLineProgress(order) {
+  return lineProgressLabel({
+    activeCount: order.line_active_count,
+    cancelledCount: order.line_cancelled_count,
+    plannedQty: order.line_planned_qty,
+    orderQty: order.order_qty,
+  })
+}
