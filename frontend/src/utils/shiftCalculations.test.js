@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeShiftHours } from './shiftCalculations'
+import { computeShiftHours, formatTime12, shiftTimeRange } from './shiftCalculations'
 
 describe('computeShiftHours', () => {
   it('6:00 AM to 2:00 PM, lunch 30 -> 8 hours / 7.5 hours', () => {
@@ -75,5 +75,26 @@ describe('computeShiftHours', () => {
     const r = computeShiftHours({ start_time: '6:00 AM', end_time: '6:00 PM', lunch_break_duration: '' })
     expect(r.shift_duration).toBe('12 hours')
     expect(r.warning).toBeNull()
+  })
+})
+
+describe('formatTime12 / shiftTimeRange (12-hour display with AM/PM)', () => {
+  it('bare times are 24-hour; AM/PM times are normalised', () => {
+    expect(formatTime12('8:30')).toBe('8:30 AM')
+    expect(formatTime12('20:30')).toBe('8:30 PM')
+    expect(formatTime12('0:00')).toBe('12:00 AM')
+    expect(formatTime12('12:15')).toBe('12:15 PM')
+    expect(formatTime12('8:30 pm')).toBe('8:30 PM')
+    expect(formatTime12('8:30 AM')).toBe('8:30 AM')
+  })
+  it('leaves blank / unparseable values as they are', () => {
+    expect(formatTime12('')).toBe('')
+    expect(formatTime12(null)).toBe('')
+    expect(formatTime12('morning')).toBe('morning')
+  })
+  it('range uses AM/PM on both ends', () => {
+    expect(shiftTimeRange('8:30', '8:30 PM')).toBe('8:30 AM – 8:30 PM')
+    expect(shiftTimeRange('8:30 PM', '8:30 AM')).toBe('8:30 PM – 8:30 AM')
+    expect(shiftTimeRange('8:30', null)).toBe('')
   })
 })

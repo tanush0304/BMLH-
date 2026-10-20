@@ -7,7 +7,7 @@ import FormSection, { Field, TextInput, AutoFillBox } from '../../components/For
 import TimeInput12 from '../../components/TimeInput12'
 import RecordsList from '../../components/RecordsList'
 import { listShifts, createShift, updateShift, deleteShift } from '../../data/queries/shifts'
-import { computeShiftHours } from '../../utils/shiftCalculations'
+import { computeShiftHours, formatTime12 } from '../../utils/shiftCalculations'
 
 // Shift Duration / Net Working Hours used to be typed in by hand; they're
 // now always derived from start_time/end_time/lunch_break_duration via
@@ -28,8 +28,9 @@ const EMPTY_FORM = {
 const LIST_COLUMNS = [
   { key: 'shift_code', label: 'Shift Code' },
   { key: 'shift_name', label: 'Shift Name' },
-  { key: 'start_time', label: 'Start Time' },
-  { key: 'end_time', label: 'End Time' },
+  // Shown (and exported) in 12-hour form with AM/PM; the stored value is untouched.
+  { key: 'start_time_12', label: 'Start Time' },
+  { key: 'end_time_12', label: 'End Time' },
   { key: 'net_working_hours', label: 'Net Working Hours' },
 ]
 
@@ -171,11 +172,13 @@ export default function ShiftMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Shift Master', 'shift_master')
   }
 
-  const filteredRecords = records.filter((r) => {
-    if (!listSearch) return true
-    const q = listSearch.toLowerCase()
-    return r.shift_code?.toLowerCase().includes(q) || r.shift_name?.toLowerCase().includes(q)
-  })
+  const filteredRecords = records
+    .filter((r) => {
+      if (!listSearch) return true
+      const q = listSearch.toLowerCase()
+      return r.shift_code?.toLowerCase().includes(q) || r.shift_name?.toLowerCase().includes(q)
+    })
+    .map((r) => ({ ...r, start_time_12: formatTime12(r.start_time), end_time_12: formatTime12(r.end_time) }))
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">

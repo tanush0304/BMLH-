@@ -37,6 +37,7 @@ import {
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
 import { pickCycleTime, computeLiveLogTotals } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
+import ShiftDateLine from '../../components/ShiftDateLine'
 import { stageLabel } from '../../utils/stageLabel'
 import { useAppUsers } from '../../components/StockEditPanel'
 import { subItemLabel } from '../../utils/constants'
@@ -439,6 +440,8 @@ export default function ProductionDataEntryScreen({ role }) {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+        {/* Grid's date + shift (an earlier date while correcting a rejected shift). */}
+        <ShiftDateLine date={entryDate} shiftCode={shiftCode} shifts={shifts} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}

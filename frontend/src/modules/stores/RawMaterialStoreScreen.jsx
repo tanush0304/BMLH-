@@ -8,6 +8,7 @@ import RecordsList from '../../components/RecordsList'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
+import { rmDetails } from '../../utils/rmDetails'
 import { listProducts } from '../../data/queries/products'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
@@ -69,6 +70,10 @@ const RECEIPT_COLUMNS = [
   { key: 'employee_name', label: 'Employee Name' },
   { key: 'shift_code', label: 'Shift' },
   { key: 'material_name', label: 'RM / Consumable Name' },
+  { key: 'rm_description', label: 'Description' },
+  { key: 'rm_type', label: 'Raw Material Type' },
+  { key: 'rm_category', label: 'Category' },
+  { key: 'rm_source', label: 'RM Source' },
   { key: 'supplier_id', label: 'Supplier' },
   { key: 'qty', label: 'Qty Received' },
   { key: 'current_stock', label: 'Current Stock' },
@@ -280,7 +285,10 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
       material_name: materialName(t.raw_material_code),
       uom: uomFor(t.raw_material_code),
       current_stock: currentStockFor(t.raw_material_code),
+      ...rmDetails(rawMaterials.find((r) => r.raw_material_code === t.raw_material_code)),
     }))
+
+  const receiptRm = rmDetails(rawMaterials.find((r) => r.raw_material_code === receiptForm.raw_material_code))
 
   const activeRows = withVoidLabels(withEditedLabels(mode === 'issue' ? issueRows : receiptRows, appUsers), appUsers)
 
@@ -504,6 +512,22 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
             </Field>
             <Field label="Receipt Date" required>
               <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
+            </Field>
+            {/* Read-only from Raw Material Master once a material is picked (field audit). */}
+            <Field label="Description">
+              <AutoFillBox value={receiptRm.rm_description} />
+            </Field>
+            <Field label="Raw Material Type">
+              <AutoFillBox value={receiptRm.rm_type} />
+            </Field>
+            <Field label="Category">
+              <AutoFillBox value={receiptRm.rm_category} />
+            </Field>
+            <Field label="Unit of Measurement">
+              <AutoFillBox value={receiptRm.rm_uom} />
+            </Field>
+            <Field label="RM Source">
+              <AutoFillBox value={receiptRm.rm_source} />
             </Field>
           </FormSection>
         )}

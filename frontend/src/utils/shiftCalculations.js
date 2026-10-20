@@ -26,6 +26,24 @@ export function parseTimeToMinutes(value) {
   return null
 }
 
+/** Display a stored shift time in 12-hour form with AM/PM: "8:30" -> "8:30 AM",
+ * "20:30" -> "8:30 PM", "8:30 pm" -> "8:30 PM". A bare time is read as
+ * 24-hour (same rule as parseTimeToMinutes). Unparseable -> returned as is. */
+export function formatTime12(value) {
+  const min = parseTimeToMinutes(value ?? '')
+  if (min == null) return value ?? ''
+  const h24 = Math.floor(min / 60) % 24
+  const mm = String(min % 60).padStart(2, '0')
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${mm} ${h24 < 12 ? 'AM' : 'PM'}`
+}
+
+/** "8:30 AM – 8:30 PM" for a shift's start / end ('' when either is missing). */
+export function shiftTimeRange(start, end) {
+  if (!start || !end) return ''
+  return `${formatTime12(start)} – ${formatTime12(end)}`
+}
+
 /** "30 min" / "30" / "30 mins" / "0.5 hour" -> minutes. Blank/null -> 0.
  * Returns null if non-blank and unparseable. */
 export function parseLunchMinutes(value) {

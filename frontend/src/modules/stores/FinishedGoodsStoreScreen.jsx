@@ -9,6 +9,7 @@ import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import StatusPill from '../../components/StatusPill'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
+import { orderTypeForPrd } from '../../utils/orderType'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
@@ -57,6 +58,7 @@ const DISPATCH_COLUMNS = [
   { key: 'shift_code', label: 'Shift' },
   { key: 'prd_no', label: 'Production Order No.' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'order_type', label: 'Type of Order' },
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
@@ -333,6 +335,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
       return {
         ...t,
         employee_name: employeeName(t.employee_id),
+        order_type: orderTypeForPrd(orders, t.prd_no),
         order_qty: order?.order_qty ?? '',
         qty_in_stock: qtyInStockForPrd(t.prd_no),
         qty_received: qtyReceivedForPrd(t.prd_no),
@@ -511,6 +514,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             </Field>
             <Field label="Part Drawing Number">
               <AutoFillBox value={dispatchPart.part_drawing_reference_number} />
+            </Field>
+            <Field label="Type of Order">
+              <AutoFillBox value={orderTypeForPrd(orders, dispatchForm.prd_no)} />
             </Field>
             <Field label="Order Status">
               <div className="flex items-center h-[38px]">

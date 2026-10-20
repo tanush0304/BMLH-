@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import ShiftDateLine from '../../components/ShiftDateLine'
+import { todayISO } from '../../utils/dates'
 import { PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, SelectInput, TextInput, AutoFillBox } from '../../components/FormSection'
@@ -196,6 +198,7 @@ export default function WipReceiptScreen({ role }) {
         qty: quantity,
         employee_id: form.employee_id,
         shift_code: form.shift_code,
+        transaction_date: todayISO(), // the date shown on screen (was the DB default)
         remarks: form.remarks || null,
         user_id: userId,
       })
@@ -277,6 +280,8 @@ export default function WipReceiptScreen({ role }) {
         onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredTransactions, `WIP Transaction History -- ${form.prd_no}`, `wip_receipts_${form.prd_no}`)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+        {/* The transaction date that will be saved (today) + the chosen shift. */}
+        <ShiftDateLine date={todayISO()} shiftCode={form.shift_code} shifts={shifts} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
         )}
