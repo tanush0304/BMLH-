@@ -16,19 +16,12 @@ import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS, isModuleRestricted } from './utils/constants'
 import { authTransition } from './utils/authTransition'
+import { headerBreadcrumb } from './utils/breadcrumb'
 
 // Lazy: Reports pulls in Recharts, which the other modules don't need.
 const ReportsModule = lazy(() => import('./modules/ReportsModule'))
 
 const TITLES = {}
-
-// Header breadcrumb (module > screen) from the same labels the sidebar shows.
-function headerBreadcrumb(topKey, subKey) {
-  const top = NAV_ITEMS.find((n) => n.key === topKey)
-  if (!top) return []
-  const sub = top.subItems?.find((s) => s.key === subKey)
-  return sub ? [{ label: top.label }, { label: sub.label }] : [{ label: top.label }]
-}
 
 
 function App() {
@@ -166,7 +159,7 @@ function App() {
         role={role}
       />
       <ModuleThemeProvider module={themeKey}>
-        <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey)}>
+        <PageHeaderBandProvider breadcrumb={headerBreadcrumb(themeKey, activeSubKey, () => handleSelect(themeKey))}>
           {/* Shared content column: min-w-0 lets every screen shrink to the
               space beside the sidebar (a flex item's default min-width is its
               content, which pushed wide pages past the viewport). */}

@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import Sidebar from './Sidebar'
+import Sidebar, { moduleClickAction } from './Sidebar'
 
 function renderSidebar(activeKey, activeSubKey) {
   return renderToStaticMarkup(
@@ -123,5 +123,25 @@ describe('contextual sidebar navigation', () => {
   it('keeps the navigation scrollable when contextual content exceeds its height', () => {
     const html = renderSidebar('masters', 'customer')
     expect(html).toContain('overflow-y-auto')
+  })
+})
+describe('module button click', () => {
+  const production = { key: 'production', subItems: [{ key: 'production-data-entry' }] }
+
+  it('on a screen of the active module -> back to its landing', () => {
+    expect(moduleClickAction(production, 'production', 'production-data-entry')).toBe('select')
+  })
+
+  it('on the active module landing -> expand / collapse', () => {
+    expect(moduleClickAction(production, 'production', null)).toBe('toggle')
+  })
+
+  it('another module -> navigate there', () => {
+    expect(moduleClickAction(production, 'stores', 'rm')).toBe('select')
+    expect(moduleClickAction(production, 'stores', null)).toBe('select')
+  })
+
+  it('a module without screens -> navigate', () => {
+    expect(moduleClickAction({ key: 'dashboard' }, 'dashboard', null)).toBe('select')
   })
 })

@@ -43,6 +43,6 @@ describe('wired into both screens', () => {
     const s = src('modules/production/ProductionDataEntryScreen.jsx')
     expect(s).toContain("' (next stage)'")
     expect(s).toContain('pickDefaultStage(candidates, availability)')
-    expect(s).toContain("selectPrd(log.prd_no, pending, { autoPick: false })")
+    expect(s).toContain("selectPrd(log.prd_no, pending, { autoPick: false, token })")
   })
 })

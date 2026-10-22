@@ -23,3 +23,31 @@ export function pickOpenLogForScreen(openLogs, stages) {
   }
   return null
 }
+
+// Shown instead of saving when the open log no longer matches what the screen
+// shows (a stale async response replaced part of the selection).
+export const OUT_OF_SYNC_MESSAGE = 'Screen out of sync, reload the log'
+
+/**
+ * True when `log` is the log for the PRD / stage (/ machine) on screen.
+ * machineId is optional -- Manual Operations has no machine.
+ */
+export function logMatchesScreen(log, { prdNo, stageId, machineId } = {}) {
+  if (!log) return false
+  if (String(log.prd_no) !== String(prdNo ?? '')) return false
+  if (String(log.stage_id) !== String(stageId ?? '')) return false
+  if (machineId !== undefined && String(log.machine_id ?? '') !== String(machineId ?? '')) return false
+  return true
+}
+
+/**
+ * Latest-request-wins: start() returns a token; isCurrent(token) is false
+ * once a newer start() happened, so a superseded async chain drops its result.
+ */
+export function createRequestGate() {
+  let latest = 0
+  return {
+    start: () => ++latest,
+    isCurrent: (token) => token === latest,
+  }
+}

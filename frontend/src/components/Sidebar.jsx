@@ -37,6 +37,14 @@ const MODULE_PRESENTATION = {
 // screens is open (current screen highlighted, siblings one click away) and
 // stays collapsed on a module landing page (e.g. the Masters card selector),
 // so the sidebar never duplicates the workspace. Other modules stay visible.
+// Clicking the module you're on: with one of its screens open -> back to its
+// landing ('select'); already on the landing -> open/close its list
+// ('toggle'). Any other module navigates there ('select').
+export function moduleClickAction(module, activeKey, activeSubKey) {
+  if (module.subItems && module.key === activeKey && !activeSubKey) return 'toggle'
+  return 'select'
+}
+
 function contextualExpandedKey(activeKey, activeSubKey) {
   return activeSubKey ? activeKey : null
 }
@@ -57,9 +65,7 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
   }
 
   function handleModuleClick(module) {
-    // Clicking the module you're already in just opens/closes its list;
-    // clicking any other module navigates there.
-    if (module.subItems && module.key === activeKey) {
+    if (moduleClickAction(module, activeKey, activeSubKey) === 'toggle') {
       setExpandedKey((k) => (k === module.key ? null : module.key))
     } else {
       onSelect(module.key)

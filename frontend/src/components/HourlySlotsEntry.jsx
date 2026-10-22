@@ -403,6 +403,7 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            aria-label={`Hour ${s.slot} produced`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_produced', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_produced', e.target.value)}
@@ -411,6 +412,7 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            aria-label={`Hour ${s.slot} rejected`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_rejected', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rejected', e.target.value)}
@@ -419,6 +421,7 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            aria-label={`Hour ${s.slot} rework`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_rework', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rework', e.target.value)}
@@ -432,7 +435,7 @@ export default function HourlySlotsEntry({
                                   type="number"
                                   min="0"
                                   step="1"
-                                  aria-label={`${c.label} slot ${s.slot}`}
+                                  aria-label={`Hour ${s.slot} ${c.label}`}
                                   className={idleInputClass}
                                   value={cellValue(s.slot, c.key, saved)}
                                   placeholder="0"
@@ -446,7 +449,7 @@ export default function HourlySlotsEntry({
                             <td className="px-2 py-1">
                               <input
                                 type="text"
-                                aria-label={`Remarks slot ${s.slot}`}
+                                aria-label={`Hour ${s.slot} remarks`}
                                 className="w-32 border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
                                 value={cellValue(s.slot, 'remarks', saved)}
                                 onChange={(e) => updateDraft(s.slot, 'remarks', e.target.value)}

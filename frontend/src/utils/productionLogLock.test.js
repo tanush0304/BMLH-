@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { releasedPlannedQty, pickOpenLogForScreen } from './productionLogLock'
+import { releasedPlannedQty, pickOpenLogForScreen, logMatchesScreen, createRequestGate, OUT_OF_SYNC_MESSAGE } from './productionLogLock'
 import { acceptedQty } from './productionReport'
 
 describe('releasedPlannedQty', () => {
@@ -27,5 +27,53 @@ describe('pickOpenLogForScreen', () => {
   })
   it('is null when none match', () => {
     expect(pickOpenLogForScreen([{ id: 2, stage_id: 99 }], stages)).toBeNull()
+  })
+})
+
+describe('logMatchesScreen', () => {
+  const log = { prd_no: 'PRD-005', stage_id: 12, machine_id: 'MC01' }
+
+  it('matches PRD, stage and machine (ids compared as text)', () => {
+    expect(logMatchesScreen(log, { prdNo: 'PRD-005', stageId: '12', machineId: 'MC01' })).toBe(true)
+  })
+
+  it('refuses a different PRD, stage or machine', () => {
+    expect(logMatchesScreen(log, { prdNo: 'PRD-006', stageId: 12, machineId: 'MC01' })).toBe(false)
+    expect(logMatchesScreen(log, { prdNo: 'PRD-005', stageId: 13, machineId: 'MC01' })).toBe(false)
+    expect(logMatchesScreen(log, { prdNo: 'PRD-005', stageId: 12, machineId: 'MC02' })).toBe(false)
+    expect(logMatchesScreen(log, { prdNo: 'PRD-005', stageId: 12, machineId: '' })).toBe(false)
+  })
+
+  it('skips the machine check when no machineId is given (Manual Operations)', () => {
+    expect(logMatchesScreen({ prd_no: 'PRD-005', stage_id: 12, machine_id: null }, { prdNo: 'PRD-005', stageId: 12 })).toBe(true)
+  })
+
+  it('refuses a missing log or an empty screen', () => {
+    expect(logMatchesScreen(null, { prdNo: 'PRD-005', stageId: 12 })).toBe(false)
+    expect(logMatchesScreen(log, {})).toBe(false)
+  })
+
+  it('exposes the out-of-sync message', () => {
+    expect(OUT_OF_SYNC_MESSAGE).toBe('Screen out of sync, reload the log')
+  })
+})
+
+describe('createRequestGate', () => {
+  it('only the latest token is current', () => {
+    const gate = createRequestGate()
+    const a = gate.start()
+    expect(gate.isCurrent(a)).toBe(true)
+    const b = gate.start()
+    expect(gate.isCurrent(a)).toBe(false)
+    expect(gate.isCurrent(b)).toBe(true)
+  })
+
+  it('gates are independent', () => {
+    const g1 = createRequestGate()
+    const g2 = createRequestGate()
+    const t = g1.start()
+    g2.start()
+    g2.start()
+    expect(g1.isCurrent(t)).toBe(true)
   })
 })

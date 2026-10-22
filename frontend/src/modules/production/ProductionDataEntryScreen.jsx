@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Factory, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
@@ -44,7 +44,7 @@ import ShiftDateLine from '../../components/ShiftDateLine'
 import { stageLabel } from '../../utils/stageLabel'
 import { useAppUsers } from '../../components/StockEditPanel'
 import { subItemLabel } from '../../utils/constants'
-import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
+import { releasedPlannedQty, pickOpenLogForScreen, logMatchesScreen, createRequestGate, OUT_OF_SYNC_MESSAGE } from '../../utils/productionLogLock'
 import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
@@ -64,7 +64,13 @@ export default function ProductionDataEntryScreen({ role }) {
   const [cycleNote, setCycleNote] = useState('')
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
+  const [restoring, setRestoring] = useState(false) // resuming this user's open log on open
   const [error, setError] = useState(null)
+  // Latest-request-wins for the selectPrd / resolveStage chains: a superseded
+  // chain drops its results so it can't overwrite a newer selection.
+  const gateRef = useRef(null)
+  if (!gateRef.current) gateRef.current = createRequestGate()
+  const gate = gateRef.current
 
   const [employeeId, setEmployeeId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
@@ -118,54 +124,78 @@ export default function ProductionDataEntryScreen({ role }) {
   // load it straight away (PRD / machine / stage then stay locked). Before
   // migration 024 there is no user_id column -- the query fails and the
   // screen simply starts empty, as it did before.
-  async function restoreOpenLog(pending) {
-    let openLogs
+  // The selection stays locked (selectionLocked) until this finishes, and
+  // `isActive` stops a discarded load (StrictMode's first run) part-way.
+  async function restoreOpenLog(pending, isActive = () => true) {
+    setRestoring(true)
     try {
-      openLogs = await listOpenLogsForUser(await getCurrentUserId())
-    } catch {
-      return
+      let openLogs
+      try {
+        openLogs = await listOpenLogsForUser(await getCurrentUserId())
+      } catch {
+        return
+      }
+      if (!isActive()) return
+      const match = pickOpenLogForScreen(openLogs, pending)
+      if (!match) return
+      const { log, stage } = match
+      const token = gate.start()
+      const current = await selectPrd(log.prd_no, pending, { autoPick: false, token })
+      if (!current || !isActive()) return
+      setMachineId(log.machine_id ?? '')
+      setStageChoiceId(String(stage.id))
+      if (log.employee_id) setEmployeeId(log.employee_id)
+      await resolveStage(log.prd_no, stage, log.machine_id, token)
+    } finally {
+      if (isActive()) setRestoring(false)
     }
-    const match = pickOpenLogForScreen(openLogs, pending)
-    if (!match) return
-    const { log, stage } = match
-    await selectPrd(log.prd_no, pending, { autoPick: false })
-    setMachineId(log.machine_id ?? '')
-    setStageChoiceId(String(stage.id))
-    if (log.employee_id) setEmployeeId(log.employee_id)
-    await resolveStage(log.prd_no, stage, log.machine_id)
   }
 
   useEffect(() => {
+    // false once this run is discarded (StrictMode runs effects twice in dev):
+    // a discarded run must not touch loading / restoring / error.
+    let active = true
     async function load() {
       setLoading(true)
       setError(null)
       try {
         const [employeeRows, shf, machs] = await Promise.all([listEmployees(), listShifts(), listMachines()])
+        if (!active) return
         setEmployees(employeeRows)
         setShifts(shf)
         setMachineLabels(buildMachineLabelMap(machs))
         setMachineRows(machs)
         const pending = await loadPendingStages()
-        await restoreOpenLog(pending)
+        if (!active) return
+        await restoreOpenLog(pending, () => active)
       } catch (e) {
-        setError(e.message)
+        if (active) setError(e.message)
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
     load()
+    return () => {
+      active = false
+    }
   }, [])
+
+  // PRD / Machine / Stage can't change while a log is open or while the
+  // screen is still loading / resuming the open log.
+  const selectionLocked = !!activeLog || loading || restoring
 
   // Machines eligible for the currently-selected PRD -- distinct machine_ids
   // capable of at least one of this PRD's eligible stage operations.
   const eligibleMachineIds = [...new Set(machineOpsForPrd.map((r) => r.machine_id))]
 
   async function handlePrdChange(e) {
-    if (activeLog) return // locked while a log is open
+    if (selectionLocked) return // locked while a log is open / loading
     await selectPrd(e.target.value, pendingStages)
   }
 
-  async function selectPrd(prd, pending, { autoPick = true } = {}) {
+  // Returns false when a newer request superseded this one (its results are
+  // dropped -- no state, no error).
+  async function selectPrd(prd, pending, { autoPick = true, token = gate.start() } = {}) {
     setPrdNo(prd)
     setMachineId('')
     setNextStageMachineId('')
@@ -182,7 +212,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setMachineOpsForPrd([])
     if (!prd) {
       setPrdStages([])
-      return
+      return true
     }
     setResolving(true)
     setError(null)
@@ -195,6 +225,7 @@ export default function ProductionDataEntryScreen({ role }) {
       // operation list, never used to decide this. See
       // utils/machineEligibility.js.
       const order = (await listOrdersByPrd()).find((o) => o.prd_no === prd)
+      if (!gate.isCurrent(token)) return false
       const seqs = [...new Set(stages.map((s) => s.seq))]
       // Machine options per pending stage (MACHINE_CHOICE_MODE, utils/machineEligibility):
       // planned machine first, substitutes, busy machines labelled.
@@ -204,6 +235,7 @@ export default function ProductionDataEntryScreen({ role }) {
         listAllOpenLogs(),
         machineRows.length ? machineRows : listMachines(),
       ])
+      if (!gate.isCurrent(token)) return false
       const busyLogs = openLogsWithSeq(openLogs, pending)
       const bySeq = {}
       for (const st of stages.filter((x) => seqs.includes(x.seq))) {
@@ -220,6 +252,7 @@ export default function ProductionDataEntryScreen({ role }) {
           getStageAggregatesForPrd(prd),
           getWipAggregatesForPrd(prd),
         ])
+        if (!gate.isCurrent(token)) return false
         const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
         const candidates = stages.filter((s) => rows.some((r) => r.seq === s.seq))
         const next = pickDefaultStage(candidates, availability)
@@ -227,14 +260,15 @@ export default function ProductionDataEntryScreen({ role }) {
         if (next && machine) {
           setNextStageMachineId(machine)
           setNextStageSeq(next.seq)
-          selectMachine(machine, { stages, rows, prd, preferStage: next })
+          selectMachine(machine, { stages, rows, prd, preferStage: next, token })
         }
       }
     } catch (e) {
-      setError(e.message)
+      if (gate.isCurrent(token)) setError(e.message)
     } finally {
-      setResolving(false)
+      if (gate.isCurrent(token)) setResolving(false)
     }
+    return gate.isCurrent(token)
   }
 
   // Stages eligible for the currently-selected PRD on the currently-selected
@@ -245,7 +279,7 @@ export default function ProductionDataEntryScreen({ role }) {
     : []
 
   function handleMachineChange(e) {
-    if (activeLog) return // locked while a log is open
+    if (selectionLocked) return // locked while a log is open / loading
     selectMachine(e.target.value)
   }
 
@@ -254,6 +288,7 @@ export default function ProductionDataEntryScreen({ role }) {
     const stagesNow = ctx.stages ?? prdStages
     const rowsNow = ctx.rows ?? machineOpsForPrd
     const prdNow = ctx.prd ?? prdNo
+    const token = ctx.token ?? gate.start()
     setMachineId(id)
     setConfirmEarlier(false)
     setSubstituteReason('')
@@ -270,22 +305,22 @@ export default function ProductionDataEntryScreen({ role }) {
       rowsNow.some((r) => r.machine_id === id && r.seq === s.seq)
     )
     if (choices.length === 1) {
-      resolveStage(prdNow, choices[0], id)
+      resolveStage(prdNow, choices[0], id, token)
     } else if (ctx.preferStage && choices.some((s) => s.id === ctx.preferStage.id)) {
       setStageChoiceId(String(ctx.preferStage.id))
-      resolveStage(prdNow, ctx.preferStage, id)
+      resolveStage(prdNow, ctx.preferStage, id, token)
     }
     // If there's more than one, wait for the user to pick via
     // handleStageChoice below -- don't guess which one they mean.
   }
 
   function handleStageChoice(e) {
-    if (activeLog) return // locked while a log is open
+    if (selectionLocked) return // locked while a log is open / loading
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
     setConfirmEarlier(false)
-    if (stage) resolveStage(prdNo, stage, machineId)
+    if (stage) resolveStage(prdNo, stage, machineId, gate.start())
   }
 
   function resetReportHeader() {
@@ -294,7 +329,8 @@ export default function ProductionDataEntryScreen({ role }) {
     setMasterCycleTime(null)
   }
 
-  async function resolveStage(prd, stage, machine) {
+  // A superseded call (newer token) drops its results -- no state, no error.
+  async function resolveStage(prd, stage, machine, token = gate.start()) {
     setResolvedStage(stage)
     setResolving(true)
     setError(null)
@@ -306,6 +342,7 @@ export default function ProductionDataEntryScreen({ role }) {
         getOpenLogForStage(prd, stage.id),
         getWipAggregatesForPrd(prd),
       ])
+      if (!gate.isCurrent(token)) return
       const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
       setPrdAllStages(allStages)
@@ -313,6 +350,7 @@ export default function ProductionDataEntryScreen({ role }) {
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
       const cycleRows = await listCycleTimesForPart(order?.part_serial_number)
+      if (!gate.isCurrent(token)) return
       // Chosen machine's own Cycle Time row, else the stage's frozen time (+ note).
       const ct = cycleTimeForMachine({ cycleTimeRows: cycleRows, seq: stage.seq, chosenId: machine, plannedId: stage.machine_id, frozenCycleTime: stage.cycle_time_min })
       setMasterCycleTime(ct.cycleTimeMin)
@@ -330,13 +368,16 @@ export default function ProductionDataEntryScreen({ role }) {
         setSetterId(openLog.setter_employee_id ?? '')
         setSettingTimeMin(openLog.setting_time_min ?? '')
         const hours = await listLogHoursForLogIds([openLog.id])
+        if (!gate.isCurrent(token)) return
         setLogHours(hours)
-        setTotals(await getLogTotals(openLog.id))
+        const logTotals = await getLogTotals(openLog.id)
+        if (!gate.isCurrent(token)) return
+        setTotals(logTotals)
       }
     } catch (e) {
-      setError(e.message)
+      if (gate.isCurrent(token)) setError(e.message)
     } finally {
-      setResolving(false)
+      if (gate.isCurrent(token)) setResolving(false)
     }
   }
 
@@ -402,8 +443,17 @@ export default function ProductionDataEntryScreen({ role }) {
   // original creation-time values.
   // `changes`: edits to already-saved rows of the grid's shift (only the
   // changed ones) -- updated in place, keeping their original employee.
+  // Hours go only to the log the screen shows -- never to a log a stale
+  // response left behind (see logMatchesScreen).
+  function logOutOfSync() {
+    if (logMatchesScreen(activeLog, { prdNo, stageId: resolvedStage?.id, machineId })) return false
+    setError(OUT_OF_SYNC_MESSAGE)
+    return true
+  }
+
   async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
+    if (logOutOfSync()) return
     setSavingHour(true)
     setError(null)
     try {
@@ -427,6 +477,7 @@ export default function ProductionDataEntryScreen({ role }) {
 
   async function handleAddExtraHour(row) {
     if (!activeLog) return
+    if (logOutOfSync()) return
     setSavingHour(true)
     setError(null)
     try {
@@ -483,6 +534,7 @@ export default function ProductionDataEntryScreen({ role }) {
   }
 
   async function clearSelection() {
+    gate.start() // drop any chain still in flight
     setEntryDate(todayISO())
     setPrdNo('')
     setMachineId('')
@@ -544,13 +596,13 @@ export default function ProductionDataEntryScreen({ role }) {
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
           <Field label="Employee" required>
-            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
           <Field label="Production Order (PRD No)" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
-              disabled={!!activeLog}
+              disabled={selectionLocked}
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
@@ -567,7 +619,7 @@ export default function ProductionDataEntryScreen({ role }) {
             <SearchableSelect
               value={machineId}
               onChange={handleMachineChange}
-              disabled={!!activeLog || !prdNo || eligibleMachineIds.length === 0}
+              disabled={selectionLocked || !prdNo || eligibleMachineIds.length === 0}
               options={eligibleMachineIds.map((id) => ({
                 value: id,
                 label: `${optionLabel(id)}${id === nextStageMachineId ? ' (next stage)' : ''}`,
@@ -579,7 +631,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
-                disabled={!!activeLog}
+                disabled={selectionLocked}
                 options={stageChoicesForPrd.map((s) => ({ value: s.id, label: stageLabel(s) }))}
               />
             </Field>
