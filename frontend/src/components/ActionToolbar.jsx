@@ -42,14 +42,26 @@ export default function ActionToolbar({
 }) {
   const [printOpen, setPrintOpen] = useState(false)
   const printRef = useRef(null)
+  const printButtonRef = useRef(null)
 
+  // Close on a mousedown outside the button + menu (both inside printRef) or on Escape.
   useEffect(() => {
     if (!printOpen) return undefined
     const close = (e) => {
       if (printRef.current && !printRef.current.contains(e.target)) setPrintOpen(false)
     }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setPrintOpen(false)
+        printButtonRef.current?.focus()
+      }
+    }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [printOpen])
 
   return (
@@ -96,6 +108,7 @@ export default function ActionToolbar({
         </span>
         <div className="relative" ref={printRef}>
           <button
+            ref={printButtonRef}
             type="button"
             className={BTN_LIGHT}
             aria-haspopup="menu"
@@ -116,8 +129,8 @@ export default function ActionToolbar({
                 role="menuitem"
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-green-50"
                 onClick={() => {
-                  setPrintOpen(false)
                   onExportExcel?.()
+                  setPrintOpen(false)
                 }}
               >
                 <FileSpreadsheet size={16} className="text-green-700" /> Excel
@@ -127,8 +140,8 @@ export default function ActionToolbar({
                 role="menuitem"
                 className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-[13.5px] text-slate-700 hover:bg-red-50"
                 onClick={() => {
-                  setPrintOpen(false)
                   onExportPdf?.()
+                  setPrintOpen(false)
                 }}
               >
                 <FileText size={16} className="text-red-600" /> PDF

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { List, Search, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { searchRows } from '../../utils/reportAggregates'
@@ -34,6 +34,35 @@ function BarCell({ value, color, text }) {
 export default function ReportTable({ title, columns, rows, totalsRow, groupHeaders, showSerial = true, loading, error, rowKey, searchKeys = [], searchPlaceholder, exportTitle, exportName }) {
   const [search, setSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
+  const menuRef = useRef(null)
+  const triggerRef = useRef(null)
+
+  // Close on a mousedown outside the trigger + menu (both inside menuRef) or
+  // on Escape. Not on mouse-leave: the gap between button and menu used to
+  // close it before an item could be clicked.
+  useEffect(() => {
+    if (!printOpen) return undefined
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setPrintOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setPrintOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [printOpen])
+
+  function runExport(action) {
+    action()
+    setPrintOpen(false)
+  }
   const filtered = useMemo(() => searchRows(rows, search, searchKeys), [rows, search, searchKeys])
 
   const show = (col, row) => {
@@ -64,8 +93,10 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
   const alignClass = (col) => (col.align === 'right' ? 'text-right' : 'text-left')
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+    // No overflow-hidden on the section (it would clip the Export menu); the
+    // header and the table area carry the inner corner radius instead.
+    <section className="rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-t-[11px] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
         <h2 className="flex items-center gap-2.5 text-[17px] font-bold text-[#0B2A5B]">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white">
             <List size={20} strokeWidth={2.4} />
@@ -84,9 +115,12 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             className="h-9 w-full rounded-lg border border-[#CBDAEE] bg-white pl-9 pr-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-[#1669E0] focus:outline-none focus:ring-2 focus:ring-[#1669E0]/20"
           />
         </div>
-        <div className="relative" onMouseLeave={() => setPrintOpen(false)}>
+        <div className="relative" ref={menuRef}>
           <button
+            ref={triggerRef}
             type="button"
+            aria-haspopup="menu"
+            aria-expanded={printOpen}
             onClick={() => setPrintOpen((v) => !v)}
             disabled={loading || filtered.length === 0}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F8A3B] px-4 text-[14px] font-semibold text-white shadow-sm hover:bg-[#18742F] disabled:opacity-50"
@@ -94,11 +128,11 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             <FileSpreadsheet size={18} /> Export <ChevronDown size={15} />
           </button>
           {printOpen && (
-            <div className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
-              <button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => { setPrintOpen(false); exportToCsv(exportCols, exportRows(), `${exportName}.csv`) }}>
+            <div role="menu" className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => runExport(() => exportToCsv(exportCols, exportRows(), `${exportName}.csv`))}>
                 Excel
               </button>
-              <button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => { setPrintOpen(false); exportToPdf(exportCols, exportRows(), exportTitle, exportName) }}>
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => runExport(() => exportToPdf(exportCols, exportRows(), exportTitle, exportName))}>
                 PDF
               </button>
             </div>
@@ -106,7 +140,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
         </div>
       </div>
 
-      <div className="max-h-[520px] overflow-auto">
+      <div className="max-h-[520px] overflow-auto rounded-b-[11px]">
         <table className="w-full text-[13px]">
           <thead className="sticky top-0 z-10">
             {groupHeaders && (
