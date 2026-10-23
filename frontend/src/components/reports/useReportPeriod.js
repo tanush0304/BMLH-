@@ -8,10 +8,11 @@ import { DEFAULT_PERIOD, periodRange } from '../../utils/reportPeriods'
  *   const r = useReportPeriod({ prdNo: '' })
  *   <ReportFilterBar {...r.barProps} loading={loading} filters={[... r.filters.prdNo, r.setFilter('prdNo') ...]} />
  *   useEffect(() => load(r.applied), [r.applied])
+ * `defaultPeriod` overrides DEFAULT_PERIOD for one screen (initial + Reset).
  */
-export default function useReportPeriod(emptyFilters = {}) {
-  const initial = periodRange(DEFAULT_PERIOD)
-  const [period, setPeriod] = useState(DEFAULT_PERIOD)
+export default function useReportPeriod(emptyFilters = {}, { defaultPeriod = DEFAULT_PERIOD } = {}) {
+  const initial = periodRange(defaultPeriod)
+  const [period, setPeriod] = useState(defaultPeriod)
   const [from, setFrom] = useState(initial.from)
   const [to, setTo] = useState(initial.to)
   const [filters, setFilters] = useState(emptyFilters)
@@ -27,18 +28,28 @@ export default function useReportPeriod(emptyFilters = {}) {
   }
 
   function onReset() {
-    const range = periodRange(DEFAULT_PERIOD)
-    setPeriod(DEFAULT_PERIOD)
+    const range = periodRange(defaultPeriod)
+    setPeriod(defaultPeriod)
     setFrom(range.from)
     setTo(range.to)
     setFilters(emptyFilters)
     setApplied({ ...range, ...emptyFilters })
   }
 
+  // Set a custom From/To and search at once (e.g. "Show all POs"); keeps the
+  // filters currently in the bar.
+  function setRangeAndSearch(newFrom, newTo) {
+    setPeriod('custom')
+    setFrom(newFrom)
+    setTo(newTo)
+    setApplied({ from: newFrom, to: newTo, ...filters })
+  }
+
   return {
     filters,
     applied,
     setFilter: (key) => (value) => setFilters((f) => ({ ...f, [key]: value })),
+    setRangeAndSearch,
     barProps: {
       period,
       from,

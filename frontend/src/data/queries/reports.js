@@ -105,6 +105,20 @@ export const listJobOrderStatusRows = ({ from, to }) =>
 export const listOrdersByPoDate = ({ from, to }) =>
   fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('order_line_id'))
 
+/** Earliest + latest dated PO line ({ po_number, po_date } or null), optionally
+ * for one customer -- two limit-1 reads, for the report's empty state. */
+export async function getPoDateBounds({ customerId } = {}) {
+  const one = async (ascending) => {
+    let q = supabase.from('customer orders').select('po_number, po_date').not('po_date', 'is', null)
+    if (customerId) q = q.eq('customer_id', customerId)
+    const { data, error } = await q.order('po_date', { ascending }).limit(1)
+    if (error) throw error
+    return data[0] ?? null
+  }
+  const [earliest, latest] = await Promise.all([one(true), one(false)])
+  return { earliest, latest }
+}
+
 /** "report quality inspections" (029) for log_date from..to; optional filters. */
 export async function listQualityInspections(args) {
   return withStagePosition(await listQualityInspectionsRaw(args))

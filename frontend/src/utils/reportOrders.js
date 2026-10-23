@@ -1,5 +1,12 @@
 // Pure logic for the R4 reports: Customer Order Status and Job Order Status.
 import { displayStatus } from './statusLabels'
+import { displayDate } from './reportPeriods'
+
+/** Customer Order Status empty state: `latest` = { po_number, po_date } or null. */
+export function emptyPoMessage(latest) {
+  if (!latest) return 'No POs recorded yet.'
+  return `No POs dated in this period. Latest PO: ${latest.po_number} dated ${displayDate(latest.po_date)}.`
+}
 
 function num(v) {
   const n = Number(v)

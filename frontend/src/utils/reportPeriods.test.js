@@ -1,5 +1,30 @@
 import { describe, it, expect } from 'vitest'
-import { periodRange, previousRange, daysBetween, addDays, displayDate, shortDate } from './reportPeriods'
+import { periodRange, previousRange, daysBetween, addDays, displayDate, shortDate, fyStart, PERIOD_PRESETS, DEFAULT_PERIOD } from './reportPeriods'
+
+describe('This Financial Year (Indian FY, 1 Apr - 31 Mar)', () => {
+  it('Jan-Mar dates fall in the FY that began 1 Apr of the previous year', () => {
+    expect(fyStart(new Date(2027, 0, 1))).toBe('2026-04-01')
+    expect(fyStart(new Date(2027, 0, 15))).toBe('2026-04-01')
+    expect(fyStart(new Date(2027, 2, 31))).toBe('2026-04-01')
+  })
+
+  it('Apr-Dec dates fall in the FY that began 1 Apr of the same year', () => {
+    expect(fyStart(new Date(2026, 3, 1))).toBe('2026-04-01')
+    expect(fyStart(new Date(2026, 9, 23))).toBe('2026-04-01')
+    expect(fyStart(new Date(2026, 11, 31))).toBe('2026-04-01')
+  })
+
+  it('periodRange thisFY = FY start .. today', () => {
+    expect(periodRange('thisFY', new Date(2027, 1, 10))).toEqual({ from: '2026-04-01', to: '2027-02-10' })
+    expect(periodRange('thisFY', new Date(2026, 3, 1))).toEqual({ from: '2026-04-01', to: '2026-04-01' })
+  })
+
+  it('is added to the presets without removing any; the global default stays Last 30 Days', () => {
+    expect(PERIOD_PRESETS.map((p) => p.value)).toEqual(['today', 'yesterday', 'last7', 'last30', 'thisMonth', 'lastMonth', 'thisFY', 'custom'])
+    expect(PERIOD_PRESETS.find((p) => p.value === 'thisFY').label).toBe('This Financial Year')
+    expect(DEFAULT_PERIOD).toBe('last30')
+  })
+})
 
 const TODAY = new Date(2026, 9, 12) // 12 Oct 2026, local
 

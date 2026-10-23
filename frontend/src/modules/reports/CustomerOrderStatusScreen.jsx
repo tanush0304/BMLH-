@@ -8,12 +8,12 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
-import { listOrdersByPoDate, listFgTransactionsUpTo } from '../../data/queries/reports'
+import { listOrdersByPoDate, listFgTransactionsUpTo, getPoDateBounds } from '../../data/queries/reports'
 import { listProductionOrders } from '../../data/queries/customerOrders'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch } from '../../utils/reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessage } from '../../utils/reportOrders'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red' }
 
@@ -26,7 +26,7 @@ const STATUS_TONES = { Closed: 'green', Open: 'red' }
  */
 export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const chartType = useChartType()
-  const r = useReportPeriod({ customerId: '' })
+  const r = useReportPeriod({ customerId: '' }, { defaultPeriod: 'thisFY' })
   const [orders, setOrders] = useState([])
   const [dispatches, setDispatches] = useState([])
   const [customers, setCustomers] = useState([])
@@ -72,6 +72,20 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
       return { ...l, customer_name: customerName.get(l.customer_id) ?? l.customer_id, part_name: p?.part_name ?? '', drawing: p?.part_drawing_reference_number ?? '' }
     })
   }, [orders, dispatches, prdRows, r.applied.customerId, customerName, productBySerial])
+
+  // Empty period: say where the POs are (latest) and offer "Show all POs"
+  // (From = earliest PO date). Bounds are read only when the state shows.
+  const isEmpty = !loading && !error && lines.length === 0
+  const [poBounds, setPoBounds] = useState(null)
+  useEffect(() => {
+    if (!isEmpty) return undefined
+    let cancelled = false
+    setPoBounds(null)
+    getPoDateBounds({ customerId: r.applied.customerId })
+      .then((b) => !cancelled && setPoBounds(b))
+      .catch((e) => !cancelled && setError(e.message))
+    return () => { cancelled = true }
+  }, [isEmpty, r.applied.customerId])
 
   const po = useMemo(() => poSummary(lines), [lines])
   const totalQty = lines.reduce((a, l) => a + l.order_qty, 0)
@@ -129,6 +143,21 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           <KpiCard label="Open POs" value={formatQty(po.open)} sub={`PO Qty: ${formatQty(po.openQty)} Nos`} icon={BarChart3} tone="purple" loading={loading} />
           <KpiCard label="Closed POs" value={formatQty(po.closed)} sub={`PO Qty: ${formatQty(po.closedQty)} Nos`} icon={CircleCheck} tone="red" loading={loading} />
         </KpiCardRow>
+
+        {isEmpty && poBounds && (
+          <div role="status" className="flex flex-wrap items-center gap-3 rounded border border-[#CFE2F8] bg-white px-4 py-2 text-sm text-slate-700">
+            <span>{emptyPoMessage(poBounds.latest)}</span>
+            {poBounds.earliest && (
+              <button
+                type="button"
+                onClick={() => r.setRangeAndSearch(poBounds.earliest.po_date, r.applied.to)}
+                className="rounded border border-[#1E5FD0] px-3 py-1 text-[13px] font-semibold text-[#1E5FD0] hover:bg-[#E3F0FD]"
+              >
+                Show all POs
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">

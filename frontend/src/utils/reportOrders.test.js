@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText, dcTableStatusLabel, dcStatusCellText } from './reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText, dcTableStatusLabel, dcStatusCellText, emptyPoMessage } from './reportOrders'
+
+describe('emptyPoMessage (Customer Order Status, no PO lines in the period)', () => {
+  it('names the latest PO with its date as DD-MM-YYYY', () => {
+    expect(emptyPoMessage({ po_number: 'PO-2025-17', po_date: '2026-03-05' })).toBe('No POs dated in this period. Latest PO: PO-2025-17 dated 05-03-2026.')
+  })
+  it('says so when there are no POs at all', () => {
+    expect(emptyPoMessage(null)).toBe('No POs recorded yet.')
+    expect(emptyPoMessage(undefined)).toBe('No POs recorded yet.')
+  })
+})
 
 describe('customer orders', () => {
   const orders = [

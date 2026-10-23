@@ -51,7 +51,7 @@ const SAMPLE = {
   ],
   listRmStockMasterRows: [{ row_key: 'RM-1|P1', raw_material_code: 'RM-1', raw_material_name: 'EN8 Bar', rm_type: 'Bar', unit_of_measurement: 'Kg', supplier_names: 'Tata Steel', opening_stock: 50, part_serial_number: 'P1', part_name: 'Shaft', consumption_per_unit: 2 }],
   listSuppliers: [{ supplier_id: 'S1', supplier_name: 'Tata Steel' }],
-  listOrdersByPoDate: [{ order_line_id: 1, customer_id: 'C1', po_number: 'PO-1', po_date: D2, part_serial_number: 'P1', order_qty: 200, prd_no: null }],
+  listOrdersByPoDate: [{ order_line_id: 1, customer_id: 'C1', po_number: 'PO-1', po_date: T, part_serial_number: 'P1', order_qty: 200, prd_no: null }],
   listCustomers: [{ customer_id: 'C1', customer_name: 'Acme' }, { customer_id: 'C2', customer_name: 'Brahma' }],
   listProducts: [{ part_serial_number: 'P1', part_name: 'Shaft' }],
   listJobOrderStatusRows: [
@@ -76,7 +76,7 @@ const SAMPLE = {
 let data = 'sample'
 const fn = (name) => vi.fn(async () => (data === 'sample' ? SAMPLE[name] ?? [] : []))
 vi.mock('../../data/queries/reports', () => Object.fromEntries(
-  ['listProductionHours', 'listLoggedPrds', 'listProductionSetup', 'listWipTransactionsUpTo', 'listFgTransactionsUpTo', 'listFgMasterRows', 'listPartDrawingRefs', 'listRmTransactionsUpTo', 'listRmStockMasterRows', 'listOrdersByPoDate', 'listJobOrderStatusRows', 'listQualityInspections', 'listReadingsForLogs', 'listComplaintsForReport'].map((n) => [n, fn(n)])
+  ['listProductionHours', 'listLoggedPrds', 'listProductionSetup', 'listWipTransactionsUpTo', 'listFgTransactionsUpTo', 'listFgMasterRows', 'listPartDrawingRefs', 'listRmTransactionsUpTo', 'listRmStockMasterRows', 'listOrdersByPoDate', 'listJobOrderStatusRows', 'listQualityInspections', 'listReadingsForLogs', 'listComplaintsForReport', 'getPoDateBounds'].map((n) => [n, fn(n)])
 ))
 vi.mock('../../data/queries/machines', () => ({ listMachines: fn('listMachines') }))
 vi.mock('../../data/queries/shifts', () => ({ listShifts: fn('listShifts') }))
