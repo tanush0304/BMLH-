@@ -50,6 +50,8 @@ export default function EmployeeMaster() {
       title="Employee Master"
       subtitle="Manage Employee Information  |  Shop Floor Workforce"
       pkField="employee_id"
+      recordType="employee"
+      nameField="employee_name"
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}

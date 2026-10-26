@@ -19,6 +19,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -53,6 +54,7 @@ function inputValue(value) {
 
 export default function QualityMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [machines, setMachines] = useState([])
   const [cycleTimes, setCycleTimes] = useState([])
@@ -177,9 +179,13 @@ export default function QualityMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.id) return
-    if (!confirm(`Delete this quality parameter (id ${form.id})? This cannot be undone.`)) return
+    del.ask({ recordType: 'quality parameter', label: recordLabel(form.part_serial_number, `${form.quality_parameter}${form.machine_id ? ` (${form.machine_id})` : ''}`), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.id) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -266,6 +272,7 @@ export default function QualityMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search quality parameters..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

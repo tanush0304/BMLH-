@@ -90,6 +90,8 @@ export default function SupplierMaster() {
       title="Supplier Master"
       subtitle="Manage Supplier Information  |  Raw Material Sourcing Partners"
       pkField="supplier_id"
+      recordType="supplier"
+      nameField="supplier_name"
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}

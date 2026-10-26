@@ -14,6 +14,8 @@ import { listMaintenanceLogsSince } from '../../data/queries/maintenanceLogs'
 import { listMaintenanceSchedules } from '../../data/queries/maintenanceSchedules'
 import { weekCellState } from '../../utils/maintenanceGrid'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
+import { displayDate } from '../../utils/reportPeriods'
 
 const WEEK_COUNT = 14
 
@@ -32,6 +34,7 @@ function toISODate(d) {
 
 export default function WeeklyPlanGridScreen() {
   const [machines, setMachines] = useState([])
+  const del = useDeleteConfirm()
   const [planStatus, setPlanStatus] = useState([])
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
@@ -78,19 +81,29 @@ export default function WeeklyPlanGridScreen() {
     return weekCellState({ machineId, week, planStatus, logs, schedules })
   }
 
-  async function handleCellClick(machineId, week) {
+  function handleCellClick(machineId, week) {
     const cell = findCell(machineId, week)
     if (cell.status === 'Completed') return
+    if (cell.status === 'Planned') {
+      const m = machines.find((x) => x.machine_id === machineId)
+      del.ask({
+        title: 'Remove planned maintenance?',
+        body: <><strong>{recordLabel(m ? `${m.machine_id} ${m.machine_name ?? ''}`.trim() : machineId, `week of ${displayDate(week)}`)}</strong> will be removed from the maintenance plan.</>,
+        confirmLabel: 'Remove',
+        run: () => changeCell(machineId, week, cell),
+      })
+      return
+    }
+    return changeCell(machineId, week, cell)
+  }
+
+  async function changeCell(machineId, week, cell) {
     setBusyCell(`${machineId}-${week}`)
     setError(null)
     try {
       if (cell.status === null || cell.status === 'Due') {
         await scheduleMaintenanceWeek(machineId, week)
       } else if (cell.status === 'Planned') {
-        if (!confirm('Remove this scheduled maintenance week?')) {
-          setBusyCell(null)
-          return
-        }
         await unscheduleMaintenanceWeek(cell.planId)
       }
       // Completed cells are derived from real logs -- not editable here.
@@ -196,6 +209,7 @@ export default function WeeklyPlanGridScreen() {
           </div>
         )}
       </div>
+      {del.dialog}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { listVendors, createVendor, updateVendor, deleteVendor } from '../../dat
 import { listJobWorkTypes, createJobWorkType } from '../../data/queries/jobWorkTypes'
 import { listJobWorkTypesForVendor, setVendorJobWorkTypes } from '../../data/queries/vendorJobWorkTypes'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 // Job work master IS a real, shared table (unlike Machine Master's hardcoded
 // operations list), so a custom "Other" value typed here can genuinely become
@@ -56,6 +57,7 @@ const LIST_COLUMNS = [
 
 export default function VendorMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [jobWorkTypes, setJobWorkTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -165,9 +167,13 @@ export default function VendorMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.vendor_id) return
-    if (!confirm(`Delete vendor ${form.vendor_id}? This cannot be undone.`)) return
+    del.ask({ recordType: 'vendor', label: recordLabel(form.vendor_id, form.vendor_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.vendor_id) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -331,6 +337,7 @@ export default function VendorMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by Vendor ID / Name..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

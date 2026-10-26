@@ -13,6 +13,7 @@ import { listProducts, createProduct, updateProduct, deleteProduct } from '../..
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -34,6 +35,7 @@ const LIST_COLUMNS = [
 
 export default function ProductMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [rawMaterials, setRawMaterials] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -151,9 +153,13 @@ export default function ProductMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.part_serial_number) return
-    if (!confirm(`Delete product ${form.part_serial_number}? This cannot be undone.`)) return
+    del.ask({ recordType: 'product', label: recordLabel(form.part_serial_number, form.part_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.part_serial_number) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -308,6 +314,7 @@ export default function ProductMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Name..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

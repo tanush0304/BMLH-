@@ -23,6 +23,7 @@ import { todayISO } from '../../utils/dates'
 import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const NEW_PART_VALUE = '__new__'
 
@@ -61,6 +62,7 @@ const LIST_COLUMNS = [
 
 export default function CustomerEnquiryScreen() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
@@ -249,9 +251,13 @@ export default function CustomerEnquiryScreen() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.qtn_no) return
-    if (!confirm(`Delete enquiry ${form.qtn_no}? This cannot be undone.`)) return
+    del.ask({ recordType: 'enquiry', label: recordLabel(form.qtn_no, customers.find((c) => c.customer_id === form.customer_id)?.customer_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.qtn_no) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -417,6 +423,7 @@ export default function CustomerEnquiryScreen() {
           onSearchChange={setListSearch} searchPlaceholder="Search by QTN No / Customer..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

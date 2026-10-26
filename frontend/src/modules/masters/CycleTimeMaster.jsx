@@ -20,6 +20,7 @@ import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { toNumberOrNull } from '../../utils/numericFields'
 import { withRoutePositions } from '../../utils/stageLabel'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -44,6 +45,7 @@ const LIST_COLUMNS = [
 
 export default function CycleTimeMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [machines, setMachines] = useState([])
   const [jobWorkTypes, setJobWorkTypes] = useState([])
@@ -157,9 +159,13 @@ export default function CycleTimeMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.id) return
-    if (!confirm(`Delete this cycle time row (id ${form.id})? This cannot be undone.`)) return
+    del.ask({ recordType: 'cycle time row', label: recordLabel(form.part_serial_number, `Stage ${form.stage_no ?? form.seq} ${form.operation}${form.machine_id ? ` (${form.machine_id})` : ''}`), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.id) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -288,6 +294,7 @@ export default function CycleTimeMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Operation..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

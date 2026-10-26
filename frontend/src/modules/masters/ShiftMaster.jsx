@@ -9,6 +9,7 @@ import RecordsList from '../../components/RecordsList'
 import { listShifts, createShift, updateShift, deleteShift } from '../../data/queries/shifts'
 import { computeShiftHours, formatTime12 } from '../../utils/shiftCalculations'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 // Shift Duration / Net Working Hours used to be typed in by hand; they're
 // now always derived from start_time/end_time/lunch_break_duration via
@@ -37,6 +38,7 @@ const LIST_COLUMNS = [
 
 export default function ShiftMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -149,9 +151,13 @@ export default function ShiftMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.shift_code) return
-    if (!confirm(`Delete this shift (${form.shift_code})? This cannot be undone.`)) return
+    del.ask({ recordType: 'shift', label: recordLabel(form.shift_code, form.shift_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.shift_code) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -264,6 +270,7 @@ export default function ShiftMaster() {
           onSearchChange={setListSearch}
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

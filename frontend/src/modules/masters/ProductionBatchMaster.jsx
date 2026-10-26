@@ -16,6 +16,7 @@ import {
 import { listProducts } from '../../data/queries/products'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -29,6 +30,7 @@ const LIST_COLUMNS = [
 
 export default function ProductionBatchMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -110,9 +112,13 @@ export default function ProductionBatchMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.part_serial_number) return
-    if (!confirm(`Delete the batch quantity for ${form.part_serial_number}? This cannot be undone.`)) return
+    del.ask({ recordType: 'batch quantity', label: recordLabel(form.part_serial_number, selectedProduct?.part_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.part_serial_number) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -204,6 +210,7 @@ export default function ProductionBatchMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

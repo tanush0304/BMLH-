@@ -39,6 +39,8 @@ export default function JobWorkMaster() {
       title="Job Work Master"
       subtitle="Manage Outsourcing Types  |  Heat Treatment, Broaching, Toughening & More"
       pkField="job_work_code"
+      recordType="job work type"
+      nameField="type_of_job_work"
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}

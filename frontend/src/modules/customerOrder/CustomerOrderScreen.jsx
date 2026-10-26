@@ -25,6 +25,7 @@ import { listProducts, resolveProductWithConfirmation } from '../../data/queries
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   order_line_id: '',
@@ -87,6 +88,7 @@ const ORDER_LINE_TYPES = { numeric: ['order_qty'], date: ['po_date', 'expected_d
 
 export default function CustomerOrderScreen() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [enquiries, setEnquiries] = useState([])
   const [customers, setCustomers] = useState([])
   // Saved PO headers -- only for the Delivery / Payment Terms dropdown options.
@@ -380,10 +382,15 @@ export default function CustomerOrderScreen() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
+    if (!form.order_line_id) return
+    del.ask({ recordType: 'PO line', label: recordLabel(form.po_number, form.part_serial_number), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.order_line_id) return
     if (mode !== 'edit' && mode !== 'view') return
     if (!form.order_line_id) return
-    if (!confirm(`Delete this PO line (${form.po_number} – ${form.part_serial_number})? This cannot be undone.`)) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -679,6 +686,7 @@ export default function CustomerOrderScreen() {
           onSearchChange={setListSearch} searchPlaceholder="Search by PRD / PO Number / Customer..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

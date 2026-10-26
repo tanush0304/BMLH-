@@ -18,6 +18,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
 const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', interval_days: '', status: 'Active', remarks: '' }
@@ -40,6 +41,7 @@ const SCHEDULE_COLUMNS = [
 
 export default function MaintenanceMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [scheduleRecords, setScheduleRecords] = useState([])
   const [machines, setMachines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,8 +99,13 @@ export default function MaintenanceMaster() {
     finally { setSaving(false) }
   }
 
-  async function handleDelete() {
-    if (!form.id || !confirm(`Delete this checklist item (id ${form.id})? This cannot be undone.`)) return
+  function handleDelete() {
+    if (!form.id) return
+    del.ask({ recordType: 'checklist item', label: recordLabel(form.machine_id, form.checklist_item), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.id) return
     setSaving(true)
     setSaveError(null)
     try { await deleteMaintenanceChecklistItem(form.id); await refresh(); handleClear() }
@@ -231,6 +238,7 @@ export default function MaintenanceMaster() {
         </FormSection>
         <RecordsList title="Maintenance Checklist Items" columns={LIST_COLUMNS} rows={filteredRecords} loading={loading} error={error} rowKey="id" selectedKey={form.id} onRowClick={handleRowClick} searchValue={listSearch} onSearchChange={setListSearch} searchPlaceholder="Search checklist items..." />
       </div>
+      {del.dialog}
     </div>
   )
 }

@@ -25,6 +25,7 @@ import {
 } from '../../data/queries/rmSuppliers'
 import { saveRawMaterialWithSuppliers, validateSupplierDraftRows } from '../../utils/rawMaterialSave'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   raw_material_code: '',
@@ -76,6 +77,7 @@ const STOCK_FIELDS = ['supplier_names', 'receipts', 'issued', 'closing_stock']
 
 export default function RawMaterialMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [suppliers, setSuppliers] = useState([])
   // Only for the shared UoM dropdown options.
   const [products, setProducts] = useState([])
@@ -191,7 +193,14 @@ export default function RawMaterialMaster() {
       setSupplierLinks((rows) => rows.filter((r) => r !== row))
       return
     }
-    if (!confirm('Remove this supplier link?')) return
+    del.ask({
+      recordType: 'supplier link',
+      label: recordLabel(form.raw_material_code, supplierName(row.supplier_id)),
+      run: () => deleteSupplierLink(row),
+    })
+  }
+
+  async function deleteSupplierLink(row) {
     setLinkSaving(true)
     setSaveError(null)
     try {
@@ -267,9 +276,13 @@ export default function RawMaterialMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.raw_material_code) return
-    if (!confirm(`Delete raw material ${form.raw_material_code}? This cannot be undone.`)) return
+    del.ask({ recordType: 'raw material', label: recordLabel(form.raw_material_code, form.raw_material_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.raw_material_code) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -553,6 +566,7 @@ export default function RawMaterialMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by RM Code / Name..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

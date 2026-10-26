@@ -149,6 +149,8 @@ export default function CustomerMaster() {
       title="Customer Master"
       subtitle="Manage Customer Information  |  Build Stronger Relationships"
       pkField="customer_id"
+      recordType="customer"
+      nameField="customer_name"
       emptyForm={EMPTY_FORM}
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}

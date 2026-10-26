@@ -11,6 +11,7 @@ import { listMachines, createMachine, updateMachine, deleteMachine } from '../..
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
 import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   machine_id: '',
@@ -40,6 +41,7 @@ const LIST_COLUMNS = [
 
 export default function MachineMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -120,8 +122,13 @@ export default function MachineMaster() {
     }
   }
 
-  async function handleDelete() {
-    if (!form.machine_id || !confirm(`Delete machine ${form.machine_id}? This cannot be undone.`)) return
+  function handleDelete() {
+    if (!form.machine_id) return
+    del.ask({ recordType: 'machine', label: recordLabel(form.machine_id, form.machine_name), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form.machine_id) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -204,6 +211,7 @@ export default function MachineMaster() {
           onSearchChange={setListSearch} searchPlaceholder="Search by Machine ID / Name..."
         />
       </div>
+      {del.dialog}
     </div>
   )
 }

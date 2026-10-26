@@ -7,6 +7,7 @@ import TimeInput12 from './TimeInput12'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
 import Banner from './Banner'
+import { useDeleteConfirm, recordLabel } from './ConfirmDialog'
 
 // A section's width reflects how much content it holds, not a fixed column
 // split -- a short section (few fields) can sit narrower next to a taller
@@ -33,6 +34,7 @@ const WIDTH_CLASS = {
  *   the section's own field count/content, not to force an equal grid.
  * listColumns: RecordsList column config
  * searchFields: form fields the toolbar search box matches against (client-side)
+ * recordType / nameField: Delete confirm dialog -- "Delete customer?", "CUST-001 – Acme"
  */
 export default function MasterFormScreen({
   title,
@@ -44,8 +46,11 @@ export default function MasterFormScreen({
   searchFields,
   api,
   exportFilename,
+  recordType = 'record', // "Delete <recordType>?" in the confirm dialog
+  nameField, // shown after the key: "CUST-001 – Acme Components"
 }) {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -128,9 +133,13 @@ export default function MasterFormScreen({
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form[pkField]) return
-    if (!confirm(`Delete this record (${form[pkField]})? This cannot be undone.`)) return
+    del.ask({ recordType, label: recordLabel(form[pkField], nameField ? form[nameField] : null), run: doDelete })
+  }
+
+  async function doDelete() {
+    if (!form[pkField]) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -234,6 +243,7 @@ export default function MasterFormScreen({
           onSearchChange={setListSearch}
         />
       </div>
+      {del.dialog}
     </div>
   )
 }
