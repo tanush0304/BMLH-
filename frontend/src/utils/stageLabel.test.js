@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber, positionBySeq } from './stageLabel'
+import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber, positionBySeq, withRoutePositions } from './stageLabel'
 import { noAvailableMessage } from './stageStartGuard'
 import { filterOptions } from './searchableSelect'
-import { openLogsWithSeq } from './machineEligibility'
+import { openLogsWithSeq, machinesForStage } from './machineEligibility'
 
 const route = [
   { id: 3, prd_no: 'P1', seq: 30, operation: 'Slotting' },
@@ -59,10 +59,37 @@ describe('positionBySeq (Masters > Route Card template)', () => {
     expect([m.get(10), m.get(20), m.get(35)]).toEqual([1, 2, 3])
     expect(positionBySeq([]).size).toBe(0)
   })
-  it('the screen shows Stage and Seq columns', async () => {
-    const { readFileSync } = await import('node:fs')
-    const src = readFileSync(new URL('../modules/customerOrder/RouteCardScreen.jsx', import.meta.url), 'utf8')
-    expect(src).toMatch(/>Stage<\/th>\s*<th[^>]*>Seq<\/th>/)
-    expect(src).toContain('stage_no: stageNo.get(Number(r.seq))')
+  // The Route Card screen itself (Stage only, no Seq): modules/masters/stageColumns.test.jsx
+})
+
+describe('withRoutePositions (template rows: Cycle Time Master, Route Card)', () => {
+  it('numbers each part by its distinct seqs; a shared seq shares a number; seq and order kept', () => {
+    const rows = [
+      { id: 1, part_serial_number: 'A', seq: 30 },
+      { id: 2, part_serial_number: 'B', seq: 5 },
+      { id: 3, part_serial_number: 'A', seq: 10 },
+      { id: 4, part_serial_number: 'A', seq: 30 }, // second machine, same seq
+      { id: 5, part_serial_number: 'B', seq: 40 },
+    ]
+    const out = withRoutePositions(rows)
+    expect(out.map((r) => [r.id, r.seq, r.stage_no])).toEqual([[1, 30, 2], [2, 5, 1], [3, 10, 1], [4, 30, 2], [5, 40, 2]])
+    expect(rows[0].stage_no).toBeUndefined() // input untouched
+  })
+  it('empty input -> empty', () => {
+    expect(withRoutePositions()).toEqual([])
+  })
+})
+
+describe('busy label (machinesForStage + openLogsWithSeq)', () => {
+  const stage = { id: 9, prd_no: 'P2', seq: 10, operation: 'Turning', machine_id: 'MC-1', type: 'Internal' }
+  const opts = (stages) => machinesForStage({
+    mode: 'any', stage, machineOps: [], machines: [{ machine_id: 'MC-1' }], cycleTimeRows: [],
+    openLogs: openLogsWithSeq([{ machine_id: 'MC-1', stage_id: 3, prd_no: 'P1' }], stages),
+  })
+  it('shows the position of the busy stage, not its seq', () => {
+    expect(opts(withStagePositions(route))[0].label).toMatch(/— busy: P1 Stage 3$/)
+  })
+  it('unknown stage -> PRD only, no number', () => {
+    expect(opts([])[0].label).toMatch(/— busy: P1$/)
   })
 })

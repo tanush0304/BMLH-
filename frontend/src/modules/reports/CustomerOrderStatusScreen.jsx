@@ -13,6 +13,7 @@ import { listProductionOrders } from '../../data/queries/customerOrders'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
+import { formatLocalISODate } from '../../utils/dates'
 import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessage } from '../../utils/reportOrders'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red' }
@@ -74,7 +75,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   }, [orders, dispatches, prdRows, r.applied.customerId, customerName, productBySerial])
 
   // Empty period: say where the POs are (latest) and offer "Show all POs"
-  // (From = earliest PO date). Bounds are read only when the state shows.
+  // (From = earliest PO date, To = today). Bounds are read only when the state shows.
   const isEmpty = !loading && !error && lines.length === 0
   const [poBounds, setPoBounds] = useState(null)
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
             {poBounds.earliest && (
               <button
                 type="button"
-                onClick={() => r.setRangeAndSearch(poBounds.earliest.po_date, r.applied.to)}
+                onClick={() => r.setRangeAndSearch(poBounds.earliest.po_date, formatLocalISODate(new Date()))}
                 className="rounded border border-[#1E5FD0] px-3 py-1 text-[13px] font-semibold text-[#1E5FD0] hover:bg-[#E3F0FD]"
               >
                 Show all POs

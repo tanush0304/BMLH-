@@ -42,11 +42,11 @@ export default function RouteCardScreen() {
     .map((p) => ({ value: p.part_serial_number, label: `${p.part_serial_number} – ${p.part_name ?? ''}` }))
   const product = products.find((p) => p.part_serial_number === partSerialNumber)
   const partRows = cycleTimes.filter((r) => r.part_serial_number === partSerialNumber)
-  // Stage = position over the distinct seqs (1, 2, 3 …); Seq = the real value Cycle Time Master edits.
+  // Stage = position over the distinct seqs (1, 2, 3 …); rows sharing a seq share a number. The raw seq only sorts.
   const stageNo = positionBySeq(partRows)
   const rows = partRows
     .sort((a, b) => a.seq - b.seq || String(a.machine_id ?? '').localeCompare(String(b.machine_id ?? '')))
-    .map((r) => ({ id: r.id, stage_no: stageNo.get(Number(r.seq)), seq: r.seq, ...templateRow(r, jobWorkTypes, machines) }))
+    .map((r) => ({ id: r.id, stage_no: stageNo.get(Number(r.seq)), ...templateRow(r, jobWorkTypes, machines) }))
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -80,7 +80,6 @@ export default function RouteCardScreen() {
                 <thead>
                   <tr>
                     <th className="border border-slate-400 bg-[#FFF2B3] px-2 py-1.5 text-left font-semibold text-slate-800">Stage</th>
-                    <th className="border border-slate-400 bg-[#FFF2B3] px-2 py-1.5 text-left font-semibold text-slate-800">Seq</th>
                     {TEMPLATE_COLUMNS.map((c) => (
                       <th key={c.key} className="border border-slate-400 bg-[#FFF2B3] px-2 py-1.5 text-left font-semibold text-slate-800">
                         {c.label}
@@ -92,7 +91,6 @@ export default function RouteCardScreen() {
                   {rows.map((r) => (
                     <tr key={r.id} className="bg-[#FFF8D6]">
                       <td className="border border-slate-400 px-2 py-1.5">{r.stage_no}</td>
-                      <td className="border border-slate-400 px-2 py-1.5">{r.seq}</td>
                       {TEMPLATE_COLUMNS.map((c) => (
                         <td key={c.key} className="border border-slate-400 px-2 py-1.5 text-slate-900">
                           {r[c.key]}

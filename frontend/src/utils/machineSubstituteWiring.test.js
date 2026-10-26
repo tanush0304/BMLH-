@@ -14,8 +14,9 @@ describe('stageMachineDisplay (Order Traceability Machine column)', () => {
     expect(stageMachineDisplay({ plannedId: 'MC-004', logs: [{ machine_id: 'MC-005' }] })).toBe('MC-005 (planned MC-004)')
     expect(stageMachineDisplay({ plannedId: 'MC-004', logs: [{ machine_id: 'MC-005' }, { machine_id: 'MC-004' }] })).toBe('MC-004, MC-005 (planned MC-004)')
   })
-  it('open logs get their stage seq for busy labels', () => {
-    expect(openLogsWithSeq([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006' }], [{ id: 7, seq: 50 }])).toEqual([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006', stage_seq: 50 }])
+  it('open logs get their stage POSITION for busy labels, never the raw seq', () => {
+    expect(openLogsWithSeq([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006' }], [{ id: 7, seq: 50, position: 4 }])).toEqual([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006', stage_seq: 4 }])
+    expect(openLogsWithSeq([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006' }], [{ id: 7, seq: 50 }])[0].stage_seq).toBeNull()
   })
 })
 

@@ -39,7 +39,8 @@ export function templateRow(stage, jobWorkTypes, machines = []) {
   const outsourced = stage.type === 'Outsourced'
   return {
     // Plain operation; the Job Route Card shows the stage number in its own
-    // "Stage" column (position 1, 2, 3 …), Masters > Route Card shows Seq.
+    // "Stage" column (position 1, 2, 3 …), as do Masters > Route Card and
+    // Cycle Time Master (the raw seq is only edited there).
     operation: stage.operation ?? '',
     machine: outsourced ? '' : machineName(stage.machine_id, machines),
     type: stage.type ?? '',

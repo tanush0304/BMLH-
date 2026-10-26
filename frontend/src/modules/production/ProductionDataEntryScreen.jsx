@@ -113,8 +113,13 @@ export default function ProductionDataEntryScreen({ role }) {
   const [masterCycleTime, setMasterCycleTime] = useState(null) // Cycle Time Master, part + seq (+ machine)
   const [endingLog, setEndingLog] = useState(false)
 
+  // Every stage the screen has loaded (with route positions), for the busy
+  // labels: open logs on other PRDs / non-pending stages still get their number.
+  const knownStagesRef = useRef([])
+
   async function loadPendingStages() {
     const allStages = await listAllStages()
+    knownStagesRef.current = allStages
     const pending = allStages.filter((s) => s.type === 'Internal' && s.status === 'Pending')
     setPendingStages(pending)
     return pending
@@ -236,7 +241,16 @@ export default function ProductionDataEntryScreen({ role }) {
         machineRows.length ? machineRows : listMachines(),
       ])
       if (!gate.isCurrent(token)) return false
-      const busyLogs = openLogsWithSeq(openLogs, pending)
+      // An open log whose stage wasn't loaded: fetch its PRD's stages once.
+      const missingPrds = [...new Set(openLogs
+        .filter((l) => l.prd_no && !knownStagesRef.current.some((st) => st.id === l.stage_id))
+        .map((l) => l.prd_no))]
+      if (missingPrds.length) {
+        const fetched = await Promise.all(missingPrds.map((p) => getStagesForPrd(p).catch(() => [])))
+        if (!gate.isCurrent(token)) return false
+        knownStagesRef.current = [...knownStagesRef.current, ...fetched.flat()]
+      }
+      const busyLogs = openLogsWithSeq(openLogs, knownStagesRef.current)
       const bySeq = {}
       for (const st of stages.filter((x) => seqs.includes(x.seq))) {
         bySeq[st.seq] = machinesForStage({ mode: MACHINE_CHOICE_MODE, stage: st, machineOps, machines: machs, cycleTimeRows: cycleRows, openLogs: busyLogs })

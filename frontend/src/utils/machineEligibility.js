@@ -154,11 +154,12 @@ export function stageMachineDisplay({ plannedId, logs = [] }) {
   return plannedId ? `${actual.join(', ')} (planned ${plannedId})` : actual.join(', ')
 }
 
-/** Open logs with their stage seq, for machinesForStage's busy labels. */
+/** Open logs with their stage's route POSITION as `stage_seq`, for
+ * machinesForStage's busy labels. Never the raw seq: a stage that isn't in
+ * `stages` (or has no position) gets null -> the label shows no number. */
 export function openLogsWithSeq(openLogs = [], stages = []) {
-  // stage_seq here is the DISPLAY number (route position when known).
   return openLogs.map((l) => {
     const st = stages.find((s) => s.id === l.stage_id)
-    return { ...l, stage_seq: st ? st.position ?? st.seq : null }
+    return { ...l, stage_seq: st?.position ?? null }
   })
 }

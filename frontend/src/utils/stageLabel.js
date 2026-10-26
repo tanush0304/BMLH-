@@ -1,7 +1,8 @@
 // Stage numbering for display: a stage is shown by its POSITION in its PRD's
 // route (1, 2, 3 … in seq order), not by the stored seq (10, 20 …). The
-// stored seq is unchanged; masters that EDIT the sequence (Cycle Time
-// Master) keep showing the real seq.
+// stored seq is unchanged. Template rows (Cycle Time Master, Route Card)
+// show their position over the part's distinct seqs (withRoutePositions);
+// Cycle Time Master still edits/saves the raw seq.
 
 const bySeq = (a, b) => Number(a.seq) - Number(b.seq) || Number(a.id ?? 0) - Number(b.id ?? 0)
 
@@ -40,4 +41,14 @@ export function stageLabel(stage) {
 export function positionBySeq(rows = []) {
   const seqs = [...new Set(rows.map((r) => Number(r.seq)))].sort((a, b) => a - b)
   return new Map(seqs.map((s, i) => [s, i + 1]))
+}
+
+/** Template rows (any parts mixed) with `stage_no` = position of their seq
+ * among their part's distinct seqs (positionBySeq: rows sharing a seq share a
+ * number). Input order and the stored seq are kept. */
+export function withRoutePositions(rows = []) {
+  const byPart = new Map()
+  for (const r of rows) byPart.set(r.part_serial_number, [...(byPart.get(r.part_serial_number) ?? []), r])
+  const posByPart = new Map([...byPart].map(([part, list]) => [part, positionBySeq(list)]))
+  return rows.map((r) => ({ ...r, stage_no: posByPart.get(r.part_serial_number).get(Number(r.seq)) ?? null }))
 }

@@ -18,6 +18,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { toNumberOrNull } from '../../utils/numericFields'
+import { withRoutePositions } from '../../utils/stageLabel'
 
 const EMPTY_FORM = {
   id: '',
@@ -32,7 +33,7 @@ const EMPTY_FORM = {
 
 const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
-  { key: 'seq', label: 'Seq' },
+  { key: 'stage_no', label: 'Stage' }, // route position (withRoutePositions); the raw seq is edited on the form
   { key: 'operation', label: 'Operation' },
   { key: 'type', label: 'Type' },
   { key: 'machine_id', label: 'Machine ID' },
@@ -64,7 +65,7 @@ export default function CycleTimeMaster() {
         listMachines(),
         listJobWorkTypes(),
       ])
-      setRecords(cycleTimes)
+      setRecords(withRoutePositions(cycleTimes))
       setProducts(prods)
       setMachines(machs)
       setJobWorkTypes(jwts)
@@ -118,7 +119,7 @@ export default function CycleTimeMaster() {
 
   async function handleSave() {
     if (!form.part_serial_number || !form.operation || !form.seq || !form.type) {
-      setSaveError('Product, Operation, Seq and Type are required.')
+      setSaveError('Product, Operation, Stage and Type are required.')
       return
     }
     if (form.type === 'Internal' && !form.machine_id) {
@@ -230,8 +231,9 @@ export default function CycleTimeMaster() {
           <Field label="Part Drawing Number">
             <AutoFillBox value={selectedProduct?.part_drawing_reference_number} />
           </Field>
-          <Field label="Sequence" required>
-            <TextInput type="number" value={form.seq} onChange={handleField('seq')} disabled={readOnly} />
+          <Field label="Stage" required>
+            <TextInput type="number" value={form.seq} onChange={handleField('seq')} disabled={readOnly} aria-describedby="ctm-stage-hint" />
+            <span id="ctm-stage-hint" className="text-[11px] text-slate-500">Order of this operation in the route (1, 2, 3 ...)</span>
           </Field>
           <Field label="Operation" required>
             <TextInput value={form.operation} onChange={handleField('operation')} disabled={readOnly} />
