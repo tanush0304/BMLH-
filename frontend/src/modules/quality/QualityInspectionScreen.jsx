@@ -31,6 +31,7 @@ import { machinesForStage, qualityParamsForMachine } from '../../utils/machineEl
 import { MACHINE_CHOICE_MODE } from '../../utils/constants'
 import { listAllMachineOperations } from '../../data/queries/machineOperations'
 import { supabase } from '../../lib/supabaseClient'
+import Banner from '../../components/Banner'
 
 const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
 
@@ -343,7 +344,7 @@ export default function QualityInspectionScreen({ role }) {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
+          <Banner tone="error" message={error} />
         )}
 
         {step === 'header' && (
@@ -533,7 +534,7 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
 
   return (
     <FormSection icon={Pencil} title="Edit Inspection" subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
-      {error && <div className="sm:col-span-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+      {error && <Banner tone="error" message={error} />}
       <Field label="Production Order (PRD No)">
         <AutoFillBox value={first.prd_no} />
       </Field>

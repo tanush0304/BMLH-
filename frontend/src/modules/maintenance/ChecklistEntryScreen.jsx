@@ -23,6 +23,7 @@ import {
 } from '../../data/queries/maintenanceLogs'
 import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import Banner from '../../components/Banner'
 
 // Type of Maintenance options, per the client's Maintenance Module sheet.
 const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly']
@@ -215,9 +216,7 @@ export default function ChecklistEntryScreen({ role }) {
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
+          <Banner tone="error" message={error} />
         )}
 
         <FormSection icon={Wrench} title="1. Visit Details" subtitle="Maintenance visit and machine" columns={4}>
@@ -365,7 +364,7 @@ function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) 
 
   return (
     <FormSection icon={Pencil} title="Edit Maintenance Visit" subtitle="Supervisor / admin correction -- recorded with who and when" columns={4}>
-      {error && <div className="sm:col-span-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+      {error && <Banner tone="error" message={error} />}
       <Field label="Machine">
         <TextInput value={machine ? machineOptionLabel(machine) : log.machine_id} disabled />
       </Field>

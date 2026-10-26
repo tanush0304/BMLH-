@@ -13,6 +13,7 @@ import { formatLocalISODate, mondayOf } from '../../utils/dates'
 import { listMaintenanceLogsSince } from '../../data/queries/maintenanceLogs'
 import { listMaintenanceSchedules } from '../../data/queries/maintenanceSchedules'
 import { weekCellState } from '../../utils/maintenanceGrid'
+import Banner from '../../components/Banner'
 
 const WEEK_COUNT = 14
 
@@ -131,9 +132,7 @@ export default function WeeklyPlanGridScreen() {
       />
       <div className="flex-1 overflow-auto p-6 bg-[#F5F7FA]">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded mb-4">
-            {error}
-          </div>
+          <Banner tone="error" message={error} className="mb-4" />
         )}
 
         <div className="relative mb-3 w-full max-w-sm">

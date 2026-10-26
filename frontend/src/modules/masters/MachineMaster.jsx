@@ -10,6 +10,7 @@ import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNe
 import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
 import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = {
   machine_id: '',
@@ -158,7 +159,7 @@ export default function MachineMaster() {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError}</div>}
+        {saveError && <Banner tone="error" message={saveError} />}
         <div className="flex flex-col gap-3">
           <FormSection icon={Factory} title="1. Machine Details" subtitle="Identity and classification">
             <Field label="Machine ID" required>

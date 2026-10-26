@@ -13,6 +13,7 @@ import { daysBetween, previousRange, shortDate, displayDate } from '../../utils/
 import { changePct, trendBuckets } from '../../utils/reportAggregates'
 import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, dailyMovement, topN, orderFulfilment } from '../../utils/reportStock'
+import Banner from '../../components/Banner'
 
 const IN = 'Production Receipt'
 const OUT = 'Dispatch'
@@ -177,7 +178,7 @@ export default function FgInventoryScreen() {
             { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow>
           <KpiCard label="Total FG Items" value={formatQty(rows.length)} unit="Nos" icon={Boxes} tone="purple" loading={loading} />

@@ -23,6 +23,7 @@ import {
   defectLabels,
   normalizeDefect,
 } from '../../utils/reportComplaints'
+import Banner from '../../components/Banner'
 
 const SEVERITY_COLORS = { Critical: CHART_COLORS.red, Major: CHART_COLORS.orange, Minor: CHART_COLORS.amber, 'Not set': '#94A3B8' }
 const STATUS_TONES = { Open: 'amber', 'Under Investigation': 'blue', 'Action Pending': 'amber', Resolved: 'blue', Closed: 'green' }
@@ -122,7 +123,7 @@ export default function ComplaintStatusScreen() {
             { key: 'severity', label: 'Severity', allLabel: 'Severitie', value: r.filters.severity, onChange: r.setFilter('severity'), options: SEVERITY_OPTIONS },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={3}>
           <KpiCard label="Total Complaints" value={formatQty(kpi.total)} icon={MessageSquareWarning} tone="blue" loading={loading} />

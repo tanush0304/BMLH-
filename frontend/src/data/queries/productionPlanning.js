@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabaseClient'
 import { listCustomerOrders, listProductionOrders, listProductionOrderCancellations, joinPrdsToLines } from './customerOrders'
 import { listCustomers } from './customers'
 import { listProducts } from './products'
@@ -39,6 +40,7 @@ export async function listProductionPlans() {
     listAllStages(),
   ])
   const byPrd = new Map(joinPrdsToLines(prds, lines, cancellations).map((o) => [o.prd_no, o]))
+  const withLogs = await prdsWithProductionLogs(cards.map((c) => c.prd_no))
 
   const stagesByPrd = new Map()
   for (const s of allStages) {
@@ -68,6 +70,25 @@ export async function listProductionPlans() {
       // Cancel is only offered (and only accepted by the database) while
       // nothing has started -- every stage still Pending.
       can_cancel: stages.length > 0 && stages.every((s) => s.status === 'Pending'),
+      // A log exists (e.g. started then End-Logged, stage still Pending): the
+      // DB refuses the cancel, so the screen shows Cancel disabled.
+      has_production_logs: withLogs.has(card.prd_no),
     }
   })
+}
+
+const LOG_PAGE = 1000
+
+/** Set of the given PRDs that have at least one "production logs" row (one
+ * read of prd_no only; paged past PostgREST's 1000-row cap). */
+export async function prdsWithProductionLogs(prdNos = []) {
+  const wanted = [...new Set(prdNos.filter(Boolean))]
+  const found = new Set()
+  if (!wanted.length) return found
+  for (let from = 0; ; from += LOG_PAGE) {
+    const { data, error } = await supabase.from('production logs').select('prd_no').in('prd_no', wanted).range(from, from + LOG_PAGE - 1)
+    if (error) throw error
+    for (const r of data) found.add(r.prd_no)
+    if (data.length < LOG_PAGE) return found
+  }
 }

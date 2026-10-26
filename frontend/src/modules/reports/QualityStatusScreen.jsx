@@ -20,6 +20,7 @@ import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey } from '../../utils/reportQuality'
+import Banner from '../../components/Banner'
 
 const RESULT_TONES = { OK: 'green', NG: 'red', Accepted: 'green', Rejected: 'red', 'No readings': 'amber' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(1)}%)`)
@@ -220,7 +221,7 @@ export default function QualityStatusScreen() {
             { key: 'operator', label: 'Operator', value: r.filters.employeeId, onChange: r.setFilter('employeeId'), options: sortedEmployeeOptions(opts.employees) },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={5}>
           <KpiCard label="Total Inspections" value={formatQty(counts.total)} icon={FileText} tone="blue" loading={loading} />

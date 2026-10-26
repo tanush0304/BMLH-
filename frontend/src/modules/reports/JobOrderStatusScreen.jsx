@@ -15,6 +15,7 @@ import { todayISO } from '../../utils/dates'
 import { displayDate } from '../../utils/reportPeriods'
 import { jobOrderRows, jobOrderCounts, dcTableStatusLabel, dcStatusCellText } from '../../utils/reportOrders'
 import { topN } from '../../utils/reportStock'
+import Banner from '../../components/Banner'
 
 const STATUS_TONES = { Received: 'green', 'Closed Short': 'slate', 'Partially Received': 'blue', Sent: 'amber', Overdue: 'red' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
@@ -139,7 +140,7 @@ export default function JobOrderStatusScreen() {
             { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={4}>
           <KpiCard label="Total Job Orders" value={formatQty(counts.total)} icon={FileText} tone="blue" loading={loading} />

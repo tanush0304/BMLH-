@@ -17,6 +17,7 @@ import { listMaintenanceSchedules, saveMaintenanceSchedule } from '../../data/qu
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
 const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', interval_days: '', status: 'Active', remarks: '' }
@@ -188,8 +189,8 @@ export default function MaintenanceMaster() {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Maintenance Master', 'maintenance_master')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {(saveError || error) && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError || error}</div>}
-        {scheduleError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{scheduleError}</div>}
+        {(saveError || error) && <Banner tone="error" message={saveError || error} />}
+        {scheduleError && <Banner tone="error" message={scheduleError} />}
 
         <FormSection icon={CalendarClock} title="1. Machine-level Maintenance Schedule" subtitle="Set the next maintenance due date" columns={3}>
           <Field label="Machine" required>

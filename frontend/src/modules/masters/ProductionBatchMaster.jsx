@@ -15,6 +15,7 @@ import {
 } from '../../data/queries/productionBatch'
 import { listProducts } from '../../data/queries/products'
 import { toNumberOrNull } from '../../utils/numericFields'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -162,9 +163,7 @@ export default function ProductionBatchMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
+          <Banner tone="error" message={saveError} />
         )}
 
         <FormSection icon={Layers} title="1. Batch Details" subtitle="Standard qty per product" columns={2}>

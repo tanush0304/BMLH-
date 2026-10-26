@@ -18,6 +18,7 @@ import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine } from '../../utils/reportAggregates'
+import Banner from '../../components/Banner'
 
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
@@ -117,7 +118,7 @@ export default function ProductionStatusScreen() {
           ]}
         />
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow>
           <KpiCard label="Total Production Orders" value={formatQty(kpis.orders)} icon={ClipboardList} tone="blue" loading={loading} />

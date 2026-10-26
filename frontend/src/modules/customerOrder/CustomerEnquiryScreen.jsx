@@ -22,6 +22,7 @@ import { customerDropdownOptions } from '../../utils/customerLabel'
 import { todayISO } from '../../utils/dates'
 import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
 import { toNumberOrNull } from '../../utils/numericFields'
+import Banner from '../../components/Banner'
 
 const NEW_PART_VALUE = '__new__'
 
@@ -310,9 +311,7 @@ export default function CustomerEnquiryScreen() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
+          <Banner tone="error" message={saveError} />
         )}
 
         <FormSection icon={FileText} title="1. Enquiry Details" subtitle="Prospective customer request" columns={3}>

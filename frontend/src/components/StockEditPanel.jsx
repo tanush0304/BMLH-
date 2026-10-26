@@ -7,6 +7,7 @@ import { listEmployees } from '../data/queries/employees'
 import { supabase } from '../lib/supabaseClient'
 import { editedLabel } from '../utils/stockEdit'
 import { dbErrorMessage } from '../utils/dbErrors'
+import Banner from './Banner'
 
 /**
  * Supervisor/admin edit of one existing Stores row. Only qty, date, remarks
@@ -54,7 +55,7 @@ export default function StockEditPanel({
   return (
     <FormSection icon={Pencil} title="Edit Transaction" subtitle="Supervisor / admin correction -- recorded with who and when">
       {error && (
-        <div className="basis-full bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
+        <Banner tone="error" message={error} />
       )}
       {info.map((item) => (
         <Field key={item.label} label={item.label}>

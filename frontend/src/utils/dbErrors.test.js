@@ -50,3 +50,30 @@ describe('screens use dbErrorMessage on save', () => {
     expect(src.match(/dbErrorMessage\(e\)/g)?.length ?? 0).toBeGreaterThanOrEqual(count)
   })
 })
+
+describe('friendlyDbMessage', async () => {
+  const { friendlyDbMessage } = await import('./dbErrors')
+  const started = `PRD-017 can't be cancelled: production has already started on it. Only PRDs with no production entries can be cancelled.`
+  it('PRD started (with or without the leading "PRD ")', () => {
+    expect(friendlyDbMessage('PRD PRD-017 has started (2 row(s) in "production logs") and cannot be cancelled')).toBe(started)
+    expect(friendlyDbMessage('PRD-017 has started (1 row(s) in "production logs") and cannot be cancelled.')).toBe(started)
+  })
+  it('permission, duplicate key, network, login', () => {
+    expect(friendlyDbMessage('permission denied for table production logs')).toBe('You do not have permission to make this change.')
+    expect(friendlyDbMessage('permission denied for relation wip transactions')).toBe('You do not have permission to make this change.')
+    expect(friendlyDbMessage('duplicate key value violates unique constraint "x_key"')).toBe('This record already exists (a value that must be unique is already used).')
+    expect(friendlyDbMessage('TypeError: Failed to fetch')).toBe("Can't reach the server -- check your connection and try again.")
+    expect(friendlyDbMessage('NetworkError when attempting to fetch resource.')).toBe("Can't reach the server -- check your connection and try again.")
+    expect(friendlyDbMessage('Invalid login credentials')).toBe('Invalid username or password')
+  })
+  it('23514 quantity messages and unknown text pass through', () => {
+    const qty = 'Quantity issued (60) is more than the current stock of RM-01 (50)'
+    expect(friendlyDbMessage(qty)).toBe(qty)
+    expect(dbErrorMessage({ code: '23514', message: qty })).toBe(qty)
+    expect(friendlyDbMessage('Something else')).toBe('Something else')
+    expect(friendlyDbMessage('')).toBe('')
+  })
+  it('dbErrorMessage applies it', () => {
+    expect(dbErrorMessage({ code: '23505', message: 'duplicate key value violates unique constraint "a"' })).toBe('This record already exists (a value that must be unique is already used).')
+  })
+})

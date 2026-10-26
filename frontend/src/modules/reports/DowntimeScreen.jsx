@@ -15,6 +15,7 @@ import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { machineRows, downtimeSummary, downtimeTrend, DOWNTIME_TYPES, round1, trendBuckets } from '../../utils/reportAggregates'
+import Banner from '../../components/Banner'
 
 const EMPTY_FILTERS = { machineId: '', shiftCode: '' }
 
@@ -102,7 +103,7 @@ export default function DowntimeScreen() {
           ]}
         />
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={4}>
           <KpiCard label="Total Hours Available" value={fmtHrs(availableHrs)} unit="Hrs" sub="Logged hours – lunch" icon={Settings} tone="blue" loading={loading} />

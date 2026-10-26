@@ -13,6 +13,7 @@ import { listSuppliers } from '../../data/queries/suppliers'
 import { displayDate, previousRange } from '../../utils/reportPeriods'
 import { changePct } from '../../utils/reportAggregates'
 import { stockMovement, topN, sumByUom, dominantUom, rmMatchesFilters } from '../../utils/reportStock'
+import Banner from '../../components/Banner'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#64748B']
 const partsClass = (v) => (v == null ? '' : v <= 0 ? 'bg-red-100' : 'bg-green-100')
@@ -207,7 +208,7 @@ export default function RawMaterialStatusScreen() {
             { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow>
           <KpiCard label="Total RM Items" value={formatQty(rmRows.length)} icon={Boxes} tone="blue" loading={loading} />

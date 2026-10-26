@@ -14,6 +14,11 @@ export default {
         bmlhsky: '#DCEAFB', // section-header / Export button pale blue fill
         bmlhslate: '#8B93A1', // Edit / Delete / Clear buttons
       },
+      // Banner fade-in (used as motion-safe:animate-banner-in)
+      keyframes: {
+        'banner-in': { from: { opacity: '0', transform: 'translateY(-2px)' }, to: { opacity: '1', transform: 'none' } },
+      },
+      animation: { 'banner-in': 'banner-in 150ms ease-out' },
     },
   },
   plugins: [],

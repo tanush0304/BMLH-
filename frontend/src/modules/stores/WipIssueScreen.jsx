@@ -21,6 +21,7 @@ import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import Banner from '../../components/Banner'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -240,7 +241,7 @@ export default function WipIssueScreen({ role }) {
         {/* The transaction date that will be saved (today) + the chosen shift. */}
         <ShiftDateLine date={todayISO()} shiftCode={form.shift_code} shifts={shifts} />
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
+          <Banner tone="error" message={error} />
         )}
 
         <FormSection icon={PackageMinus} title="Issue Details" subtitle="Release WIP into a stage" columns={3}>

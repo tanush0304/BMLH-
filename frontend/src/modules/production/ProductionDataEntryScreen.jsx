@@ -51,6 +51,7 @@ import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components
 import { dbErrorMessage } from '../../utils/dbErrors'
 import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
+import Banner from '../../components/Banner'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -603,9 +604,7 @@ export default function ProductionDataEntryScreen({ role }) {
         {/* Grid's date + shift (an earlier date while correcting a rejected shift). */}
         <ShiftDateLine date={entryDate} shiftCode={shiftCode} shifts={shifts} />
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
+          <Banner tone="error" message={error} />
         )}
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>

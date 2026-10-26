@@ -9,6 +9,7 @@ import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { listMachines } from '../../data/queries/machines'
 import { TEMPLATE_COLUMNS, templateRow } from '../../utils/jobRouteCard'
 import { positionBySeq } from '../../utils/stageLabel'
+import Banner from '../../components/Banner'
 
 /** Masters > Route Card: the per-part route template, read straight from
  * Cycle Time Master (the same rows Production Planning snapshots into a
@@ -53,7 +54,7 @@ export default function RouteCardScreen() {
       <PageHeader title="Route Card" subtitle="Route Template Per Part | From Cycle Time Master" />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <FormSection icon={Route} title="1. Part" subtitle="Pick a part to see its route template" columns={3}>
           <Field label="Part Serial Number" required>

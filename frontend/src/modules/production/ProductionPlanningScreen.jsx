@@ -19,6 +19,7 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import Banner from '../../components/Banner'
 
 const LIST_COLUMNS = [
   { key: 'jc_no', label: 'JC No' },
@@ -43,6 +44,8 @@ const EMPTY_FORM = { po_key: '', line_id: '', shift_hours: '' }
 // Dropdown 1 value for older flat orders saved before PO headers existed
 // (customer orders.parent_po_id is null).
 const NO_PO_KEY = 'no-po'
+
+export const CANCEL_BLOCKED = "Production has started -- can't cancel"
 
 /**
  * Production Planning (migration 030): pick a PO line, split what is left to
@@ -267,8 +270,8 @@ export default function ProductionPlanningScreen() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {error && <Banner tone="error" message={error} />}
+        {notice && <Banner tone="success" message={notice} onClose={() => setNotice(null)} />}
 
         <FormSection icon={ClipboardList} title="1. Production Planning Details" subtitle="Pick a PO line to plan" columns={2}>
           <Field label="Customer PO No" required>
@@ -386,7 +389,18 @@ export default function ProductionPlanningScreen() {
                   <button className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm" onClick={() => setRouteCardPrd(r.prd_no)}>
                     <Route size={14} /> Route Card
                   </button>
-                  {r.can_cancel && (
+                  {r.can_cancel && r.has_production_logs && (
+                    <button
+                      type="button"
+                      disabled
+                      title={CANCEL_BLOCKED}
+                      aria-label={CANCEL_BLOCKED}
+                      className="inline-flex items-center gap-1 text-slate-400 cursor-not-allowed text-sm"
+                    >
+                      <Ban size={14} /> Cancel
+                    </button>
+                  )}
+                  {r.can_cancel && !r.has_production_logs && (
                     <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={() => handleCancelPrd(r)}>
                       <Ban size={14} /> Cancel
                     </button>

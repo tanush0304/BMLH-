@@ -15,6 +15,7 @@ import { machineRows, totals, dailyCategoryMatrix, machineCategories, machineVie
 import { Field } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import { machineOptionLabel } from '../../utils/machineLabel'
+import Banner from '../../components/Banner'
 
 const DAYS_SHOWN = 5
 
@@ -128,7 +129,7 @@ export default function DailyMachineScreen() {
           </Field>
         </ReportDayBar>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={4}>
           <KpiCard

@@ -18,6 +18,7 @@ import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { toNumberOrNull } from '../../utils/numericFields'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = {
   id: '',
@@ -225,7 +226,7 @@ export default function QualityMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {(saveError || error) && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError || error}</div>
+          <Banner tone="error" message={saveError || error} />
         )}
         <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Route-specific inspection criteria" columns={3}>
           <Field label="Part Serial Number" required>

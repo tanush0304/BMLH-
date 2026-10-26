@@ -8,6 +8,7 @@ import TimeInput12 from '../../components/TimeInput12'
 import RecordsList from '../../components/RecordsList'
 import { listShifts, createShift, updateShift, deleteShift } from '../../data/queries/shifts'
 import { computeShiftHours, formatTime12 } from '../../utils/shiftCalculations'
+import Banner from '../../components/Banner'
 
 // Shift Duration / Net Working Hours used to be typed in by hand; they're
 // now always derived from start_time/end_time/lunch_break_duration via
@@ -198,15 +199,13 @@ export default function ShiftMaster() {
 
       <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-[#F5F7FA]">
         {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError}</div>
+          <Banner tone="error" message={saveError} />
         )}
         {!saveError && computed.error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{computed.error}</div>
+          <Banner tone="error" message={computed.error} />
         )}
         {computed.warning && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-2 rounded">
-            {computed.warning}
-          </div>
+          <Banner tone="warning" message={computed.warning} />
         )}
         {computed.message && (
           <div className="bg-gray-100 border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded">

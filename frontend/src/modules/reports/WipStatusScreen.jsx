@@ -14,6 +14,7 @@ import { listAllStages } from '../../data/queries/routeCards'
 import { stageLabel } from '../../utils/stageLabel'
 import { addDays, daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { stockMovement, dailyBalance, topN } from '../../utils/reportStock'
+import Banner from '../../components/Banner'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#0F9F8F', CHART_COLORS.amber]
 const TREND_DAYS = 10
@@ -136,7 +137,7 @@ export default function WipStatusScreen() {
             { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.operation, onChange: r.setFilter('operation'), options: operationOptions },
           ]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={5}>
           <KpiCard label="Total PRD Orders" value={formatQty(kpi.prds)} icon={Boxes} tone="blue" loading={loading} />

@@ -42,6 +42,7 @@ import {
   correctedByText,
   editedHourTitle,
 } from '../../utils/shiftCorrection'
+import Banner from '../../components/Banner'
 
 const draftFromHour = (h) => Object.fromEntries(CORRECTION_FIELDS.map((k) => [k, h[k] ?? (k === 'remarks' ? '' : 0)]))
 
@@ -288,8 +289,8 @@ export default function ShiftVerificationScreen({ role }) {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {error && <Banner tone="error" message={error} />}
+        {notice && <Banner tone="success" message={notice} onClose={() => setNotice(null)} />}
 
         <FormSection icon={CalendarCheck} title="1. Select Date & Shift" subtitle="Filters are optional" columns={3}>
           <Field label="Date" required>

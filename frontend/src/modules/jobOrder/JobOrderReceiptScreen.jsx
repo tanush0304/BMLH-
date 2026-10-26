@@ -25,6 +25,7 @@ import {
   jobworkDbErrorMessage,
 } from '../../utils/jobwork'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import Banner from '../../components/Banner'
 
 // One row per receipt (JR number); a DC can have several since migration 031.
 const LIST_COLUMNS = [
@@ -240,15 +241,15 @@ export default function JobOrderReceiptScreen({ role }) {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRows, 'Jobwork Receipts', 'jobwork_receipts')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        {error && <Banner tone="error" message={error} />}
+        {notice && <Banner tone="success" message={notice} onClose={() => setNotice(null)} />}
         {canEdit && selectedBlockReason && !editingRow && (
           <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Edit unavailable: {selectedBlockReason}</div>
         )}
 
         {editingRow && (
           <FormSection icon={Pencil} title={`Edit Receipt ${editingRow.receipt_no}`} subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
-            {editError && <div className="sm:col-span-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{editError}</div>}
+            {editError && <Banner tone="error" message={editError} />}
             <Field label="DC No"><AutoFillBox value={editingRow.dc_no} /></Field>
             <Field label="DC Sent / Received"><AutoFillBox value={editingDc ? `${Number(editingDc.qty)} / ${Number(editingDc.qty_received ?? 0)}` : ''} /></Field>
             <Field label="DC Status">

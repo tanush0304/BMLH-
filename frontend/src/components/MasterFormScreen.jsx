@@ -6,6 +6,7 @@ import RecordsList from './RecordsList'
 import TimeInput12 from './TimeInput12'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
+import Banner from './Banner'
 
 // A section's width reflects how much content it holds, not a fixed column
 // split -- a short section (few fields) can sit narrower next to a taller
@@ -178,9 +179,7 @@ export default function MasterFormScreen({
 
       <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-[#F5F7FA]">
         {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
+          <Banner tone="error" message={saveError} />
         )}
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Banner from './Banner'
 import { LogIn } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
@@ -58,7 +59,7 @@ export default function LoginScreen() {
 
         <form onSubmit={handleSubmit} className="mx-auto mt-8 w-full max-w-[520px] space-y-5 text-left">
           {error && (
-            <div role="alert" className="rounded-md border border-red-200 bg-white/95 px-3.5 py-3 text-sm text-red-700 shadow-sm">{error}</div>
+            <Banner tone="error" message={error} className="shadow-sm" />
           )}
 
           <label className={ROW_CLASS}>
