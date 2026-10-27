@@ -86,11 +86,12 @@ export default function MaintenanceMaster() {
   function handleEdit() { if (form.id) setMode('edit') }
 
   async function handleSave() {
-    if (!form.checklist_item) { setSaveError('Checklist Item is required.'); return }
+    const checklistItem = String(form.checklist_item ?? '').trim()
+    if (!checklistItem) { setSaveError('Checklist Item is required.'); return }
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { machine_id: form.machine_id || null, checklist_item: form.checklist_item, remarks: form.remarks || null }
+      const payload = { machine_id: form.machine_id || null, checklist_item: checklistItem, remarks: String(form.remarks ?? '').trim() || null }
       if (mode === 'edit') await updateMaintenanceChecklistItem(form.id, payload)
       else await createMaintenanceChecklistItem(payload)
       await refresh()

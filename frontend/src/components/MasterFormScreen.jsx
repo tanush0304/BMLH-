@@ -5,7 +5,8 @@ import FormSection, { Field, TextInput, SelectInput } from './FormSection'
 import RecordsList from './RecordsList'
 import TimeInput12 from './TimeInput12'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
-import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
+import { withTypedFields, typedKeysFromFields, validatePhone, validateNumber } from '../utils/numericFields'
+import { trimTextFields, requiredMissing, codeTooLong, duplicateCodeError } from '../utils/masterValidation'
 import Banner from './Banner'
 import { useDeleteConfirm, recordLabel } from './ConfirmDialog'
 
@@ -105,20 +106,45 @@ export default function MasterFormScreen({
     setMode('edit')
   }
 
+  // Checks run on the trimmed form before any DB call. Returns
+  // { error } or { cleaned } (trimmed, phones reduced to cleaned digits).
+  function validate(fields) {
+    const cleaned = trimTextFields(form)
+    const missing = requiredMissing(fields, cleaned)
+    if (missing) return { error: `${missing.label} is required.` }
+    const pkLabel = fields.find((f) => f.key === pkField)?.label ?? 'Code'
+    if (mode === 'new') {
+      const err = codeTooLong(cleaned[pkField], pkLabel) ?? duplicateCodeError(cleaned[pkField], records.map((r) => r[pkField]))
+      if (err) return { error: err }
+    }
+    for (const f of fields) {
+      if (f.mobile) {
+        const { value, error } = validatePhone(cleaned[f.key], { label: f.label, required: f.required })
+        if (error) return { error }
+        cleaned[f.key] = value
+      }
+      if (f.number) {
+        const error = validateNumber(cleaned[f.key], { label: f.label, required: f.required, ...f.number })
+        if (error) return { error }
+      }
+    }
+    return { cleaned }
+  }
+
   async function handleSave() {
-    const missing = sections
-      .flatMap((s) => s.fields)
-      .find((f) => f.required && !form[f.key])
-    if (missing) {
-      setSaveError(`${missing.label} is required.`)
+    const fields = sections.flatMap((s) => s.fields)
+    const { error, cleaned } = validate(fields)
+    if (error) {
+      setSaveError(error)
       return
     }
+    setForm(cleaned)
     setSaving(true)
     setSaveError(null)
     try {
       // Blank optional number / date / true-false fields go to the DB as
       // null -- "" is rejected for numeric, date and boolean columns.
-      const payload = withTypedFields(form, typedKeysFromFields(sections.flatMap((s) => s.fields)))
+      const payload = withTypedFields(cleaned, typedKeysFromFields(fields))
       if (mode === 'edit') {
         await api.update(form[pkField], payload)
       } else {

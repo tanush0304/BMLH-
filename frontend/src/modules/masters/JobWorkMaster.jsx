@@ -1,5 +1,6 @@
 import { Truck } from 'lucide-react'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import { NUMBER_RULES } from '../../utils/numericFields'
 import {
   listJobWorkTypes,
   createJobWorkType,
@@ -22,7 +23,7 @@ const SECTIONS = [
     fields: [
       { key: 'job_work_code', label: 'Job Work Code', required: true, lockOnEdit: true },
       { key: 'type_of_job_work', label: 'Type of Job Work', required: true },
-      { key: 'lead_time_days', label: 'Lead Time (Days)', type: 'number' },
+      { key: 'lead_time_days', label: 'Lead Time (Days)', type: 'number', number: NUMBER_RULES.LEAD_TIME },
     ],
   },
 ]

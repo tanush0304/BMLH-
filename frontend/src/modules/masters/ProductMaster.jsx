@@ -1,3 +1,4 @@
+import { checkMaster } from '../../utils/masterValidation'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Package, Boxes, Plus, X } from 'lucide-react'
@@ -7,7 +8,7 @@ import FormSection, { Field, TextInput, SelectInput } from '../../components/For
 import SearchableSelect from '../../components/SearchableSelect'
 import SelectWithAddNew from '../../components/SelectWithAddNew'
 import { uomOptions } from '../../utils/uomOptions'
-import { toNumberOrNull } from '../../utils/numericFields'
+import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
@@ -124,16 +125,23 @@ export default function ProductMaster() {
   }
 
   async function handleSave() {
-    if (!form.part_serial_number || !form.part_name) {
-      setSaveError('Part Serial Number and Part Name are required.')
+    const { error, cleaned } = checkMaster({
+      form, mode, records, codeKey: 'part_serial_number', codeLabel: 'Part Serial Number',
+      required: [{ key: 'part_serial_number' }, { key: 'part_name' }],
+      requiredMessage: 'Part Serial Number and Part Name are required.',
+    })
+    const bomError = error ?? bomRows.map((r) => validateNumber(r.consumption_per_unit, { label: 'Consumption per Unit', ...NUMBER_RULES.POSITIVE })).find(Boolean)
+    if (bomError) {
+      setSaveError(bomError)
       return
     }
     setSaving(true)
     setSaveError(null)
     try {
       const payload = {
-        ...form,
-        part_drawing_reference_number: form.part_drawing_reference_number.trim() || null,
+        ...cleaned,
+        part_serial_number: mode === 'edit' ? form.part_serial_number : cleaned.part_serial_number,
+        part_drawing_reference_number: cleaned.part_drawing_reference_number || null,
       }
       if (mode === 'edit') {
         await updateProduct(form.part_serial_number, payload)
@@ -143,7 +151,7 @@ export default function ProductMaster() {
       const validBomRows = bomRows
         .map((r) => ({ ...r, consumption_per_unit: toNumberOrNull(r.consumption_per_unit) }))
         .filter((r) => r.raw_material_code && r.consumption_per_unit !== null)
-      await setProductRawMaterials(form.part_serial_number, validBomRows)
+      await setProductRawMaterials(payload.part_serial_number, validBomRows)
       await refresh()
       setMode('view')
     } catch (e) {

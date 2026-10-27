@@ -49,6 +49,7 @@ import useLogShiftVerifications from '../../utils/useLogShiftVerifications'
 import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
@@ -406,11 +407,12 @@ export default function ProductionDataEntryScreen({ role }) {
       setError('Machine, PRD, Employee and Shift are all required to start.')
       return
     }
-    const settingTime = settingTimeMin === '' ? null : Number(settingTimeMin)
-    if (settingTime !== null && (!Number.isInteger(settingTime) || settingTime < 0)) {
-      setError('Setting Time must be a whole number of minutes, 0 or more.')
+    const settingError = validateNumber(settingTimeMin, { label: 'Setting Time', ...NUMBER_RULES.SETTING_TIME })
+    if (settingError) {
+      setError(settingError)
       return
     }
+    const settingTime = String(settingTimeMin).trim() === '' ? null : Number(settingTimeMin)
     setStarting(true)
     setError(null)
     try {

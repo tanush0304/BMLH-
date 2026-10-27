@@ -1,4 +1,4 @@
-import { toNumberOrNull, withNumericFields } from './numericFields'
+import { toNumberOrNull, withNumericFields, validateNumber, NUMBER_RULES } from './numericFields'
 
 // Raw Material Master: the material and its supplier links can't be
 // inserted as one DB transaction from the app, so the sequencing and
@@ -57,15 +57,10 @@ export function validateSupplierDraftRows(rows, existingSupplierIds = []) {
     if (seen.has(row.supplier_id)) return `Supplier ${row.supplier_id} is listed more than once.`
     seen.add(row.supplier_id)
 
-    for (const [field, label] of [
-      ['standard_purchase_price', 'Price'],
-      ['lead_time_days', 'Lead Time'],
-    ]) {
-      const v = row[field]
-      if (v !== '' && v !== null && v !== undefined && Number(v) < 0) {
-        return `${label} cannot be negative.`
-      }
-    }
+    const numberError =
+      validateNumber(row.standard_purchase_price, { label: 'Price', ...NUMBER_RULES.NON_NEGATIVE }) ??
+      validateNumber(row.lead_time_days, { label: 'Lead Time', ...NUMBER_RULES.LEAD_TIME, min: 0, minExclusive: false }) // 0 = same-day supply
+    if (numberError) return numberError
   }
   return null
 }

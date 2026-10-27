@@ -7,7 +7,8 @@ import FormSection, { Field, TextInput, AutoFillBox } from '../../components/For
 import TimeInput12 from '../../components/TimeInput12'
 import RecordsList from '../../components/RecordsList'
 import { listShifts, createShift, updateShift, deleteShift } from '../../data/queries/shifts'
-import { computeShiftHours, formatTime12 } from '../../utils/shiftCalculations'
+import { computeShiftHours, formatTime12, shiftTimesError } from '../../utils/shiftCalculations'
+import { trimTextFields, codeTooLong, duplicateCodeError } from '../../utils/masterValidation'
 import Banner from '../../components/Banner'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
@@ -117,8 +118,16 @@ export default function ShiftMaster() {
   }
 
   async function handleSave() {
-    if (!form.shift_code || !form.shift_name) {
+    const cleaned = trimTextFields(form)
+    if (!cleaned.shift_code || !cleaned.shift_name) {
       setSaveError('Shift Code and Shift Name are required.')
+      return
+    }
+    const codeError =
+      mode === 'new' ? codeTooLong(cleaned.shift_code, 'Shift Code') ?? duplicateCodeError(cleaned.shift_code, records.map((r) => r.shift_code)) : null
+    const timeError = codeError ?? shiftTimesError(cleaned)
+    if (timeError) {
+      setSaveError(timeError)
       return
     }
     if (computed.error) {
@@ -129,11 +138,11 @@ export default function ShiftMaster() {
     setSaveError(null)
     try {
       const payload = {
-        shift_code: form.shift_code,
-        shift_name: form.shift_name,
-        start_time: form.start_time || null,
-        end_time: form.end_time || null,
-        lunch_break_duration: form.lunch_break_duration || null,
+        shift_code: mode === 'edit' ? form.shift_code : cleaned.shift_code,
+        shift_name: cleaned.shift_name,
+        start_time: cleaned.start_time || null,
+        end_time: cleaned.end_time || null,
+        lunch_break_duration: cleaned.lunch_break_duration || null,
         shift_duration: computed.shift_duration || null,
         net_working_hours: computed.net_working_hours || null,
       }

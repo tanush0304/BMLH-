@@ -1,3 +1,4 @@
+import { productionBatchError } from '../../utils/masterValidation'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Layers } from 'lucide-react'
@@ -87,8 +88,9 @@ export default function ProductionBatchMaster() {
   }
 
   async function handleSave() {
-    if (!form.part_serial_number) {
-      setSaveError('Part Serial Number is required.')
+    const saveError = productionBatchError(form, mode, records)
+    if (saveError) {
+      setSaveError(saveError)
       return
     }
     setSaving(true)

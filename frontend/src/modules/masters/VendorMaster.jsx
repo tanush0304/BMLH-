@@ -1,3 +1,4 @@
+import { checkMaster } from '../../utils/masterValidation'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { withTypedFields, YES_NO_OPTIONS } from '../../utils/numericFields'
 import { useEffect, useState } from 'react'
@@ -125,14 +126,22 @@ export default function VendorMaster() {
   }
 
   async function handleSave() {
-    if (!form.vendor_id || !form.vendor_name) {
-      setSaveError('Vendor ID and Vendor Name are required.')
+    const { error, cleaned } = checkMaster({
+      form, mode, records, codeKey: 'vendor_id', codeLabel: 'Vendor ID',
+      required: [{ key: 'vendor_id' }, { key: 'vendor_name' }],
+      requiredMessage: 'Vendor ID and Vendor Name are required.',
+      mobiles: [{ key: 'mobile_no', label: 'Mobile Number' }],
+    })
+    if (error) {
+      setSaveError(error)
       return
     }
+    const vendorRow = mode === 'edit' ? { ...cleaned, vendor_id: form.vendor_id } : cleaned
+    setForm(vendorRow)
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = withTypedFields(form, { boolean: ['tds_applicable'] })
+      const payload = withTypedFields(vendorRow, { boolean: ['tds_applicable'] })
       if (mode === 'edit') {
         await updateVendor(form.vendor_id, payload)
       } else {
@@ -156,7 +165,7 @@ export default function VendorMaster() {
           codes.push(created.job_work_code)
         }
       }
-      await setVendorJobWorkTypes(form.vendor_id, codes)
+      await setVendorJobWorkTypes(vendorRow.vendor_id, codes)
 
       await refresh()
       setMode('view')

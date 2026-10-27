@@ -85,3 +85,60 @@ export const YES_NO_OPTIONS = [
   { value: 'true', label: 'Yes' },
   { value: 'false', label: 'No' },
 ]
+
+// ---------------------------------------------------------------------------
+// Input validation (checked before any DB call). Each returns a readable
+// message, or null when the value is fine.
+
+/** Standard limits. Quantities, hours and lead time must be > 0. */
+export const NUMBER_RULES = {
+  QTY: { integer: true, min: 0, minExclusive: true, max: 1000000 },
+  SHIFT_HOURS: { min: 0, minExclusive: true, max: 24 },
+  SETTING_TIME: { integer: true, min: 0, max: 1440 },
+  LEAD_TIME: { integer: true, min: 0, minExclusive: true, max: 365 },
+  NON_NEGATIVE: { min: 0, max: 1000000000 },
+  POSITIVE: { min: 0, minExclusive: true, max: 1000000000 },
+}
+
+const indian = (n) => Number(n).toLocaleString('en-IN')
+
+/**
+ * Validate a number typed into a form. Blank passes unless `required`.
+ * "1,000" and "abc" are refused (not silently parsed); surrounding spaces are fine.
+ */
+export function validateNumber(value, { label = 'Value', required = false, integer = false, min, minExclusive = false, max } = {}) {
+  if (isBlank(value)) return required ? `${label} is required.` : null
+  const text = String(value).trim()
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) return `${label} must be a number (digits only, no commas).`
+  const n = Number(text)
+  if (!Number.isFinite(n)) return `${label} must be a number.`
+  if (integer && !Number.isInteger(n)) return `${label} must be a whole number.`
+  if (min !== undefined) {
+    if (minExclusive && n <= min) return `${label} must be greater than ${indian(min)}.`
+    if (!minExclusive && n < min) return `${label} can't be less than ${indian(min)}.`
+  }
+  if (max !== undefined && n > max) return `${label} can't be more than ${indian(max)}.`
+  return null
+}
+
+export const PHONE_MESSAGE = 'Enter a valid 10-digit mobile or a landline with STD code (e.g. 080-23456789).'
+
+/**
+ * Indian phone number: either a mobile (10 digits starting 6-9, optional
+ * "+91" / "91" / leading "0") or a landline with STD code (starts with 0,
+ * 10-11 digits). Spaces, dashes and brackets are ignored.
+ * Returns { value, error }: value is the cleaned digits -- mobile as 10
+ * digits, landline with its leading 0 ('' when blank).
+ */
+export function validatePhone(raw, { label = 'Mobile Number', required = false } = {}) {
+  if (isBlank(raw)) return { value: '', error: required ? `${label} is required.` : null }
+  const s = String(raw).trim().replace(/[\s\-()]/g, '')
+  // "080-2345 6789" / "(0821) 234567": a separated 3-5 digit STD group means
+  // landline, even when the digits would also read as 0 + a mobile.
+  const stdGroup = /^\(?0\d{2,4}(?:\)|[\s-])/.test(String(raw).trim())
+  if (stdGroup && /^0\d{9,10}$/.test(s)) return { value: s, error: null }
+  const mobile = /^(?:\+91|91|0)?([6-9]\d{9})$/.exec(s)
+  if (mobile) return { value: mobile[1], error: null }
+  if (/^0\d{9,10}$/.test(s)) return { value: s, error: null }
+  return { value: s, error: PHONE_MESSAGE }
+}

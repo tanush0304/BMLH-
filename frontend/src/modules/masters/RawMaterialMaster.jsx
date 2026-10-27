@@ -1,3 +1,5 @@
+import { checkMaster } from '../../utils/masterValidation'
+import { NUMBER_RULES } from '../../utils/numericFields'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Boxes, Ruler, Trash2, Plus } from 'lucide-react'
@@ -214,10 +216,23 @@ export default function RawMaterialMaster() {
   }
 
   async function handleSave() {
-    if (!form.raw_material_code || !form.raw_material_name) {
-      setSaveError('Raw Material Code and Name are required.')
+    const { error, cleaned } = checkMaster({
+      form, mode, records, codeKey: 'raw_material_code', codeLabel: 'Raw Material Code',
+      required: [{ key: 'raw_material_code' }, { key: 'raw_material_name' }],
+      requiredMessage: 'Raw Material Code and Name are required.',
+      numbers: [
+        { key: 'length_mtrs', label: 'Length', rule: NUMBER_RULES.POSITIVE },
+        { key: 'width', label: 'Width', rule: NUMBER_RULES.POSITIVE },
+        { key: 'thickness', label: 'Thickness', rule: NUMBER_RULES.POSITIVE },
+        { key: 'opening_stock', label: 'Opening Stock', rule: NUMBER_RULES.NON_NEGATIVE },
+        { key: 'cost_per_unit', label: 'Price', rule: NUMBER_RULES.NON_NEGATIVE },
+      ],
+    })
+    if (error) {
+      setSaveError(error)
       return
     }
+    const material = mode === 'edit' ? { ...cleaned, raw_material_code: form.raw_material_code } : cleaned
     const draftRows = supplierLinks.filter((r) => !r.id)
     const persistedSupplierIds = supplierLinks.filter((r) => r.id).map((r) => r.supplier_id)
     const rowsError = validateSupplierDraftRows(draftRows, persistedSupplierIds)
@@ -230,12 +245,12 @@ export default function RawMaterialMaster() {
     setSaveError(null)
     try {
       const result = await saveRawMaterialWithSuppliers({
-        materialPayload: rawMaterialPayload(form),
+        materialPayload: rawMaterialPayload(material),
         supplierRows: draftRows,
         saveMaterial: (payload) =>
           mode === 'edit' ? updateRawMaterial(form.raw_material_code, payload) : createRawMaterial(payload),
         insertSupplierRow: (row) =>
-          createRmSupplierLink({ raw_material_code: form.raw_material_code, ...supplierRowPayload(row) }),
+          createRmSupplierLink({ raw_material_code: material.raw_material_code, ...supplierRowPayload(row) }),
       })
 
       if (result.status === 'material-failed') {

@@ -25,6 +25,7 @@ import { listProducts, resolveProductWithConfirmation } from '../../data/queries
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 import Banner from '../../components/Banner'
+import { orderLineError } from '../../utils/orderValidation'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -275,6 +276,11 @@ export default function CustomerOrderScreen() {
       setSaveError('Customer, PO Number, PO Date, Product and Order Qty are required.')
       return
     }
+    const lineError = orderLineError({ orderQty: form.order_qty, poDate: form.po_date, expectedDelivery: form.expected_delivery })
+    if (lineError) {
+      setSaveError(lineError)
+      return
+    }
     setSaving(true)
     setSaveError(null)
     try {
@@ -321,6 +327,11 @@ export default function CustomerOrderScreen() {
       }
       if (!it.orderQty || Number(it.orderQty) <= 0) {
         setSaveError('Every line item needs an Order Qty greater than 0.')
+        return
+      }
+      const lineError = orderLineError({ orderQty: it.orderQty, poDate: poHeader.po_date, expectedDelivery: it.expectedDelivery })
+      if (lineError) {
+        setSaveError(lineError)
         return
       }
     }

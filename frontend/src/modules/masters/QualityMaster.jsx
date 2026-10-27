@@ -17,7 +17,7 @@ import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
-import { toNumberOrNull } from '../../utils/numericFields'
+import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
@@ -152,6 +152,14 @@ export default function QualityMaster() {
     // and means no allowance on that side (quality result treats it as 0).
     if (String(form.standard ?? '').trim() === '') {
       setSaveError('Standard is required.')
+      return
+    }
+    const numberError =
+      validateNumber(form.standard, { label: 'Standard', max: 1000000000 }) ??
+      validateNumber(form.upper_tolerance, { label: 'Upper Tolerance', ...NUMBER_RULES.NON_NEGATIVE }) ??
+      validateNumber(form.lower_tolerance, { label: 'Lower Tolerance', ...NUMBER_RULES.NON_NEGATIVE })
+    if (numberError) {
+      setSaveError(numberError)
       return
     }
     setSaving(true)

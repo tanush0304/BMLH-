@@ -57,7 +57,7 @@ const SECTIONS = [
     width: 'wide',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name', required: true, width: 'short' },
-      { key: 'mobile_number', label: 'Mobile Number', required: true, width: 'short' },
+      { key: 'mobile_number', label: 'Mobile Number', mobile: true, width: 'short' },
       { key: 'email_address', label: 'Email Address', required: true, type: 'email', width: 'short' },
       { key: 'alternate_contact_number', label: 'Alternate Contact Number', width: 'short' },
     ],

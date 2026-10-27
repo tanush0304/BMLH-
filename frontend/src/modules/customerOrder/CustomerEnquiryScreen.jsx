@@ -21,7 +21,7 @@ import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { todayISO } from '../../utils/dates'
 import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
-import { toNumberOrNull } from '../../utils/numericFields'
+import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
@@ -191,6 +191,13 @@ export default function CustomerEnquiryScreen() {
   async function handleSave() {
     if (!form.customer_id) {
       setSaveError('Customer is required.')
+      return
+    }
+    const numberError =
+      validateNumber(form.quoted_price, { label: 'Quoted Price', ...NUMBER_RULES.POSITIVE }) ??
+      validateNumber(form.supply_lead_time_days, { label: 'Supply Lead Time', ...NUMBER_RULES.LEAD_TIME })
+    if (numberError) {
+      setSaveError(numberError)
       return
     }
     if (isNewPart) {

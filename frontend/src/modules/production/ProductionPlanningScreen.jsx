@@ -19,6 +19,7 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
 
 const LIST_COLUMNS = [
@@ -183,8 +184,9 @@ export default function ProductionPlanningScreen() {
       setError(check.errors.join(' '))
       return
     }
-    if (!form.shift_hours || Number(form.shift_hours) <= 0) {
-      setError('Shift Hours must be greater than 0.')
+    const hoursError = validateNumber(form.shift_hours, { label: 'Shift Hours', required: true, ...NUMBER_RULES.SHIFT_HOURS })
+    if (hoursError) {
+      setError(hoursError)
       return
     }
     setSaving(true)

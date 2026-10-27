@@ -1,3 +1,4 @@
+import { checkMaster } from '../../utils/masterValidation'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Factory, Cog, ListChecks } from 'lucide-react'
@@ -98,21 +99,28 @@ export default function MachineMaster() {
   }
 
   async function handleSave() {
-    if (!form.machine_id || !form.machine_name) {
-      setSaveError('Machine ID and Machine Name are required.')
+    const { error, cleaned } = checkMaster({
+      form, mode, records, codeKey: 'machine_id', codeLabel: 'Machine ID',
+      required: [{ key: 'machine_id' }, { key: 'machine_name' }],
+      requiredMessage: 'Machine ID and Machine Name are required.',
+    })
+    if (error) {
+      setSaveError(error)
       return
     }
+    const payload = mode === 'edit' ? { ...cleaned, machine_id: form.machine_id } : cleaned
+    setForm(payload)
     setSaving(true)
     setSaveError(null)
     try {
-      if (mode === 'edit') await updateMachine(form.machine_id, form)
-      else await createMachine(form)
+      if (mode === 'edit') await updateMachine(form.machine_id, payload)
+      else await createMachine(payload)
 
       const validOperations = operations.filter(Boolean)
       const newOperations = validOperations.filter((operation) => !operationOptions.includes(operation))
       for (const operation of newOperations) await createMachineOperationOption(operation)
       if (newOperations.length > 0) setOperationOptions((options) => [...options, ...newOperations].sort())
-      await setMachineOperations(form.machine_id, validOperations)
+      await setMachineOperations(payload.machine_id, validOperations)
       await refresh()
       setMode('view')
     } catch (e) {

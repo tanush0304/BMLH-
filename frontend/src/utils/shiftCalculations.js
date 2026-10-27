@@ -111,3 +111,18 @@ export function computeShiftHours({ start_time, end_time, lunch_break_duration }
   result.net_working_hours = formatHours((durationMin - lunchMin) / 60)
   return result
 }
+
+/** Blocking check for a shift's times: start and end required, different,
+ * and net time (after lunch) above zero. Overnight shifts are fine.
+ * Returns a message or null. */
+export function shiftTimesError({ start_time, end_time, lunch_break_duration }) {
+  const start = parseTimeToMinutes(start_time ?? '')
+  const end = parseTimeToMinutes(end_time ?? '')
+  if (start == null || end == null) return 'Start Time and End Time are required.'
+  if (start === end) return 'Start Time and End Time must be different.'
+  const lunch = parseLunchMinutes(lunch_break_duration ?? '')
+  if (lunch == null) return 'Lunch Break must be minutes (e.g. 30) or hours (e.g. 0.5 hour).'
+  const net = (end - start + 1440) % 1440 - lunch
+  if (net <= 0) return 'Net Working Hours must be more than 0 -- check the times and lunch break.'
+  return null
+}

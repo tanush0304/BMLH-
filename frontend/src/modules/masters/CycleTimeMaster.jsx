@@ -17,7 +17,7 @@ import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
-import { toNumberOrNull } from '../../utils/numericFields'
+import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import { withRoutePositions } from '../../utils/stageLabel'
 import Banner from '../../components/Banner'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
@@ -121,8 +121,15 @@ export default function CycleTimeMaster() {
   }
 
   async function handleSave() {
-    if (!form.part_serial_number || !form.operation || !form.seq || !form.type) {
+    if (!form.part_serial_number || !String(form.operation ?? '').trim() || !String(form.seq ?? '').trim() || !form.type) {
       setSaveError('Product, Operation, Stage and Type are required.')
+      return
+    }
+    const numberError =
+      validateNumber(form.seq, { label: 'Stage', integer: true, min: 0, minExclusive: true, max: 999 }) ??
+      validateNumber(form.cycle_time_min, { label: 'Cycle Time (min)', ...NUMBER_RULES.POSITIVE })
+    if (numberError) {
+      setSaveError(numberError)
       return
     }
     if (form.type === 'Internal' && !form.machine_id) {
@@ -138,7 +145,7 @@ export default function CycleTimeMaster() {
     try {
       const payload = {
         part_serial_number: form.part_serial_number,
-        operation: form.operation,
+        operation: form.operation.trim(),
         seq: Number(form.seq),
         type: form.type,
         machine_id: form.type === 'Internal' ? form.machine_id : null,

@@ -11,6 +11,9 @@ const FRIENDLY = [
   [/duplicate key value violates unique constraint/i, () => 'This record already exists (a value that must be unique is already used).'],
   [/Failed to fetch|NetworkError/, () => "Can't reach the server -- check your connection and try again."],
   [/^Invalid login credentials$/i, () => 'Invalid username or password'],
+  [/^invalid input syntax for type/i, () => 'Please enter a valid number.'],
+  [/out of range for type (integer|smallint|bigint|numeric)/i, () => 'That number is too large.'],
+  [/violates foreign key constraint/i, () => "This record is used elsewhere (e.g. in orders, batches or routes) and can't be deleted."],
 ]
 
 /** The friendly wording for a known raw message; anything else unchanged. */
