@@ -27,6 +27,7 @@ import {
 } from '../../data/queries/rmSuppliers'
 import { saveRawMaterialWithSuppliers, validateSupplierDraftRows } from '../../utils/rawMaterialSave'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -92,6 +93,7 @@ export default function RawMaterialMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   const [supplierLinks, setSupplierLinks] = useState([])
   const [linkRow, setLinkRow] = useState(EMPTY_LINK_ROW)
@@ -216,7 +218,7 @@ export default function RawMaterialMaster() {
   }
 
   async function handleSave() {
-    const { error, cleaned } = checkMaster({
+    const { error, field, cleaned } = checkMaster({
       form, mode, records, codeKey: 'raw_material_code', codeLabel: 'Raw Material Code',
       required: [{ key: 'raw_material_code' }, { key: 'raw_material_name' }],
       requiredMessage: 'Raw Material Code and Name are required.',
@@ -229,7 +231,7 @@ export default function RawMaterialMaster() {
       ],
     })
     if (error) {
-      setSaveError(error)
+      fieldError.fail(field, error)
       return
     }
     const material = mode === 'edit' ? { ...cleaned, raw_material_code: form.raw_material_code } : cleaned
@@ -344,6 +346,7 @@ export default function RawMaterialMaster() {
   }
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title="Raw Material Master"
@@ -364,27 +367,27 @@ export default function RawMaterialMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           <div className="lg:col-span-3">
           <FormSection icon={Boxes} title="1. Material Details" subtitle="Core material identity">
-            <Field label="Raw Material Code" required>
+            <Field name="raw_material_code" label="Raw Material Code" required>
               <TextInput
                 value={form.raw_material_code}
                 onChange={handleField('raw_material_code')}
                 disabled={codeLocked}
               />
             </Field>
-            <Field label="Raw Material Name" required>
+            <Field name="raw_material_name" label="Raw Material Name" required>
               <TextInput
                 value={form.raw_material_name}
                 onChange={handleField('raw_material_name')}
                 disabled={readOnly}
               />
             </Field>
-            <Field label="Category">
+            <Field name="raw_material_category" label="Category">
               <SelectWithAddNew
                 value={form.raw_material_category ?? ''}
                 onChange={handleField('raw_material_category')}
@@ -392,7 +395,7 @@ export default function RawMaterialMaster() {
                 options={mergeOptions(['Steel', 'Aluminium', 'Alloy', 'Consumables'], records.map((r) => r.raw_material_category))}
               />
             </Field>
-            <Field label="Raw Material Type">
+            <Field name="rm_type" label="Raw Material Type">
               <SelectWithAddNew
                 value={form.rm_type ?? ''}
                 onChange={handleField('rm_type')}
@@ -405,10 +408,10 @@ export default function RawMaterialMaster() {
 
           <div className="lg:col-span-3">
           <FormSection icon={Ruler} title="2. Dimensions" subtitle="Physical size specifications">
-            <Field label="Diameter (mm)">
+            <Field name="diameter_mm" label="Diameter (mm)">
               <TextInput value={form.diameter_mm} onChange={handleField('diameter_mm')} disabled={readOnly} />
             </Field>
-            <Field label="Length (mtrs)">
+            <Field name="length_mtrs" label="Length (mtrs)">
               <TextInput
                 type="number"
                 value={form.length_mtrs}
@@ -416,10 +419,10 @@ export default function RawMaterialMaster() {
                 disabled={readOnly}
               />
             </Field>
-            <Field label="Width">
+            <Field name="width" label="Width">
               <TextInput type="number" value={form.width} onChange={handleField('width')} disabled={readOnly} />
             </Field>
-            <Field label="Thickness">
+            <Field name="thickness" label="Thickness">
               <TextInput
                 type="number"
                 value={form.thickness}
@@ -427,7 +430,7 @@ export default function RawMaterialMaster() {
                 disabled={readOnly}
               />
             </Field>
-            <Field label="Unit of Measurement">
+            <Field name="unit_of_measurement" label="Unit of Measurement">
               <SelectWithAddNew
                 value={form.unit_of_measurement ?? ''}
                 onChange={handleField('unit_of_measurement')}
@@ -435,7 +438,7 @@ export default function RawMaterialMaster() {
                 options={uomOptions(products, records)}
               />
             </Field>
-            <Field label="RM Source">
+            <Field name="rm_source" label="RM Source">
               <SelectInput
                 value={form.rm_source ?? ''}
                 onChange={handleField('rm_source')}
@@ -443,7 +446,7 @@ export default function RawMaterialMaster() {
                 options={['Trading', 'Manufacturing']}
               />
             </Field>
-            <Field label="Opening Stock">
+            <Field name="opening_stock" label="Opening Stock">
               <TextInput type="number" value={form.opening_stock ?? ''} onChange={handleField('opening_stock')} disabled={readOnly} />
             </Field>
           </FormSection>
@@ -583,5 +586,6 @@ export default function RawMaterialMaster() {
       </div>
       {del.dialog}
     </div>
+    </FieldErrorProvider>
   )
 }

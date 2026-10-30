@@ -1,3 +1,5 @@
+import { useFieldErrorContext } from './FieldError'
+
 // `columns` is accepted but no longer drives layout -- kept so existing call
 // sites don't need touching. Fields lay out with flex-wrap: everything sits
 // on one row, each field sized to its own width tier (see Field's `width`
@@ -78,9 +80,20 @@ const WIDTH_CLASS = {
   long: 'flex-[4_0_220px]',
 }
 
-export function Field({ label, required, width = 'medium', className = '', children }) {
+// `name` ties the field to useFieldError: when a validation names it, it is
+// highlighted (data-invalid) until the user edits it.
+export function Field({ label, required, width = 'medium', className = '', name, children }) {
+  const fieldError = useFieldErrorContext()
+  const invalid = Boolean(name) && fieldError?.invalidField === name
+  const clear = invalid ? fieldError.clearField : undefined
   return (
-    <label className={`flex flex-col gap-0.5 text-xs ${WIDTH_CLASS[width] ?? WIDTH_CLASS.medium} ${className}`}>
+    <label
+      className={`flex flex-col gap-0.5 text-xs ${WIDTH_CLASS[width] ?? WIDTH_CLASS.medium} ${className}`}
+      data-field={name}
+      data-invalid={invalid || undefined}
+      onChangeCapture={clear}
+      onInputCapture={clear}
+    >
       <span className="text-gray-700 min-h-[32px] flex items-end">
         {label} {required && <span className="text-red-500">*</span>}
       </span>

@@ -74,3 +74,15 @@ describe('lineProgressLabel', () => {
     )
   })
 })
+
+describe('validateSplit row errors', () => {
+  it('a 0 qty row is flagged without adding the batch-size message', () => {
+    const check = validateSplit([{ qty: 0, plan: true }, { qty: 100, plan: true }], 100, 500, 'PART-1')
+    expect(check.rowErrors).toEqual(['Every batch qty must be greater than 0.', null])
+    expect(check.errors.some((e) => e.includes('Max batch size'))).toBe(false)
+  })
+  it('a row above the master size adds the batch-size message once', () => {
+    const check = validateSplit([{ qty: 600, plan: true }, { qty: 600, plan: true }], 1200, 500, 'PART-1')
+    expect(check.errors.filter((e) => e.includes('Max batch size'))).toHaveLength(1)
+  })
+})

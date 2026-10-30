@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { paymentTermsOptions, deliveryTermsOptions, withCustomer, PAYMENT_TERMS, DELIVERY_TERMS } from './poTermsOptions'
+import { paymentTermsOptions, deliveryTermsOptions, withCustomer, PAYMENT_TERMS, DELIVERY_TERMS, MASTER_PAYMENT_TERMS } from './poTermsOptions'
 
 describe('PO terms options', () => {
   it('adds distinct saved values after the built-ins', () => {
@@ -16,5 +16,18 @@ describe('withCustomer', () => {
   })
   it('keeps the current value when the customer has none', () => {
     expect(withCustomer({ customer_id: 'C1', payment_terms: 'Advance' }, 'C2', customers)).toEqual({ customer_id: 'C2', payment_terms: 'Advance' })
+  })
+})
+
+describe('Payment Terms -- custom customer terms on New Order', () => {
+  const customers = [{ customer_id: 'C9', payment_terms: '75 Days' }, { customer_id: 'C1', payment_terms: '30 Days' }]
+  it("a customer's custom term is one of New Order's options, so the pre-fill shows", () => {
+    const options = paymentTermsOptions([], customers)
+    expect(options).toContain('75 Days')
+    expect(options.filter((o) => o === '30 Days')).toHaveLength(1)
+    expect(withCustomer({ customer_id: '', payment_terms: '' }, 'C9', customers).payment_terms).toBe('75 Days')
+  })
+  it('master built-ins (Customer / Supplier / Vendor)', () => {
+    expect(MASTER_PAYMENT_TERMS).toEqual(['Advance', '15 Days', '30 Days', '45 Days', '60 Days', '90 Days'])
   })
 })

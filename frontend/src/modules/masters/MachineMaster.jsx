@@ -12,6 +12,7 @@ import { listMachines, createMachine, updateMachine, deleteMachine } from '../..
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
 import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -52,6 +53,7 @@ export default function MachineMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   async function refresh() {
     setLoading(true)
@@ -99,13 +101,13 @@ export default function MachineMaster() {
   }
 
   async function handleSave() {
-    const { error, cleaned } = checkMaster({
+    const { error, field, cleaned } = checkMaster({
       form, mode, records, codeKey: 'machine_id', codeLabel: 'Machine ID',
       required: [{ key: 'machine_id' }, { key: 'machine_name' }],
       requiredMessage: 'Machine ID and Machine Name are required.',
     })
     if (error) {
-      setSaveError(error)
+      fieldError.fail(field, error)
       return
     }
     const payload = mode === 'edit' ? { ...cleaned, machine_id: form.machine_id } : cleaned
@@ -159,6 +161,7 @@ export default function MachineMaster() {
   const idLocked = mode !== 'new'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Machine Master" subtitle="Manage Machine Inventory  |  Track Assets & Capabilities" />
       <ActionToolbar
@@ -174,31 +177,31 @@ export default function MachineMaster() {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {saveError && <Banner tone="error" message={saveError} />}
+        {saveError && <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />}
         <div className="flex flex-col gap-3">
           <FormSection icon={Factory} title="1. Machine Details" subtitle="Identity and classification">
-            <Field label="Machine ID" required>
+            <Field name="machine_id" label="Machine ID" required>
               <TextInput value={form.machine_id} onChange={handleField('machine_id')} disabled={idLocked} />
             </Field>
-            <Field label="Machine Name" required>
+            <Field name="machine_name" label="Machine Name" required>
               <TextInput value={form.machine_name} onChange={handleField('machine_name')} disabled={readOnly} />
             </Field>
-            <Field label="Manufacturer Name">
+            <Field name="manufacturer_name" label="Manufacturer Name">
               <TextInput value={form.manufacturer_name} onChange={handleField('manufacturer_name')} disabled={readOnly} />
             </Field>
-            <Field label="Category">
+            <Field name="category" label="Category">
               <SelectWithAddNew value={form.category} onChange={handleField('category')} disabled={readOnly} options={mergeOptions(BUILT_IN_CATEGORIES, records.map((r) => r.category))} placeholder="Type new category" />
             </Field>
           </FormSection>
           <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model and specification" columns={3}>
-            <Field label="Model"><TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} /></Field>
+            <Field name="model" label="Model"><TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} /></Field>
             {/* Free text, as in the client's Machine Master sheet ("No Specification", "> 250 x 500"). */}
-            <Field label="Chuck Dia"><TextInput value={form.chuck_dia ?? ''} onChange={handleField('chuck_dia')} disabled={readOnly} /></Field>
-            <Field label="X Axis"><TextInput value={form.x_axis ?? ''} onChange={handleField('x_axis')} disabled={readOnly} /></Field>
-            <Field label="Y Axis"><TextInput value={form.y_axis ?? ''} onChange={handleField('y_axis')} disabled={readOnly} /></Field>
-            <Field label="5th Axis"><TextInput value={form.fifth_axis ?? ''} onChange={handleField('fifth_axis')} disabled={readOnly} /></Field>
-            <Field label="Dia"><TextInput value={form.dia ?? ''} onChange={handleField('dia')} disabled={readOnly} /></Field>
-            <Field label="Remarks" width="long"><TextInput value={form.remarks ?? ''} onChange={handleField('remarks')} disabled={readOnly} /></Field>
+            <Field name="chuck_dia" label="Chuck Dia"><TextInput value={form.chuck_dia ?? ''} onChange={handleField('chuck_dia')} disabled={readOnly} /></Field>
+            <Field name="x_axis" label="X Axis"><TextInput value={form.x_axis ?? ''} onChange={handleField('x_axis')} disabled={readOnly} /></Field>
+            <Field name="y_axis" label="Y Axis"><TextInput value={form.y_axis ?? ''} onChange={handleField('y_axis')} disabled={readOnly} /></Field>
+            <Field name="fifth_axis" label="5th Axis"><TextInput value={form.fifth_axis ?? ''} onChange={handleField('fifth_axis')} disabled={readOnly} /></Field>
+            <Field name="dia" label="Dia"><TextInput value={form.dia ?? ''} onChange={handleField('dia')} disabled={readOnly} /></Field>
+            <Field name="remarks" label="Remarks" width="long"><TextInput value={form.remarks ?? ''} onChange={handleField('remarks')} disabled={readOnly} /></Field>
           </FormSection>
           <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
             <Field label="Operations Performed" width="long">
@@ -221,5 +224,6 @@ export default function MachineMaster() {
       </div>
       {del.dialog}
     </div>
+    </FieldErrorProvider>
   )
 }

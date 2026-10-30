@@ -8,6 +8,8 @@ import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields, validatePhone, validateNumber } from '../utils/numericFields'
 import { trimTextFields, requiredMissing, codeTooLong, duplicateCodeError } from '../utils/masterValidation'
 import Banner from './Banner'
+import SelectWithAddNew, { mergeOptions } from './SelectWithAddNew'
+import { FieldErrorProvider, useFieldError } from './FieldError'
 import { useDeleteConfirm, recordLabel } from './ConfirmDialog'
 
 // A section's width reflects how much content it holds, not a fixed column
@@ -59,6 +61,7 @@ export default function MasterFormScreen({
   const [mode, setMode] = useState('new') // 'new' | 'edit' | 'view'
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   useEffect(() => {
     setForm(emptyForm)
@@ -111,21 +114,21 @@ export default function MasterFormScreen({
   function validate(fields) {
     const cleaned = trimTextFields(form)
     const missing = requiredMissing(fields, cleaned)
-    if (missing) return { error: `${missing.label} is required.` }
+    if (missing) return { error: `${missing.label} is required.`, field: missing.key }
     const pkLabel = fields.find((f) => f.key === pkField)?.label ?? 'Code'
     if (mode === 'new') {
       const err = codeTooLong(cleaned[pkField], pkLabel) ?? duplicateCodeError(cleaned[pkField], records.map((r) => r[pkField]))
-      if (err) return { error: err }
+      if (err) return { error: err, field: pkField }
     }
     for (const f of fields) {
       if (f.mobile) {
         const { value, error } = validatePhone(cleaned[f.key], { label: f.label, required: f.required })
-        if (error) return { error }
+        if (error) return { error, field: f.key }
         cleaned[f.key] = value
       }
       if (f.number) {
         const error = validateNumber(cleaned[f.key], { label: f.label, required: f.required, ...f.number })
-        if (error) return { error }
+        if (error) return { error, field: f.key }
       }
     }
     return { cleaned }
@@ -133,9 +136,9 @@ export default function MasterFormScreen({
 
   async function handleSave() {
     const fields = sections.flatMap((s) => s.fields)
-    const { error, cleaned } = validate(fields)
+    const { error, field, cleaned } = validate(fields)
     if (error) {
-      setSaveError(error)
+      fieldError.fail(field, error)
       return
     }
     setForm(cleaned)
@@ -197,6 +200,7 @@ export default function MasterFormScreen({
   const pkLocked = mode !== 'new'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title={title} subtitle={subtitle} />
       <ActionToolbar
@@ -214,7 +218,7 @@ export default function MasterFormScreen({
 
       <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
@@ -227,13 +231,21 @@ export default function MasterFormScreen({
               columns={section.columns ?? 2}
             >
               {section.fields.map((f) => (
-                <Field key={f.key} label={f.label} required={f.required} width={f.width ?? (f.colSpan ? 'long' : 'medium')} className={f.fullWidth ? 'basis-full' : ''}>
+                <Field key={f.key} name={f.key} label={f.label} required={f.required} width={f.width ?? (f.colSpan ? 'long' : 'medium')} className={f.fullWidth ? 'basis-full' : ''}>
                   {f.type === 'select' ? (
                     <SelectInput
                       value={form[f.key] ?? ''}
                       onChange={handleField(f.key)}
                       disabled={readOnly || (f.lockOnEdit && pkLocked)}
                       options={f.options}
+                    />
+                  ) : f.type === 'addNew' ? (
+                    // Built-ins (f.options) + every value already saved in this column.
+                    <SelectWithAddNew
+                      value={form[f.key] ?? ''}
+                      onChange={handleField(f.key)}
+                      disabled={readOnly || (f.lockOnEdit && pkLocked)}
+                      options={mergeOptions(f.options ?? [], records.map((r) => r[f.key]))}
                     />
                   ) : f.type === 'time12' ? (
                     <TimeInput12
@@ -271,5 +283,6 @@ export default function MasterFormScreen({
       </div>
       {del.dialog}
     </div>
+    </FieldErrorProvider>
   )
 }

@@ -225,7 +225,7 @@ export default function CycleTimeMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         <FormSection icon={Route} title="1. Route Step Details" subtitle="One operation in a route" columns={3}>

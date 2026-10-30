@@ -59,7 +59,7 @@ export default function LoginScreen() {
 
         <form onSubmit={handleSubmit} className="mx-auto mt-8 w-full max-w-[520px] space-y-5 text-left">
           {error && (
-            <Banner tone="error" message={error} className="shadow-sm" />
+            <Banner tone="error" message={error} className="shadow-sm" inline />
           )}
 
           <label className={ROW_CLASS}>

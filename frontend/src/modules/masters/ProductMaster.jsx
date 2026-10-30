@@ -14,6 +14,7 @@ import { listProducts, createProduct, updateProduct, deleteProduct } from '../..
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -50,6 +51,7 @@ export default function ProductMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   async function refresh() {
     setLoading(true)
@@ -125,14 +127,14 @@ export default function ProductMaster() {
   }
 
   async function handleSave() {
-    const { error, cleaned } = checkMaster({
+    const { error, field, cleaned } = checkMaster({
       form, mode, records, codeKey: 'part_serial_number', codeLabel: 'Part Serial Number',
       required: [{ key: 'part_serial_number' }, { key: 'part_name' }],
       requiredMessage: 'Part Serial Number and Part Name are required.',
     })
     const bomError = error ?? bomRows.map((r) => validateNumber(r.consumption_per_unit, { label: 'Consumption per Unit', ...NUMBER_RULES.POSITIVE })).find(Boolean)
     if (bomError) {
-      setSaveError(bomError)
+      fieldError.fail(error ? field : null, bomError)
       return
     }
     setSaving(true)
@@ -199,6 +201,7 @@ export default function ProductMaster() {
   const idLocked = mode !== 'new'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Product Master" subtitle="Manage Product Information  |  Part Details, Unit & Status" />
       <ActionToolbar
@@ -216,19 +219,19 @@ export default function ProductMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           <div className="lg:col-span-2">
             <FormSection icon={Package} title="1. Product Details" subtitle="Core product identity">
-              <Field label="Part Serial Number" required>
+              <Field name="part_serial_number" label="Part Serial Number" required>
                 <TextInput value={form.part_serial_number} onChange={handleField('part_serial_number')} disabled={idLocked} />
               </Field>
-              <Field label="Part Name" required>
+              <Field name="part_name" label="Part Name" required>
                 <TextInput value={form.part_name} onChange={handleField('part_name')} disabled={readOnly} />
               </Field>
-              <Field label="Part Drawing Number">
+              <Field name="part_drawing_reference_number" label="Part Drawing Number">
                 <TextInput
                   value={form.part_drawing_reference_number}
                   onChange={handleField('part_drawing_reference_number')}
@@ -240,7 +243,7 @@ export default function ProductMaster() {
 
           <div className="lg:col-span-4">
             <FormSection icon={Package} title="2. Product Status" subtitle="Unit and current status">
-              <Field label="Unit of Measurement">
+              <Field name="unit_of_measurement" label="Unit of Measurement">
                 <SelectWithAddNew
                   value={form.unit_of_measurement ?? ''}
                   onChange={handleField('unit_of_measurement')}
@@ -248,7 +251,7 @@ export default function ProductMaster() {
                   options={uomOptions(records, rawMaterials)}
                 />
               </Field>
-              <Field label="Product Status">
+              <Field name="product_status" label="Product Status">
                 <SelectInput
                   value={form.product_status}
                   onChange={handleField('product_status')}
@@ -324,5 +327,6 @@ export default function ProductMaster() {
       </div>
       {del.dialog}
     </div>
+    </FieldErrorProvider>
   )
 }

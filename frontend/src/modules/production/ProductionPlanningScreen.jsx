@@ -17,10 +17,12 @@ import { planProductionOrders, cancelProductionOrder } from '../../data/queries/
 import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
+import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 
 const LIST_COLUMNS = [
   { key: 'jc_no', label: 'JC No' },
@@ -71,6 +73,7 @@ export default function ProductionPlanningScreen() {
   const [split, setSplit] = useState([]) // [{ qty, plan }]
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const fieldError = useFieldError(error, setError)
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
   const [viewedPrd, setViewedPrd] = useState(null)
@@ -177,20 +180,28 @@ export default function ProductionPlanningScreen() {
     setError(null)
     setNotice('')
     if (!selectedLine) {
-      setError('Select a Customer PO No and Part first.')
+      fieldError.fail(form.po_key ? 'line_id' : 'po_key', 'Select a Customer PO No and Part first.')
       return
     }
     if (check.errors.length) {
-      setError(check.errors.join(' '))
+      const badRow = check.rowErrors.findIndex(Boolean)
+      fieldError.fail(`batch.${badRow >= 0 ? badRow : 0}`, check.errors.join(' '))
       return
     }
     const hoursError = validateNumber(form.shift_hours, { label: 'Shift Hours', required: true, ...NUMBER_RULES.SHIFT_HOURS })
     if (hoursError) {
-      setError(hoursError)
+      fieldError.fail('shift_hours', hoursError)
       return
     }
     setSaving(true)
     try {
+      // No Cycle Time Master rows = no route to build stages from; stop
+      // before the planning RPC.
+      const route = await listCycleTimesForPart(selectedLine.part_serial_number)
+      if (!route?.length) {
+        fieldError.fail('line_id', `${selectedLine.part_serial_number} has no route in Cycle Time Master -- add its stages first.`)
+        return
+      }
       // Block when any BOM material is short for the batches planned now --
       // stock re-fetched at the moment of saving. No override.
       const balance = await listRawMaterialStockBalance()
@@ -252,6 +263,7 @@ export default function ProductionPlanningScreen() {
   })
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Production Planning" subtitle="Plan Today | Produce Efficiently | Deliver On Time" />
 
@@ -260,7 +272,6 @@ export default function ProductionPlanningScreen() {
       <ActionToolbar
         showEditDelete={false}
         saving={saving}
-        canSave={!check || check.errors.length === 0}
         onNew={handleReset}
         onSave={handleSave}
         onClear={() => {
@@ -272,14 +283,14 @@ export default function ProductionPlanningScreen() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
-        {error && <Banner tone="error" message={error} />}
+        {error && <Banner tone="error" message={error} onClose={() => setError(null)} />}
         {notice && <Banner tone="success" message={notice} onClose={() => setNotice(null)} />}
 
         <FormSection icon={ClipboardList} title="1. Production Planning Details" subtitle="Pick a PO line to plan" columns={2}>
-          <Field label="Customer PO No" required>
+          <Field name="po_key" label="Customer PO No" required>
             <SearchableSelect value={form.po_key} onChange={handleSelectPo} options={poOptions} />
           </Field>
-          <Field label="Part (PO line)" required>
+          <Field name="line_id" label="Part (PO line)" required>
             <SearchableSelect value={form.line_id} onChange={(e) => selectLine(e.target.value, form.po_key)} options={lineOptions} disabled={!form.po_key} />
           </Field>
           <Field label="Customer Name">
@@ -312,7 +323,7 @@ export default function ProductionPlanningScreen() {
           <Field label="Total Units Can Be Produced">
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
-          <Field label="Shift Hours" required>
+          <Field name="shift_hours" label="Shift Hours" required>
             <TextInput type="number" value={form.shift_hours} onChange={(e) => setForm((f) => ({ ...f, shift_hours: e.target.value }))} />
           </Field>
         </FormSection>
@@ -338,9 +349,9 @@ export default function ProductionPlanningScreen() {
                   {split.map((row, i) => (
                     <tr key={i} className="border-t border-slate-100">
                       <td className="py-1 pr-3">{i + 1}</td>
-                      <td className="pr-3">
-                        <TextInput type="number" aria-label={`Batch ${i + 1} qty`} aria-invalid={Boolean(check.rowErrors[i])} value={row.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
-                        {check.rowErrors[i] && <p role="alert" className="mt-0.5 text-[12px] text-red-600">{check.rowErrors[i]}</p>}
+                      {/* Bad qty: red cell, live; the message itself is in the toast on Save. */}
+                      <td className="pr-3" data-field={`batch.${i}`}>
+                        <TextInput type="number" aria-label={`Batch ${i + 1} qty`} aria-invalid={Boolean(check.rowErrors[i])} data-invalid={check.rowErrors[i] ? true : undefined} title={check.rowErrors[i] || undefined} value={row.qty} onChange={(e) => setRow(i, { qty: e.target.value })} />
                       </td>
                       <td className="pr-3">
                         <input type="checkbox" aria-label={`Plan batch ${i + 1} now`} checked={row.plan} onChange={(e) => setRow(i, { plan: e.target.checked })} />
@@ -365,7 +376,6 @@ export default function ProductionPlanningScreen() {
                   Total {check.total} of {selectedLine.remaining_qty} · planning now {check.planned.length} PRD(s), {check.plannedTotal} pcs
                 </span>
               </div>
-              {check.errors.map((m) => <p key={m} className="text-[13px] text-red-600">{m}</p>)}
             </div>
           </FormSection>
         )}
@@ -420,5 +430,6 @@ export default function ProductionPlanningScreen() {
         <div className="text-xs text-gray-500 px-1">Total Records: {filteredPlans.length}</div>
       </div>
     </div>
+    </FieldErrorProvider>
   )
 }

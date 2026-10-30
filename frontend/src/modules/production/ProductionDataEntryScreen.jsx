@@ -53,6 +53,7 @@ import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -68,6 +69,7 @@ export default function ProductionDataEntryScreen({ role }) {
   const [loading, setLoading] = useState(true)
   const [restoring, setRestoring] = useState(false) // resuming this user's open log on open
   const [error, setError] = useState(null)
+  const fieldError = useFieldError(error, setError)
   // Latest-request-wins for the selectPrd / resolveStage chains: a superseded
   // chain drops its results so it can't overwrite a newer selection.
   const gateRef = useRef(null)
@@ -400,16 +402,17 @@ export default function ProductionDataEntryScreen({ role }) {
   async function handleStart() {
     if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
     if (substituteError) {
-      setError(substituteError)
+      fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
       return
     }
-    if (!machineId || !prdNo || !resolvedStage || !employeeId || !shiftCode) {
-      setError('Machine, PRD, Employee and Shift are all required to start.')
+    const missing = !employeeId ? 'employee' : !prdNo ? 'prd' : !machineId || !resolvedStage ? 'machine' : !shiftCode ? 'shift' : null
+    if (missing) {
+      fieldError.fail(missing, 'Machine, PRD, Employee and Shift are all required to start.')
       return
     }
     const settingError = validateNumber(settingTimeMin, { label: 'Setting Time', ...NUMBER_RULES.SETTING_TIME })
     if (settingError) {
-      setError(settingError)
+      fieldError.fail('setting_time', settingError)
       return
     }
     const settingTime = String(settingTimeMin).trim() === '' ? null : Number(settingTimeMin)
@@ -596,6 +599,7 @@ export default function ProductionDataEntryScreen({ role }) {
     : null
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title={subItemLabel('production', 'production-data-entry')}
@@ -606,14 +610,14 @@ export default function ProductionDataEntryScreen({ role }) {
         {/* Grid's date + shift (an earlier date while correcting a rejected shift). */}
         <ShiftDateLine date={entryDate} shiftCode={shiftCode} shifts={shifts} />
         {error && (
-          <Banner tone="error" message={error} />
+          <Banner tone="error" message={error} onClose={() => setError(null)} />
         )}
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
-          <Field label="Employee" required>
+          <Field name="employee" label="Employee" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field name="prd" label="Production Order (PRD No)" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -630,7 +634,7 @@ export default function ProductionDataEntryScreen({ role }) {
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
-          <Field label="Machine" required>
+          <Field name="machine" label="Machine" required>
             <SearchableSelect
               value={machineId}
               onChange={handleMachineChange}
@@ -705,7 +709,7 @@ export default function ProductionDataEntryScreen({ role }) {
                 disabled={!!activeLog}
               />
             </Field>
-            <Field label="Setting Time (min)">
+            <Field name="setting_time" label="Setting Time (min)">
               <TextInput
                 type="number"
                 min="0"
@@ -720,7 +724,7 @@ export default function ProductionDataEntryScreen({ role }) {
                 No Cycle Time Master entry for this part + process -- cycle time will be left blank on the report.
               </p>
             )}
-            <Field label="Shift" required>
+            <Field name="shift" label="Shift" required>
               <SelectInput
                 value={shiftCode}
                 onChange={(e) => setShiftCode(e.target.value)}
@@ -738,11 +742,11 @@ export default function ProductionDataEntryScreen({ role }) {
                 <p className="sm:col-span-3 text-[13px] font-medium text-amber-800">
                   Substitute machine: {machineLabels[machineId] ?? machineId} instead of planned {machineLabels[resolvedStage.machine_id] ?? resolvedStage.machine_id} — reason required.
                 </p>
-                <Field label="Substitute Reason" required>
+                <Field name="substitute_reason" label="Substitute Reason" required>
                   <SelectInput value={substituteReason} onChange={(e) => setSubstituteReason(e.target.value)} options={SUBSTITUTE_REASONS} />
                 </Field>
                 {substituteReason === 'Other' && (
-                  <Field label="Reason (text)" required>
+                  <Field name="substitute_note" label="Reason (text)" required>
                     <TextInput value={substituteNote} onChange={(e) => setSubstituteNote(e.target.value)} />
                   </Field>
                 )}
@@ -843,5 +847,6 @@ export default function ProductionDataEntryScreen({ role }) {
         )}
       </div>
     </div>
+    </FieldErrorProvider>
   )
 }

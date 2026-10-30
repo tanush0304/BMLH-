@@ -171,7 +171,7 @@ export default function ProductionBatchMaster() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         <FormSection icon={Layers} title="1. Batch Details" subtitle="Standard qty per product" columns={2}>

@@ -1,6 +1,7 @@
 import { Truck as TruckIcon, Phone, Landmark } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import { listSuppliers, createSupplier, updateSupplier, deleteSupplier } from '../../data/queries/suppliers'
 
 const EMPTY_FORM = {
@@ -67,8 +68,8 @@ const SECTIONS = [
         options: ['Registered', 'Unregistered', 'Composition'],
       },
       { key: 'tds_applicable', label: 'TDS Applicable', type: 'select', options: YES_NO_OPTIONS },
-      { key: 'payment_terms', label: 'Payment Terms', type: 'select', options: ['30 Days', '60 Days', '90 Days'] },
-      { key: 'credit_period', label: 'Credit Period' },
+      { key: 'payment_terms', label: 'Payment Terms', type: 'addNew', options: MASTER_PAYMENT_TERMS },
+      { key: 'credit_period', label: 'Credit Period', type: 'addNew', options: MASTER_PAYMENT_TERMS },
       { key: 'bank_account_no', label: 'Bank Account No' },
       { key: 'bank_name', label: 'Bank Name' },
       { key: 'ifsc_code', label: 'IFSC Code' },

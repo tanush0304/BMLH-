@@ -26,6 +26,7 @@ import ComplaintRegistrationSections from './ComplaintRegistrationSections'
 import ComplaintList, { COMPLAINT_EXPORT_COLUMNS } from './ComplaintList'
 import useComplaintData from './useComplaintData'
 import Banner from '../../../components/Banner'
+import SelectWithAddNew, { mergeOptions } from '../../../components/SelectWithAddNew'
 
 const RESOLUTION_FLAGS = [
   ['replacement_required', 'Replacement Required'],
@@ -144,7 +145,7 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
         )}
 
         {selected?.status === 'Closed' && !isSupervisor(role) && (
-          <Banner tone="warning" message="This complaint is closed. Only a supervisor or admin can change it." />
+          <Banner tone="warning" message="This complaint is closed. Only a supervisor or admin can change it." inline />
         )}
 
         <ComplaintRegistrationSections
@@ -201,7 +202,12 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
               <TextInput value={form.root_cause} onChange={set('root_cause')} disabled={locked} />
             </Field>
             <Field label="Root Cause Category">
-              <SelectInput value={form.root_cause_category} onChange={set('root_cause_category')} options={ROOT_CAUSE_CATEGORY_OPTIONS} disabled={locked} />
+              <SelectWithAddNew
+                value={form.root_cause_category}
+                onChange={set('root_cause_category')}
+                options={mergeOptions(ROOT_CAUSE_CATEGORY_OPTIONS, data.complaints.map((c) => c.root_cause_category))}
+                disabled={locked}
+              />
             </Field>
             <Field label="Investigation Method">
               <SelectInput value={form.investigation_method} onChange={set('investigation_method')} options={INVESTIGATION_METHOD_OPTIONS} disabled={locked} />

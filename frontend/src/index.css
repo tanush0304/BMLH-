@@ -41,3 +41,15 @@ body {
 .toolbar-legend { display: none; }
 body:has(.form-card-body) .toolbar-legend { display: flex; }
 body:has([role='toolbar']) .card-legend { display: none; }
+
+/* Field named by a validation message (useFieldError): red border + red-50,
+   over the dropdown / manual / auto-fill colours. */
+[data-invalid] input,
+[data-invalid] select,
+[data-invalid] textarea,
+[data-invalid] [role='combobox'],
+input[data-invalid] {
+  border-color: rgb(239 68 68) !important;
+  background-color: rgb(254 242 242) !important;
+  box-shadow: 0 0 0 1px rgb(239 68 68);
+}

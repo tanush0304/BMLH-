@@ -25,7 +25,8 @@ import { listProducts, resolveProductWithConfirmation } from '../../data/queries
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 import Banner from '../../components/Banner'
-import { orderLineError } from '../../utils/orderValidation'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
+import { orderLineProblem } from '../../utils/orderValidation'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -106,6 +107,7 @@ export default function CustomerOrderScreen() {
   const [mode, setMode] = useState('new-po')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   const [poHeader, setPoHeader] = useState(EMPTY_PO_HEADER)
   const [lineItems, setLineItems] = useState([emptyLineItem()])
@@ -272,13 +274,14 @@ export default function CustomerOrderScreen() {
     }
     // mode === 'edit': editing one existing customer orders row, unchanged
     // from before this rework.
-    if (!form.customer_id || !form.po_number || !form.po_date || !form.part_serial_number || !form.order_qty) {
-      setSaveError('Customer, PO Number, PO Date, Product and Order Qty are required.')
+    const missingKey = ['customer_id', 'po_number', 'po_date', 'part_serial_number', 'order_qty'].find((k) => !form[k])
+    if (missingKey) {
+      fieldError.fail(missingKey, 'Customer, PO Number, PO Date, Product and Order Qty are required.')
       return
     }
-    const lineError = orderLineError({ orderQty: form.order_qty, poDate: form.po_date, expectedDelivery: form.expected_delivery })
-    if (lineError) {
-      setSaveError(lineError)
+    const lineProblem = orderLineProblem({ orderQty: form.order_qty, poDate: form.po_date, expectedDelivery: form.expected_delivery })
+    if (lineProblem) {
+      fieldError.fail(lineProblem.field === 'orderQty' ? 'order_qty' : 'expected_delivery', lineProblem.error)
       return
     }
     setSaving(true)
@@ -307,31 +310,32 @@ export default function CustomerOrderScreen() {
   }
 
   async function handleSubmitPo() {
-    if (!poHeader.customer_id || !poHeader.po_number || !poHeader.po_date) {
-      setSaveError('Customer, PO Number and PO Date are required for the PO header.')
+    const missingHeader = ['customer_id', 'po_number', 'po_date'].find((k) => !poHeader[k])
+    if (missingHeader) {
+      fieldError.fail(`po.${missingHeader}`, 'Customer, PO Number and PO Date are required for the PO header.')
       return
     }
     const validLines = lineItems.filter((it) => it.partSerialNumber || it.isNewPart)
     if (validLines.length === 0) {
-      setSaveError('At least one line item is required.')
+      fieldError.fail(lineItems[0] ? `line.${lineItems[0].key}.part` : null, 'At least one line item is required.')
       return
     }
     for (const it of validLines) {
       if (it.isNewPart && !it.newPartCode) {
-        setSaveError('Enter a part number for the newly-typed part, or pick an existing one.')
+        fieldError.fail(`line.${it.key}.part`, 'Enter a part number for the newly-typed part, or pick an existing one.')
         return
       }
       if (it.isNewPart && !it.partName) {
-        setSaveError('Part Name is required for a newly-typed part (nothing to auto-fill from yet).')
+        fieldError.fail(`line.${it.key}.partName`, 'Part Name is required for a newly-typed part (nothing to auto-fill from yet).')
         return
       }
       if (!it.orderQty || Number(it.orderQty) <= 0) {
-        setSaveError('Every line item needs an Order Qty greater than 0.')
+        fieldError.fail(`line.${it.key}.orderQty`, 'Every line item needs an Order Qty greater than 0.')
         return
       }
-      const lineError = orderLineError({ orderQty: it.orderQty, poDate: poHeader.po_date, expectedDelivery: it.expectedDelivery })
-      if (lineError) {
-        setSaveError(lineError)
+      const lineProblem = orderLineProblem({ orderQty: it.orderQty, poDate: poHeader.po_date, expectedDelivery: it.expectedDelivery })
+      if (lineProblem) {
+        fieldError.fail(`line.${it.key}.${lineProblem.field}`, lineProblem.error)
         return
       }
     }
@@ -437,6 +441,7 @@ export default function CustomerOrderScreen() {
   const isNewPo = mode === 'new-po'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="New Order" subtitle="Purchase Order Stage  |  One PO, Many Line Items" />
       <ActionToolbar
@@ -454,23 +459,23 @@ export default function CustomerOrderScreen() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
         {isNewPo ? (
           <>
             <FormSection icon={FileStack} title="1. PO Header" subtitle="Once per real customer PO">
-              <Field label="Customer" required>
+              <Field name="po.customer_id" label="Customer" required>
                 <SearchableSelect
                   value={poHeader.customer_id}
                   onChange={(e) => setPoHeader((h) => withCustomer(h, e.target.value, customers))}
                   options={customerDropdownOptions(customers)}
                 />
               </Field>
-              <Field label="PO Number" required>
+              <Field name="po.po_number" label="PO Number" required>
                 <TextInput value={poHeader.po_number} onChange={handlePoHeaderField('po_number')} />
               </Field>
-              <Field label="PO Date" required>
+              <Field name="po.po_date" label="PO Date" required>
                 <TextInput type="date" value={poHeader.po_date} onChange={handlePoHeaderField('po_date')} />
               </Field>
               <Field label="Delivery Terms">
@@ -484,7 +489,7 @@ export default function CustomerOrderScreen() {
                 <SelectWithAddNew
                   value={poHeader.payment_terms ?? ''}
                   onChange={handlePoHeaderField('payment_terms')}
-                  options={paymentTermsOptions(poHeaders)}
+                  options={paymentTermsOptions(poHeaders, customers)}
                 />
               </Field>
             </FormSection>
@@ -503,7 +508,7 @@ export default function CustomerOrderScreen() {
               <div className="flex flex-col gap-2 p-2">
                 {lineItems.map((it, idx) => (
                   <div key={it.key} className="border border-gray-200 rounded p-2 flex flex-wrap items-start gap-3">
-                    <Field label="Part Serial Number" width="medium" required>
+                    <Field name={`line.${it.key}.part`} label="Part Serial Number" width="medium" required>
                       {it.isNewPart ? (
                         <TextInput
                           value={it.newPartCode ?? ''}
@@ -542,7 +547,7 @@ export default function CustomerOrderScreen() {
                         </button>
                       </div>
                     )}
-                    <Field label="Part Name" width="medium">
+                    <Field name={`line.${it.key}.partName`} label="Part Name" width="medium">
                       <TextInput
                         value={it.partName}
                         onChange={handleLineItemField('partName', it.key)}
@@ -580,14 +585,14 @@ export default function CustomerOrderScreen() {
                         options={['Labour', 'Manufacturing']}
                       />
                     </Field>
-                    <Field label="Order Qty" width="short" required>
+                    <Field name={`line.${it.key}.orderQty`} label="Order Qty" width="short" required>
                       <TextInput
                         type="number"
                         value={it.orderQty}
                         onChange={handleLineItemField('orderQty', it.key)}
                       />
                     </Field>
-                    <Field label="Expected Delivery" width="short">
+                    <Field name={`line.${it.key}.expectedDelivery`} label="Expected Delivery" width="short">
                       <TextInput
                         type="date"
                         value={it.expectedDelivery}
@@ -633,7 +638,7 @@ export default function CustomerOrderScreen() {
                 })}
               />
             </Field>
-            <Field label="Customer" required>
+            <Field name="customer_id" label="Customer" required>
               <SearchableSelect
                 value={form.customer_id}
                 onChange={handleField('customer_id')}
@@ -641,13 +646,13 @@ export default function CustomerOrderScreen() {
                 options={customerDropdownOptions(customers)}
               />
             </Field>
-            <Field label="PO Number" required>
+            <Field name="po_number" label="PO Number" required>
               <TextInput value={form.po_number} onChange={handleField('po_number')} disabled={readOnly} />
             </Field>
-            <Field label="PO Date" required>
+            <Field name="po_date" label="PO Date" required>
               <TextInput type="date" value={form.po_date} onChange={handleField('po_date')} disabled={readOnly} />
             </Field>
-            <Field label="Product" required>
+            <Field name="part_serial_number" label="Product" required>
               <SearchableSelect
                 value={form.part_serial_number}
                 onChange={handleField('part_serial_number')}
@@ -670,10 +675,10 @@ export default function CustomerOrderScreen() {
                 disabled={readOnly}
               />
             </Field>
-            <Field label="Order Qty" required>
+            <Field name="order_qty" label="Order Qty" required>
               <TextInput type="number" value={form.order_qty} onChange={handleField('order_qty')} disabled={readOnly} />
             </Field>
-            <Field label="Expected Delivery">
+            <Field name="expected_delivery" label="Expected Delivery">
               <TextInput
                 type="date"
                 value={form.expected_delivery}
@@ -699,5 +704,6 @@ export default function CustomerOrderScreen() {
       </div>
       {del.dialog}
     </div>
+    </FieldErrorProvider>
   )
 }

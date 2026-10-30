@@ -24,15 +24,18 @@ import {
 import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import Banner from '../../components/Banner'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 
-// Type of Maintenance options, per the client's Maintenance Module sheet.
-const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly']
+// Type of Maintenance built-ins (per the client's Maintenance Module sheet,
+// + Quarterly / Yearly); "+ Add new" values saved on visits are offered too.
+const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly']
 
 export default function ChecklistEntryScreen({ role }) {
   const [machines, setMachines] = useState([])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [recentLogs, setRecentLogs] = useState([])
+  const maintenanceTypeOptions = mergeOptions(MAINTENANCE_TYPES, recentLogs.map((l) => l.maintenance_type))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -233,11 +236,11 @@ export default function ChecklistEntryScreen({ role }) {
             <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Type of Maintenance">
-            <SelectInput
+            <SelectWithAddNew
               value={maintenanceType}
               onChange={(e) => setMaintenanceType(e.target.value)}
               disabled={!!activeLog}
-              options={MAINTENANCE_TYPES}
+              options={maintenanceTypeOptions}
             />
           </Field>
           {machineId && checklistItems.length === 0 && (
@@ -293,6 +296,7 @@ export default function ChecklistEntryScreen({ role }) {
 
         {editingLog && (
           <VisitEditPanel
+            typeOptions={maintenanceTypeOptions}
             log={editingLog}
             machines={machines}
             employees={employees}
@@ -320,7 +324,7 @@ export default function ChecklistEntryScreen({ role }) {
  * each saved checklist item's Condition / Observation / Action Taken.
  * Machine and Date stay as saved (the DB refuses changing them, 032).
  * onSave(header, items, originalItems) returns an error or null. */
-function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) {
+function VisitEditPanel({ log, machines, employees, shifts, typeOptions, onSave, onCancel }) {
   const [header, setHeader] = useState({ employee_id: log.employee_id ?? '', shift_code: log.shift_code ?? '', maintenance_type: log.maintenance_type ?? '' })
   const [original, setOriginal] = useState([])
   const [items, setItems] = useState([])
@@ -378,7 +382,7 @@ function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) 
         <SelectInput value={header.shift_code} onChange={(e) => setHeader((h) => ({ ...h, shift_code: e.target.value }))} options={shifts.map((s) => s.shift_code)} />
       </Field>
       <Field label="Type of Maintenance">
-        <SelectInput value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={MAINTENANCE_TYPES} />
+        <SelectWithAddNew value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={typeOptions} />
       </Field>
       <div className="sm:col-span-4 divide-y divide-gray-100 rounded border border-gray-200 bg-white">
         {loadingItems ? (

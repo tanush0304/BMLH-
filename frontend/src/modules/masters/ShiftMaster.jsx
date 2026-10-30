@@ -214,13 +214,13 @@ export default function ShiftMaster() {
 
       <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-[#F5F7FA]">
         {saveError && (
-          <Banner tone="error" message={saveError} />
+          <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
         {!saveError && computed.error && (
-          <Banner tone="error" message={computed.error} />
+          <Banner tone="error" message={computed.error} inline />
         )}
         {computed.warning && (
-          <Banner tone="warning" message={computed.warning} />
+          <Banner tone="warning" message={computed.warning} inline />
         )}
         {computed.message && (
           <div className="bg-gray-100 border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded">
