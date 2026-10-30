@@ -54,6 +54,8 @@ import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
+import DailyChecklistGate from '../../components/DailyChecklistGate'
+import { gateApplies, gateAllowsStart } from '../../utils/dailyChecklist'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -91,6 +93,8 @@ export default function ProductionDataEntryScreen({ role }) {
   const [machineId, setMachineId] = useState('')
   const [stageChoiceId, setStageChoiceId] = useState('') // chosen when a PRD has more than one eligible stage on this machine
   const [resolvedStage, setResolvedStage] = useState(null)
+  // Daily checklist gate status for machine + today + shift (null = loading).
+  const [checklistStatus, setChecklistStatus] = useState(null)
   const [plannedQty, setPlannedQty] = useState(null)
   const [stageTarget, setStageTarget] = useState(null)
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
@@ -401,6 +405,7 @@ export default function ProductionDataEntryScreen({ role }) {
 
   async function handleStart() {
     if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
+    if (checklistBlocksStart) return
     if (substituteError) {
       fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
       return
@@ -598,6 +603,12 @@ export default function ProductionDataEntryScreen({ role }) {
     ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
     : null
 
+  // New logs on an Internal stage wait for today's Daily checklist on the
+  // chosen machine (planned or substitute) + shift; resumed logs and Manual
+  // stages don't. Only items tagged Daily count (gateStatus 'no-items' otherwise).
+  const checklistGated = gateApplies({ stage: resolvedStage, activeLog, machineId, shiftCode })
+  const checklistBlocksStart = checklistGated && !gateAllowsStart(checklistStatus)
+
   return (
     <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -762,10 +773,21 @@ export default function ProductionDataEntryScreen({ role }) {
                 onConfirmChange={setConfirmEarlier}
               />
             )}
+            {checklistGated && (
+              <DailyChecklistGate
+                key={`${machineId}|${shiftCode}`}
+                machineId={machineId}
+                machineLabel={machineLabels[machineId] ?? machineId}
+                shiftCode={shiftCode}
+                employeeId={employeeId}
+                employees={employees}
+                onStatusChange={setChecklistStatus}
+              />
+            )}
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog || !!substituteError || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
+                disabled={starting || !!activeLog || !!substituteError || checklistBlocksStart || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}

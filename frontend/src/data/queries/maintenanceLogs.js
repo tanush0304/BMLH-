@@ -72,3 +72,16 @@ export async function updateMaintenanceLogItem(id, patch) {
   const { error } = await supabase.from('maintenance log items').update(patch).eq('id', id)
   if (error) throw error
 }
+
+/** Visits for one machine on one date + shift (any type) -- the caller picks
+ * the type with findLogFor (case-insensitive). */
+export async function listMaintenanceLogsForShift(machineId, logDate, shiftCode) {
+  const { data, error } = await supabase
+    .from('maintenance logs')
+    .select('*')
+    .eq('machine_id', machineId)
+    .eq('log_date', logDate)
+    .eq('shift_code', shiftCode)
+  if (error) throw error
+  return data
+}

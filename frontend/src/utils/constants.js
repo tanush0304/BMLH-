@@ -191,3 +191,9 @@ export const MACHINE_CHOICE_MODE = 'capable'
 
 /** Reasons for running a stage on a machine other than the planned one (040). */
 export const SUBSTITUTE_REASONS = ['Planned machine busy', 'Breakdown', 'Supervisor instruction', 'Other']
+
+// Daily checklist gate on Production Data Entry (DailyChecklistGate): when
+// true, a new log on an Internal stage waits for today's Daily checklist on
+// the machine + shift. Off until the seniors have been told; while false
+// there is no panel and Start is unaffected.
+export const DAILY_CHECKLIST_GATE_ENABLED = false

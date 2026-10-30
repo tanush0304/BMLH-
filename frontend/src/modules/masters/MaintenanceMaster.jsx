@@ -18,14 +18,16 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
 import Banner from '../../components/Banner'
+import { CHECKLIST_FREQUENCIES, frequencyLabel } from '../../utils/dailyChecklist'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
-const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
+const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', frequency: '', remarks: '' }
 const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', interval_days: '', status: 'Active', remarks: '' }
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },
   { key: 'checklist_item', label: 'Checklist Item' },
+  { key: 'frequency', label: 'Frequency' },
   { key: 'remarks', label: 'Remarks' },
 ]
 const SCHEDULE_COLUMNS = [
@@ -62,7 +64,8 @@ export default function MaintenanceMaster() {
       const [items, schedules, machs] = await Promise.all([
         listMaintenanceChecklist(), listMaintenanceSchedules(), listMachines(),
       ])
-      setRecords(items)
+      // D / W / M codes shown (and re-saved on edit) as Daily / Weekly / Monthly.
+      setRecords(items.map((r) => ({ ...r, frequency: frequencyLabel(r.frequency) || null })))
       setScheduleRecords(schedules)
       setMachines(machs)
     } catch (e) {
@@ -91,7 +94,7 @@ export default function MaintenanceMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { machine_id: form.machine_id || null, checklist_item: checklistItem, remarks: String(form.remarks ?? '').trim() || null }
+      const payload = { machine_id: form.machine_id || null, checklist_item: checklistItem, frequency: frequencyLabel(form.frequency) || null, remarks: String(form.remarks ?? '').trim() || null }
       if (mode === 'edit') await updateMaintenanceChecklistItem(form.id, payload)
       else await createMaintenanceChecklistItem(payload)
       await refresh()
@@ -234,6 +237,12 @@ export default function MaintenanceMaster() {
           </Field>
           <Field label="Checklist Item" required>
             <TextInput value={form.checklist_item} onChange={handleField('checklist_item')} disabled={readOnly} />
+          </Field>
+          {/* Which Type of Maintenance this item belongs to (Checklist Entry and
+              the Data Entry Daily gate filter on it). Blank = shown under every
+              type in Checklist Entry, never part of the Daily gate. */}
+          <Field label="Frequency">
+            <SelectWithAddNew value={form.frequency ?? ''} onChange={handleField('frequency')} disabled={readOnly} options={mergeOptions(CHECKLIST_FREQUENCIES, records.map((r) => frequencyLabel(r.frequency)))} placeholder="Type new frequency" />
           </Field>
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
