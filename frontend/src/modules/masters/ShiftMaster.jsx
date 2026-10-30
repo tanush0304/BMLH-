@@ -250,7 +250,7 @@ export default function ShiftMaster() {
           <Field label="End Time" width="medium">
             <TimeInput12 value={form.end_time} onChange={handleField('end_time')} disabled={readOnly} />
           </Field>
-          <Field label="Lunch Break Duration" width="short">
+          <Field label="Break Time (min)" width="short">
             <TextInput
               value={form.lunch_break_duration}
               onChange={handleField('lunch_break_duration')}

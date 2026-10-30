@@ -183,8 +183,8 @@ export default function FgInventoryScreen() {
         <KpiCardRow>
           <KpiCard label="Total FG Items" value={formatQty(rows.length)} unit="Nos" icon={Boxes} tone="purple" loading={loading} />
           <KpiCard label="Opening FG Stock" value={formatQty(cur.opening)} unit="Nos" icon={Warehouse} tone="blue" loading={loading} />
-          <KpiCard label="Total Receipts" value={formatQty(cur.receipts)} unit="Nos" delta={delta(cur.receipts, prev.receipts)} icon={ArrowDownToLine} tone="green" loading={loading} />
-          <KpiCard label="Total Despatched" value={formatQty(cur.issues)} unit="Nos" delta={delta(cur.issues, prev.issues)} icon={Truck} tone="orange" loading={loading} />
+          <KpiCard label="Total Quantity Received" value={formatQty(cur.receipts)} unit="Nos" delta={delta(cur.receipts, prev.receipts)} icon={ArrowDownToLine} tone="green" loading={loading} />
+          <KpiCard label="Total Quantity Despatched" value={formatQty(cur.issues)} unit="Nos" delta={delta(cur.issues, prev.issues)} icon={Truck} tone="orange" loading={loading} />
           <KpiCard label="Closing FG Stock" value={formatQty(cur.closing)} unit="Nos" delta={delta(cur.closing, prev.closing)} icon={PackageCheck} tone="red" loading={loading} />
           <KpiCard label="Balance to Despatch" value={formatQty(balanceTotal)} unit="Nos" icon={FileText} tone="teal" loading={loading} />
         </KpiCardRow>

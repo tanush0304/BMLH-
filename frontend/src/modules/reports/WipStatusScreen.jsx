@@ -141,7 +141,7 @@ export default function WipStatusScreen() {
 
         <KpiCardRow columns={5}>
           <KpiCard label="Total PRD Orders" value={formatQty(kpi.prds)} icon={Boxes} tone="blue" loading={loading} />
-          <KpiCard label="Total Order Quantity" value={formatQty(kpi.orderQty)} unit="Nos" icon={Settings} tone="green" loading={loading} />
+          <KpiCard label="Total WIP Quantity" value={formatQty(kpi.orderQty)} unit="Nos" icon={Settings} tone="green" loading={loading} />
           <KpiCard label="Quantity Received in Stores (WIP)" value={formatQty(kpi.received)} unit="Nos" icon={Package} tone="orange" loading={loading} />
           <KpiCard label="Issued to Machines" value={formatQty(kpi.issued)} unit="Nos" icon={ArrowRight} tone="purple" loading={loading} />
           <KpiCard label="Balance WIP in Stores" value={formatQty(kpi.balance)} unit="Nos" icon={CircleCheck} tone="red" loading={loading} />

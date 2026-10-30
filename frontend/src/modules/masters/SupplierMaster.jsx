@@ -34,7 +34,7 @@ const SECTIONS = [
     columns: 2,
     width: 'half',
     fields: [
-      { key: 'supplier_id', label: 'Supplier ID', required: true, lockOnEdit: true },
+      { key: 'supplier_id', label: 'Supplier Code', required: true, lockOnEdit: true },
       { key: 'supplier_name', label: 'Supplier Name', required: true },
       { key: 'supplier_address', label: 'Supplier Address', colSpan: 'sm:col-span-2', fullWidth: true },
     ],
@@ -77,7 +77,7 @@ const SECTIONS = [
 ]
 
 const LIST_COLUMNS = [
-  { key: 'supplier_id', label: 'Supplier ID' },
+  { key: 'supplier_id', label: 'Supplier Code' },
   { key: 'supplier_name', label: 'Supplier Name' },
   { key: 'contact_person_name', label: 'Contact Person' },
   { key: 'mobile_number', label: 'Mobile Number' },

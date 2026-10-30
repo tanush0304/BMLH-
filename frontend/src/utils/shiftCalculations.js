@@ -100,7 +100,7 @@ export function computeShiftHours({ start_time, end_time, lunch_break_duration }
 
   const lunchMin = parseLunchMinutes(lunch_break_duration)
   if (lunchMin == null) {
-    result.error = 'Could not understand Lunch Break Duration value.'
+    result.error = 'Could not understand Break Time value.'
     return result
   }
   if (lunchMin > durationMin) {

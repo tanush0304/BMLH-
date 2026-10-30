@@ -13,7 +13,7 @@ import { listVendors } from '../../data/queries/vendors'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { todayISO } from '../../utils/dates'
 import { displayDate } from '../../utils/reportPeriods'
-import { jobOrderRows, jobOrderCounts, dcTableStatusLabel, dcStatusCellText } from '../../utils/reportOrders'
+import { jobOrderRows, jobOrderCounts, dcTableStatusLabel, dcStatusCellText, filterByDcStatus, DC_STATUS_FILTER_OPTIONS } from '../../utils/reportOrders'
 import { topN } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
 
@@ -27,11 +27,13 @@ const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
  * Closed Short; Overdue = open DC past its expected receipt date (a flag,
  * shown next to the status). Pending qty = balance still out on open DCs;
  * Short Qty = sent - received on a Closed Short DC. Standard lead time from
- * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type).
+ * Job Work Master. Filters: PRD, Vendor, Type of Operation (job work type), Status (Overdue =
+ * the flag). Status narrows everything except the status donut, which keeps
+ * the full mix for the other filters.
  */
 export default function JobOrderStatusScreen() {
   const chartType = useChartType()
-  const r = useReportPeriod({ prdNo: '', vendorId: '', jobWorkCode: '' })
+  const r = useReportPeriod({ prdNo: '', vendorId: '', jobWorkCode: '', status: '' })
   const [raw, setRaw] = useState([])
   const [vendors, setVendors] = useState([])
   const [jobWorkTypes, setJobWorkTypes] = useState([])
@@ -58,7 +60,7 @@ export default function JobOrderStatusScreen() {
   const vendorName = useMemo(() => new Map(vendors.map((v) => [v.vendor_id, v.vendor_name])), [vendors])
   const jobWork = useMemo(() => new Map(jobWorkTypes.map((j) => [j.job_work_code, j])), [jobWorkTypes])
 
-  const rows = useMemo(() => {
+  const baseRows = useMemo(() => {
     const { prdNo, vendorId, jobWorkCode } = r.applied
     const scoped = raw.filter((x) => (!prdNo || x.prd_no === prdNo) && (!vendorId || x.vendor_id === vendorId) && (!jobWorkCode || x.job_work_code === jobWorkCode))
     return jobOrderRows(scoped, todayISO()).map((x) => ({
@@ -69,7 +71,9 @@ export default function JobOrderStatusScreen() {
     }))
   }, [raw, r.applied, vendorName, jobWork])
 
+  const rows = useMemo(() => filterByDcStatus(baseRows, r.applied.status), [baseRows, r.applied.status])
   const counts = jobOrderCounts(rows)
+  const donutCounts = jobOrderCounts(baseRows)
 
   const byOperation = useMemo(() => {
     const m = new Map()
@@ -89,10 +93,10 @@ export default function JobOrderStatusScreen() {
   }, [rows])
 
   const donut = [
-    { key: 'Received', label: 'Received', value: counts.received, color: CHART_COLORS.green },
-    { key: 'Closed Short', label: dcTableStatusLabel('Closed Short'), value: counts.closedShort, color: '#64748B' },
-    { key: 'Partially Received', label: 'Partially Received', value: counts.partial, color: CHART_COLORS.blue },
-    { key: 'Sent', label: 'Sent', value: counts.sent, color: CHART_COLORS.amber },
+    { key: 'Received', label: 'Received', value: donutCounts.received, color: CHART_COLORS.green },
+    { key: 'Closed Short', label: dcTableStatusLabel('Closed Short'), value: donutCounts.closedShort, color: '#64748B' },
+    { key: 'Partially Received', label: 'Partially Received', value: donutCounts.partial, color: CHART_COLORS.blue },
+    { key: 'Sent', label: 'Sent', value: donutCounts.sent, color: CHART_COLORS.amber },
   ]
 
   const prdOptions = [...new Set(raw.map((x) => x.prd_no))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -138,6 +142,7 @@ export default function JobOrderStatusScreen() {
             { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
             { key: 'vendor', label: 'Vendor', value: r.filters.vendorId, onChange: r.setFilter('vendorId'), options: vendors.map((v) => ({ value: v.vendor_id, label: v.vendor_name ?? v.vendor_id })) },
             { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
+            { key: 'status', label: 'Status', value: r.filters.status, onChange: r.setFilter('status'), options: DC_STATUS_FILTER_OPTIONS },
           ]}
         />
         {error && <Banner tone="error" message={error} />}
@@ -174,8 +179,8 @@ export default function JobOrderStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={rows.length === 0} height={260} raw>
-            <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(counts.total), unit: 'Job Orders' }} legendValue={(d) => formatQty(d.value)} tooltip={(d) => `${d.value} job orders`} />
+          <ChartCard title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={baseRows.length === 0} height={260} raw>
+            <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(donutCounts.total), unit: 'Job Orders' }} legendValue={(d) => formatQty(d.value)} tooltip={(d) => `${d.value} job orders`} />
           </ChartCard>
 
           <ChartCard title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>

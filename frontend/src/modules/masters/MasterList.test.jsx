@@ -9,22 +9,22 @@ const EXPECTED_LABELS = [
   'Shift Master',
   'Customer Master',
   'Supplier Master',
-  'Raw Material Master',
-  'Product Master',
-  'Production Batch Master',
-  'Machine Master',
   'Vendor Master',
   'Job Work Master',
+  'Machine Master',
+  'Raw Material Master',
+  'Product Master',
   'Cycle Time Master',
-  'Route Card',
+  'Production Batch Master',
+  'Quality Master',
   'Maintenance Master',
+  'Route Card',
   'WIP Master',
   'Finished Goods Master',
-  'Quality Master',
 ]
 
 describe('Masters landing entries', () => {
-  it('keeps the client tile order and maps every card to a screen, icon and description', () => {
+  it('keeps the data-entry tile order and maps every card to a screen, icon and description', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.label)).toEqual(EXPECTED_LABELS)
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
       NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)

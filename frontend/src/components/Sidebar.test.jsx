@@ -30,24 +30,28 @@ describe('contextual sidebar navigation', () => {
   it('shows all Master screens and distinguishes the active module and screen', () => {
     const html = renderSidebar('masters', 'customer')
     const masterScreens = [
-      'Product Master',
-      'Machine Master',
-      'Job Work Master',
-      'Cycle Time Master',
-      'Customer Master',
-      'Raw Material Master',
-      'Supplier Master',
-      'Shift Master',
       'Employee Master',
+      'Shift Master',
+      'Customer Master',
+      'Supplier Master',
       'Vendor Master',
+      'Job Work Master',
+      'Machine Master',
+      'Raw Material Master',
+      'Product Master',
+      'Cycle Time Master',
+      'Production Batch Master',
       'Quality Master',
       'Maintenance Master',
-      'Production Batch Master',
       'Route Card',
-      'Finished Goods Master',
       'WIP Master',
+      'Finished Goods Master',
     ]
     masterScreens.forEach((label) => expect(html).toContain(label))
+    // Rendered in data-entry order.
+    const positions = masterScreens.map((label) => html.indexOf(`>${label}<`))
+    expect(positions.every((pos) => pos >= 0)).toBe(true)
+    expect([...positions].sort((x, y) => x - y)).toEqual(positions)
     expect(html.match(/aria-current="page"/g)).toHaveLength(2)
     expect(html).toContain('bg-white text-[#173A63]')
     expect(html).toContain('border-[#9BD86B] bg-white/15')

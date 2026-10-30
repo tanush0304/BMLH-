@@ -8,23 +8,25 @@ export const NAV_ITEMS = [
     key: 'masters',
     label: 'Masters',
     roles: ['supervisor', 'admin'],
+    // Data-entry order: people/partners, then machines and materials, then the
+    // masters that reference them.
     subItems: [
       { key: 'employee', label: 'Employee Master' },
       { key: 'shift', label: 'Shift Master' },
       { key: 'customer', label: 'Customer Master' },
       { key: 'supplier', label: 'Supplier Master' },
-      { key: 'raw-material', label: 'Raw Material Master' },
-      { key: 'product', label: 'Product Master' },
-      { key: 'production-batch', label: 'Production Batch Master' },
-      { key: 'machine', label: 'Machine Master' },
       { key: 'vendor', label: 'Vendor Master' },
       { key: 'job-work', label: 'Job Work Master' },
+      { key: 'machine', label: 'Machine Master' },
+      { key: 'raw-material', label: 'Raw Material Master' },
+      { key: 'product', label: 'Product Master' },
       { key: 'cycle-time', label: 'Cycle Time Master' },
-      { key: 'route-card', label: 'Route Card' },
+      { key: 'production-batch', label: 'Production Batch Master' },
+      { key: 'quality', label: 'Quality Master' },
       { key: 'maintenance', label: 'Maintenance Master' },
+      { key: 'route-card', label: 'Route Card' },
       { key: 'wip', label: 'WIP Master' },
       { key: 'finished-goods', label: 'Finished Goods Master' },
-      { key: 'quality', label: 'Quality Master' },
     ],
   },
   {
@@ -71,7 +73,7 @@ export const NAV_ITEMS = [
     label: 'Maintenance',
     subItems: [
       { key: 'checklist', label: 'Checklist Entry' },
-      { key: 'plan', label: 'Planning' },
+      { key: 'plan', label: 'Preventive Maintenance' },
     ],
   },
   {
