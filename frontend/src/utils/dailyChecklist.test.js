@@ -118,11 +118,11 @@ describe('live D / W / M codes', () => {
 
 describe('DAILY_CHECKLIST_GATE_ENABLED', () => {
   const args = { stage: { type: 'Internal' }, activeLog: null, machineId: 'MC-1', shiftCode: 'A' }
-  it('is false for now, so the gate never applies on Data Entry (no panel, Start unaffected)', () => {
-    expect(DAILY_CHECKLIST_GATE_ENABLED).toBe(false)
-    expect(gateApplies(args)).toBe(false)
+  it('is on: the gate applies by default on Data Entry', () => {
+    expect(DAILY_CHECKLIST_GATE_ENABLED).toBe(true)
+    expect(gateApplies(args)).toBe(true)
   })
-  it('applies once switched on', () => {
-    expect(gateApplies({ ...args, enabled: true })).toBe(true)
+  it('switched off: never applies (no panel, Start unaffected)', () => {
+    expect(gateApplies({ ...args, enabled: false })).toBe(false)
   })
 })

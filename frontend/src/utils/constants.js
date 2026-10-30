@@ -194,6 +194,6 @@ export const SUBSTITUTE_REASONS = ['Planned machine busy', 'Breakdown', 'Supervi
 
 // Daily checklist gate on Production Data Entry (DailyChecklistGate): when
 // true, a new log on an Internal stage waits for today's Daily checklist on
-// the machine + shift. Off until the seniors have been told; while false
-// there is no panel and Start is unaffected.
-export const DAILY_CHECKLIST_GATE_ENABLED = false
+// the machine + shift (on since 2026-10-30). Set false to turn it off: no
+// panel, Start unaffected.
+export const DAILY_CHECKLIST_GATE_ENABLED = true
