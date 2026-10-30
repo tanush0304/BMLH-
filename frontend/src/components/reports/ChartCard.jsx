@@ -82,8 +82,9 @@ export function DonutChart({ data, centre, legendValue, tooltip }) {
  * instead of an empty plot. Default title row = small blue icon box + bold
  * navy title; `headerColor` instead gives a solid coloured bar with a white
  * title (Daily Machine categories). `children` = a single Recharts chart,
- * or with `raw` any content that sizes itself (e.g. DonutChart). */
-export default function ChartCard({ title, icon: Icon, headerColor, actions, loading, empty, height = 240, raw = false, children }) {
+ * or with `raw` any content that sizes itself (e.g. DonutChart).
+ * `emptyText` replaces the default empty message. */
+export default function ChartCard({ title, icon: Icon, headerColor, actions, loading, empty, emptyText = 'No data for this period.', height = 240, raw = false, children }) {
   return (
     <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
       {headerColor ? (
@@ -106,7 +107,7 @@ export default function ChartCard({ title, icon: Icon, headerColor, actions, loa
         {loading ? (
           <div className="flex h-full items-center justify-center text-[13px] text-slate-400">Loading...</div>
         ) : empty ? (
-          <div className="flex h-full items-center justify-center text-[13px] text-slate-400">No data for this period.</div>
+          <div className="flex h-full items-center justify-center px-4 text-center text-[13px] text-slate-400">{emptyText}</div>
         ) : raw ? (
           children
         ) : (

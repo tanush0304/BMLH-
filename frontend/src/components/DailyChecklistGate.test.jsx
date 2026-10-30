@@ -40,13 +40,14 @@ function renderGate(onStatusChange = vi.fn()) {
 describe('DailyChecklistGate', () => {
   it('looks up the chosen (substitute) machine for today + the picked shift and shows only Daily items', async () => {
     const status = renderGate()
-    expect(await screen.findByText('Daily Checklist – Sub Lathe (MC-SUB) (Shift A)')).toBeTruthy()
+    // Generous timeout: the full suite runs many files in parallel.
+    expect(await screen.findByText('Daily Checklist – Sub Lathe (MC-SUB) (Shift A)', {}, { timeout: 5000 })).toBeTruthy()
     expect(q.listChecklistItemsForMachine).toHaveBeenCalledWith('MC-SUB')
     expect(q.listMaintenanceLogsForShift).toHaveBeenCalledWith('MC-SUB', '2026-10-28', 'A')
     expect(screen.getAllByRole('checkbox')).toHaveLength(2)
     expect(screen.queryByText('Belt')).toBeNull()
     expect(screen.getByText('All checklist items must be ticked before production can start.')).toBeTruthy()
-    expect(status).toHaveBeenLastCalledWith('pending')
+    await waitFor(() => expect(status).toHaveBeenLastCalledWith('pending'))
   })
 
   it('saves once with unticked = Not OK, then shows the supervisor message', async () => {

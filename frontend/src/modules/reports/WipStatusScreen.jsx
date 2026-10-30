@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from 'recharts'
+import { ComposedChart, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
 import { useChartType, series } from '../../components/reports/ChartTypeToggle'
 import { Boxes, Settings, Package, ArrowRight, CircleCheck, BarChart3, PieChart as PieIcon, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -12,12 +12,13 @@ import { listWipTransactionsUpTo } from '../../data/queries/reports'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listAllStages } from '../../data/queries/routeCards'
 import { stageLabel } from '../../utils/stageLabel'
-import { addDays, daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
-import { stockMovement, dailyBalance, topN } from '../../utils/reportStock'
+import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
+import { trendBuckets } from '../../utils/reportAggregates'
+import { monthLabel } from '../../utils/reportOrders'
+import { stockMovement, dailyMovement, topN, wipChartState, wipNoStockMessage, WIP_NO_MOVEMENT_MESSAGE } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#0F9F8F', CHART_COLORS.amber]
-const TREND_DAYS = 10
 const balanceClass = (v) => (v > 0 ? 'bg-amber-100' : 'bg-green-100')
 
 /**
@@ -103,11 +104,24 @@ export default function WipStatusScreen() {
   }, [rows])
   const donut = topN(byOperation, 4).map((x, i) => ({ key: x.label, label: x.label, value: x.value, color: SERIES[i % SERIES.length] }))
 
-  const trendDays = useMemo(() => {
-    const start = addDays(r.applied.to, -(TREND_DAYS - 1))
-    return daysBetween(start < r.applied.from ? r.applied.from : start, r.applied.to)
-  }, [r.applied])
-  const trend = useMemo(() => dailyBalance(filtered, { days: trendDays, inType: 'Receipt', outType: 'Issue' }).map((d) => ({ ...d, label: shortDate(d.date) })), [filtered, trendDays])
+  // Trend over the selected period (From..To), same pattern as FG Inventory:
+  // received / issued bars per day (per month above 62 days) + the closing
+  // balance line (end of day / month).
+  const trend = useMemo(
+    () =>
+      trendBuckets(dailyMovement(filtered, { days: daysBetween(r.applied.from, r.applied.to), inType: 'Receipt', outType: 'Issue' }), {
+        sum: ['receipts', 'issues'],
+        last: ['balance'],
+        dayLabel: shortDate,
+        monthLabel,
+      }),
+    [filtered, r.applied]
+  )
+  // Balance charts: "no stock" (rows but nothing left at To) vs no data; trend:
+  // "no movement" when nothing was received / issued in the period and no
+  // stock is carried (carried stock still draws a flat line).
+  const chartState = useMemo(() => wipChartState({ rows, txns: filtered, from: r.applied.from, to: r.applied.to }), [rows, filtered, r.applied])
+  const balanceEmptyText = chartState.balance === 'zero' ? wipNoStockMessage(displayDate(r.applied.to)) : undefined
 
   const operationOptions = useMemo(() => [...new Set(stages.map((s) => s.operation).filter(Boolean))].sort(), [stages])
   const prdOptions = useMemo(() => [...new Set(txns.map((t) => t.prd_no))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [txns])
@@ -148,7 +162,7 @@ export default function WipStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0}>
+          <ChartCard title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
             <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -166,23 +180,26 @@ export default function WipStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} raw>
+          <ChartCard title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} emptyText={balanceEmptyText} raw>
             <DonutChart data={donut} centre={{ caption: 'Total WIP', total: formatQty(kpi.balance), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
 
-          <ChartCard title={`WIP Status (Last ${trendDays.length} Days)`} icon={TrendingUp} loading={loading} empty={empty}>
-            <ComposedChart data={trend} margin={{ top: 20, right: 12, left: 0, bottom: 0 }}>
+          <ChartCard
+            title={`WIP Status (${shortDate(r.applied.from)} to ${shortDate(r.applied.to)})`}
+            icon={TrendingUp}
+            loading={loading}
+            empty={empty || (!chartState.moved && chartState.balance !== 'stock')}
+            emptyText={empty ? undefined : WIP_NO_MOVEMENT_MESSAGE}
+          >
+            <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} />
+              <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
-              {series(chartType, {
-                key: 'balance',
-                dataKey: 'balance',
-                name: 'WIP Quantity (Nos)',
-                color: CHART_COLORS.blue,
-                children: <LabelList dataKey="balance" position="top" style={{ fontSize: 11, fontWeight: 700 }} formatter={formatQty} />,
-              })}
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {series(chartType, { key: 'receipts', dataKey: 'receipts', name: 'Received', color: CHART_COLORS.green })}
+              {series(chartType, { key: 'issues', dataKey: 'issues', name: 'Issued', color: CHART_COLORS.orange })}
+              <Line dataKey="balance" name="Closing WIP" stroke={CHART_COLORS.purple} strokeWidth={2.5} dot={{ r: 3 }} />
             </ComposedChart>
           </ChartCard>
         </div>

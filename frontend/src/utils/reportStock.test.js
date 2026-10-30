@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stockMovement, dailyBalance, dailyMovement, topN, sumByUom, dominantUom, orderFulfilment, rmMatchesFilters } from './reportStock'
+import { stockMovement, dailyBalance, dailyMovement, topN, sumByUom, dominantUom, orderFulfilment, rmMatchesFilters, wipChartState, wipNoStockMessage, WIP_NO_MOVEMENT_MESSAGE } from './reportStock'
 
 const T = (transaction_type, qty, transaction_date, key = 'A') => ({ transaction_type, qty, transaction_date, key })
 
@@ -92,5 +92,42 @@ describe('rmMatchesFilters (Raw Material Status filters)', () => {
     expect(rmMatchesFilters(rm, { rmCode: 'RM-001', supplier: 'Other' })).toBe(false)
     expect(rmMatchesFilters(rm, { rmCode: 'RM-001', rmType: 'Plate' })).toBe(false)
     expect(rmMatchesFilters(rm, { rmCode: 'RM-001', uom: 'Nos' })).toBe(false)
+  })
+})
+
+describe('wipChartState (WIP Status charts)', () => {
+  const from = '2026-10-01'
+  const to = '2026-10-30'
+  const tx = (date, type, qty) => ({ transaction_date: date, transaction_type: type, qty })
+  it('rows with balance 0 -> zero; movement inside the period -> moved', () => {
+    expect(wipChartState({ rows: [{ balance: 0 }], txns: [tx('2026-10-20', 'Receipt', 20), tx('2026-10-20', 'Issue', 20)], from, to })).toEqual({ balance: 'zero', moved: true })
+  })
+  it('stock left -> stock; no rows -> none', () => {
+    expect(wipChartState({ rows: [{ balance: 5 }, { balance: 0 }], txns: [], from, to }).balance).toBe('stock')
+    expect(wipChartState({ rows: [], txns: [], from, to }).balance).toBe('none')
+  })
+  it('movement only before From or after To is not "moved"; the period bounds are inclusive', () => {
+    expect(wipChartState({ rows: [{ balance: 30 }], txns: [tx('2026-09-15', 'Receipt', 30), tx('2026-10-31', 'Issue', 5)], from, to }).moved).toBe(false)
+    expect(wipChartState({ rows: [], txns: [tx(from, 'Receipt', 1)], from, to }).moved).toBe(true)
+    expect(wipChartState({ rows: [], txns: [tx(to, 'Issue', 1)], from, to }).moved).toBe(true)
+  })
+  it('messages', () => {
+    expect(wipNoStockMessage('30-10-2026')).toBe('No WIP stock at 30-10-2026 -- everything received has been issued.')
+    expect(WIP_NO_MOVEMENT_MESSAGE).toBe('No WIP movement in this period')
+  })
+})
+
+describe('WIP trend data (dailyMovement): same-day receipt + issue', () => {
+  it('shows 20 in / 20 out as bars while the closing balance stays 0', () => {
+    const txns = [
+      { transaction_date: '2026-10-20', transaction_type: 'Receipt', qty: 20 },
+      { transaction_date: '2026-10-20', transaction_type: 'Issue', qty: 20 },
+    ]
+    const days = ['2026-10-19', '2026-10-20', '2026-10-21']
+    expect(dailyMovement(txns, { days, inType: 'Receipt', outType: 'Issue' })).toEqual([
+      { date: '2026-10-19', receipts: 0, issues: 0, balance: 0 },
+      { date: '2026-10-20', receipts: 20, issues: 20, balance: 0 },
+      { date: '2026-10-21', receipts: 0, issues: 0, balance: 0 },
+    ])
   })
 })

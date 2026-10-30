@@ -155,3 +155,19 @@ export function rmMatchesFilters(rm, { supplier, rmType, uom, rmCode } = {}) {
   if (rmCode && rm.raw_material_code !== rmCode) return false
   return true
 }
+
+/**
+ * WIP Status chart states.
+ *  balance: 'none' (no rows in the period), 'zero' (rows, but nothing left in
+ *           stores at To -- everything received was issued), 'stock' (> 0).
+ *  moved:   any Receipt / Issue dated From..To (the trend has something to show).
+ */
+export function wipChartState({ rows, txns, from, to, inType = 'Receipt', outType = 'Issue' }) {
+  const total = (rows ?? []).reduce((a, x) => a + num(x.balance), 0)
+  const balance = !rows?.length ? 'none' : total > 0 ? 'stock' : 'zero'
+  const moved = (txns ?? []).some((t) => (t.transaction_type === inType || t.transaction_type === outType) && t.transaction_date >= from && t.transaction_date <= to)
+  return { balance, moved }
+}
+
+export const wipNoStockMessage = (toLabel) => `No WIP stock at ${toLabel} -- everything received has been issued.`
+export const WIP_NO_MOVEMENT_MESSAGE = 'No WIP movement in this period'
