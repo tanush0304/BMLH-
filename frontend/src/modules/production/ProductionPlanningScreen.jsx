@@ -18,6 +18,7 @@ import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
+import { isLabourOrder, LABOUR_ORDER_NOTE } from '../../utils/orderType'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
@@ -125,6 +126,7 @@ export default function ProductionPlanningScreen() {
     }
   })
   const hasBom = materialAvailability.length > 0
+  const labourOrder = isLabourOrder(selectedLine)
   const unitsProducible = hasBom ? Math.min(...materialAvailability.map((m) => m.units_producible)) : null
   const rmUnit = materialAvailability.length === 1
     ? rawMaterials.find((m) => m.raw_material_code === materialAvailability[0].raw_material_code)?.unit_of_measurement || undefined
@@ -202,10 +204,15 @@ export default function ProductionPlanningScreen() {
         fieldError.fail('line_id', `${selectedLine.part_serial_number} has no route in Cycle Time Master -- add its stages first.`)
         return
       }
-      // Block when any BOM material is short for the batches planned now --
-      // stock re-fetched at the moment of saving. No override.
-      const balance = await listRawMaterialStockBalance()
-      const short = materialAvailability
+      // Labour order (customer-supplied material): no BOM / RM stock check.
+      // Otherwise the part needs a BOM, then every BOM material must cover
+      // the batches planned now -- stock re-fetched at saving. No override.
+      if (!labourOrder && !hasBom) {
+        fieldError.fail('line_id', `${selectedLine.part_serial_number} has no BOM (consumption per unit) in Product Master -- add it before planning.`)
+        return
+      }
+      const balance = labourOrder ? [] : await listRawMaterialStockBalance()
+      const short = (labourOrder ? [] : materialAvailability)
         .map((m) => {
           const stock = balance.find((b) => b.raw_material_code === m.raw_material_code)?.current_stock ?? 0
           const need = check.plannedTotal * m.consumption_per_unit
@@ -323,6 +330,11 @@ export default function ProductionPlanningScreen() {
           <Field label="Total Units Can Be Produced">
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
+          {labourOrder && (
+            <p className="col-span-full text-xs text-sky-700" role="note">
+              {LABOUR_ORDER_NOTE}
+            </p>
+          )}
           <Field name="shift_hours" label="Shift Hours" required>
             <TextInput type="number" value={form.shift_hours} onChange={(e) => setForm((f) => ({ ...f, shift_hours: e.target.value }))} />
           </Field>

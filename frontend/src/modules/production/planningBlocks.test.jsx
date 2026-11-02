@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // Production Planning save blocks, both checked before the planning RPC:
 // a part with no Cycle Time Master rows (no route), and RM stock short for
-// the batches planned now.
+// the batches planned now; a part with no BOM (after the route check);
+// Labour orders skip the BOM + stock checks.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 
@@ -10,11 +11,12 @@ const m = vi.hoisted(() => ({
   route: vi.fn(),
   balance: vi.fn(),
   bom: vi.fn(),
+  orderType: null,
   none: async () => [],
 }))
 vi.mock('../../data/queries/productionPlanning', () => ({
   listOrdersAvailableForPlanning: async () => [
-    { order_line_id: 1, parent_po_id: 7, customer_id: 'CUST-001', part_serial_number: 'PART-101', order_qty: 100, remaining_qty: 100, planned_qty: 0, prds: [] },
+    { order_line_id: 1, parent_po_id: 7, customer_id: 'CUST-001', part_serial_number: 'PART-101', order_qty: 100, remaining_qty: 100, planned_qty: 0, prds: [], order_type: m.orderType },
   ],
   listProductionPlans: m.none,
 }))
@@ -42,6 +44,7 @@ vi.mock('../../components/SearchableSelect', () => ({
 import ProductionPlanningScreen from './ProductionPlanningScreen'
 
 beforeEach(() => {
+  m.orderType = null
   m.plan.mockReset().mockResolvedValue([{ prd_no: 'PRD-100' }])
   m.route.mockReset().mockResolvedValue([{ part_serial_number: 'PART-101', seq: 10, machine_id: 'MC-01' }])
   m.balance.mockReset().mockResolvedValue([{ raw_material_code: 'RM-1', current_stock: 1000 }])
@@ -99,6 +102,52 @@ describe('Production Planning blocks', () => {
     await fillAndSave()
     expect(await screen.findByText('Cannot save -- insufficient raw material stock: RM-1 short by 50.')).toBeTruthy()
     expect(m.plan).not.toHaveBeenCalled()
+  })
+
+  it('a part with no BOM rows is refused after the route check, before the RM stock check and the RPC', async () => {
+    m.bom.mockResolvedValue([])
+    await fillAndSave()
+    expect(await screen.findByText('PART-101 has no BOM (consumption per unit) in Product Master -- add it before planning.')).toBeTruthy()
+    expect(m.route).toHaveBeenCalledWith('PART-101')
+    expect(m.balance).toHaveBeenCalledTimes(1) // screen load only, no save-time stock read
+    expect(m.plan).not.toHaveBeenCalled()
+    expect(screen.getByText('Part (PO line)').closest('label').hasAttribute('data-invalid')).toBe(true)
+  })
+
+  it('the route check still comes first when there is no BOM either', async () => {
+    m.route.mockResolvedValue([])
+    m.bom.mockResolvedValue([])
+    await fillAndSave()
+    expect(await screen.findByText('PART-101 has no route in Cycle Time Master -- add its stages first.')).toBeTruthy()
+  })
+
+  it('Labour order: no BOM needed, RM stock not checked, info note shown', async () => {
+    m.orderType = ' labour '
+    m.bom.mockResolvedValue([])
+    let stockReadsAtPlan = null
+    m.plan.mockImplementation(async () => {
+      stockReadsAtPlan = m.balance.mock.calls.length
+      return [{ prd_no: 'PRD-100' }]
+    })
+    await fillAndSave()
+    expect(screen.getByText('Labour order: no RM stock check')).toBeTruthy()
+    await vi.waitFor(() => expect(m.plan).toHaveBeenCalledTimes(1))
+    expect(stockReadsAtPlan).toBe(1) // screen load only, no save-time stock read
+  })
+
+  it('Labour order with a BOM and short stock still plans (stock check skipped)', async () => {
+    m.orderType = 'Labour'
+    m.balance.mockResolvedValue([{ raw_material_code: 'RM-1', current_stock: 0 }])
+    await fillAndSave()
+    await vi.waitFor(() => expect(m.plan).toHaveBeenCalledTimes(1))
+    expect(screen.queryByText(/insufficient raw material stock/)).toBeNull()
+  })
+
+  it('Manufacturing order shows no Labour note', async () => {
+    m.orderType = 'Manufacturing'
+    await fillAndSave()
+    await vi.waitFor(() => expect(m.plan).toHaveBeenCalledTimes(1))
+    expect(screen.queryByText('Labour order: no RM stock check')).toBeNull()
   })
 
   it('plans when the route exists and stock covers the batches', async () => {
