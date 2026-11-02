@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, X } from 'lucide-react'
+import useFloatingList from './useFloatingList'
 import { filterOptions, keyAction, normalizeOptions } from '../utils/searchableSelect'
 
 /**
@@ -34,6 +36,10 @@ export default function SearchableSelect({
   const listRef = useRef(null)
   const listId = useId()
 
+  // The list is portalled to <body> (position: fixed) so a section card's
+  // overflow-hidden can't clip it.
+  const floating = useFloatingList(rootRef, open)
+
   const filtered = useMemo(() => filterOptions(normalized, query), [normalized, query])
 
   function close() {
@@ -59,7 +65,8 @@ export default function SearchableSelect({
   useEffect(() => {
     if (!open) return undefined
     function onDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) close()
+      if (rootRef.current?.contains(e.target) || listRef.current?.contains(e.target)) return
+      close()
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -145,12 +152,14 @@ export default function SearchableSelect({
         <ChevronDown size={14} className="text-slate-500" />
       </div>
 
-      {open && (
+      {open && floating && createPortal(
         <ul
           ref={listRef}
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-40 mt-1 max-h-60 overflow-y-auto rounded border border-[#E5C65A] bg-white py-1 text-xs shadow-lg"
+          data-placement={floating.up ? 'top' : 'bottom'}
+          style={floating.style}
+          className="z-[70] overflow-y-auto rounded border border-[#E5C65A] bg-white py-1 text-xs shadow-lg"
         >
           {filtered.length === 0 && <li className="px-2.5 py-1.5 text-slate-400">No matches</li>}
           {filtered.map((o, i) => (
@@ -172,7 +181,8 @@ export default function SearchableSelect({
               {o.label}
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   )

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Plus } from 'lucide-react'
+import useFloatingList from './useFloatingList'
 
 /**
  * A dropdown checklist for picking several values from a list, plus a
@@ -21,16 +23,27 @@ export default function MultiSelectDropdown({ options, selected, onChange, onAdd
   const [open, setOpen] = useState(false)
   const [newText, setNewText] = useState('')
   const ref = useRef(null)
+  const panelRef = useRef(null)
+  // Portalled to <body> so a card's overflow-hidden can't clip it.
+  const floating = useFloatingList(ref, open && !disabled)
 
   const extraSelected = selected.filter((s) => s && !options.includes(s))
   const displayOptions = [...options, ...extraSelected]
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      if (ref.current?.contains(e.target) || panelRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    function handleEscape(e) {
+      if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [])
 
   function toggleOption(opt) {
@@ -66,9 +79,14 @@ export default function MultiSelectDropdown({ options, selected, onChange, onAdd
         <ChevronDown size={12} className="shrink-0 text-gray-400" />
       </button>
 
-      {open && !disabled && (
-        <div className="absolute z-20 mt-1 w-56 bg-white border border-gray-200 rounded shadow-lg">
-          <div className="max-h-56 overflow-y-auto">
+      {open && !disabled && floating && createPortal(
+        <div
+          ref={panelRef}
+          data-placement={floating.up ? 'top' : 'bottom'}
+          style={{ ...floating.style, maxHeight: undefined }}
+          className="z-[70] flex flex-col bg-white border border-gray-200 rounded shadow-lg"
+        >
+          <div className="overflow-y-auto" style={{ maxHeight: Math.max(60, floating.style.maxHeight - 40) }}>
             {displayOptions.map((opt) => (
               <label key={opt} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs hover:bg-gray-50 cursor-pointer">
                 <input
@@ -103,7 +121,8 @@ export default function MultiSelectDropdown({ options, selected, onChange, onAdd
               <Plus size={12} /> Add
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
