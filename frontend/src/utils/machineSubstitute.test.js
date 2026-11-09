@@ -6,10 +6,10 @@ import {
 import { MACHINE_CHOICE_MODE, SUBSTITUTE_REASONS } from './constants'
 
 const machines = [
-  { machine_id: 'MC-004', machine_name: 'CNC 1', category: 'CNC Turning' },
-  { machine_id: 'MC-005', machine_name: 'CNC 2', category: 'CNC Turning' },
-  { machine_id: 'MC-006', machine_name: 'CNC 3', category: 'CNC Turning' },
-  { machine_id: 'MC-009', machine_name: 'TURNMILL', category: 'CNC Turning' },
+  { machine_id: 'MC-004', machine_name: 'CNC 1', category: 'CNC' },
+  { machine_id: 'MC-005', machine_name: 'CNC 2', category: 'CNC' },
+  { machine_id: 'MC-006', machine_name: 'CNC 3', category: 'CNC' },
+  { machine_id: 'MC-009', machine_name: 'TURNMILL', category: 'CNC' },
   { machine_id: 'MC-010', machine_name: 'VMC1', category: 'VMC' },
   { machine_id: 'MC-021', machine_name: 'Surface Grinding 2', category: 'Grinding' },
 ]

@@ -106,8 +106,8 @@ describe('Daily Machine helpers', () => {
     expect(changePoints(null, 80)).toBeNull()
   })
   it('lists master categories in order, Uncategorised last', () => {
-    expect(machineCategories([{ category: 'VMC' }, { category: null }, { category: 'CNC Turning' }, { category: 'VMC' }]))
-      .toEqual(['VMC', 'CNC Turning', 'Uncategorised'])
+    expect(machineCategories([{ category: 'VMC' }, { category: null }, { category: 'CNC' }, { category: 'VMC' }]))
+      .toEqual(['VMC', 'CNC', 'Uncategorised'])
   })
   it('builds a date x category matrix', () => {
     const rows = ROWS.map((r, i) => ({ ...r, machine_category: i === 2 ? 'VMC' : 'Cutting' }))
