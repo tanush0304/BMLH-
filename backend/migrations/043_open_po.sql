@@ -100,12 +100,23 @@ alter table public."customer orders" add constraint customer_orders_line_status_
 -- 2. Qty history table -----------------------------------------------------
 create table if not exists public."customer order line edits" (
   id            bigint generated always as identity primary key,
-  order_line_id bigint not null references public."customer orders"(order_line_id),
+  order_line_id bigint not null,
   old_qty       numeric,
   new_qty       numeric,
   edited_by     uuid,
   edited_at     timestamptz not null default now()
 );
+-- FK with ON DELETE CASCADE (a deleted, never-planned line takes its history
+-- with it). Dropped by name first so a re-run -- including one over an older
+-- run that created the default-named inline FK -- ends with exactly this one.
+alter table public."customer order line edits"
+  drop constraint if exists "customer order line edits_order_line_id_fkey";
+alter table public."customer order line edits"
+  drop constraint if exists customer_order_line_edits_order_line_id_fkey;
+alter table public."customer order line edits"
+  add constraint customer_order_line_edits_order_line_id_fkey
+  foreign key (order_line_id) references public."customer orders"(order_line_id) on delete cascade;
+
 create index if not exists customer_order_line_edits_line_idx
   on public."customer order line edits" (order_line_id, edited_at);
 
@@ -462,7 +473,14 @@ left join "customer po headers" h on h.id = co.parent_po_id;
 revoke all on public."customer order line status" from anon;
 grant select on public."customer order line status" to authenticated, service_role;
 
-create or replace view public."customer po summary" as
+-- First 6 columns keep 030's names / types / order (CREATE OR REPLACE VIEW
+-- needs that): po_header_id (bigint), customer_id (text), po_number (text),
+-- po_date (date) straight from the header; line_item_count = count() ->
+-- bigint; total_order_qty = sum("customer orders".order_qty) -- the line
+-- view passes co.order_qty through unchanged, so the sum type is the same.
+-- New columns are appended after them. security_invoker: base-table RLS
+-- applies to the caller (as 029's report views).
+create or replace view public."customer po summary" with (security_invoker = true) as
 select
   h.id                       as po_header_id,
   h.customer_id,
@@ -535,9 +553,31 @@ where table_schema = 'public' and table_name = 'customer order line edits'
 group by grantee;
 select policyname, cmd from pg_policies where tablename = 'customer order line edits';
 
--- 6. View security: expect {security_invoker=true} on the line status view.
+-- 6. View security: expect {security_invoker=true} on BOTH views.
 select relname, reloptions from pg_class
 where relname in ('customer order line status', 'customer po summary');
+
+-- 6b. "customer po summary" columns: the first 6 must still be
+--     po_header_id bigint, customer_id text, po_number text, po_date date,
+--     line_item_count bigint, total_order_qty <same type as before>.
+select ordinal_position, column_name, data_type
+from information_schema.columns
+where table_schema = 'public' and table_name = 'customer po summary'
+order by ordinal_position;
+
+-- 6c. History FK: expect one row, confdeltype = 'c' (cascade).
+select conname, confdeltype
+from pg_constraint
+where conrelid = 'public."customer order line edits"'::regclass and contype = 'f';
+
+-- 6d. Exactly ONE trigger on "customer orders" runs guard_customer_order_line():
+--     expect n = 1 (trg_customer_order_line_guard).
+select count(*) as n, string_agg(t.tgname, ', ') as triggers
+from pg_trigger t
+join pg_proc p on p.oid = t.tgfoid
+where t.tgrelid = 'public."customer orders"'::regclass
+  and not t.tgisinternal
+  and p.proname = 'guard_customer_order_line';
 
 -- 7. Message helper: expect 8,000 | 1,00,000 | 12,34,567 | 250
 select fmt_qty_in(8000), fmt_qty_in(100000), fmt_qty_in(1234567), fmt_qty_in(250);
