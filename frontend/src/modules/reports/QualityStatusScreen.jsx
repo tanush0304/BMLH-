@@ -16,6 +16,7 @@ import { listEmployees } from '../../data/queries/employees'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { sortedEmployeeOptions, employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
+import { parameterNamesForMachine } from '../../utils/qualityMatch'
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
@@ -173,11 +174,11 @@ export default function QualityStatusScreen() {
 
   const prdOptions = [...new Set(opts.orders.map((o) => o.prd_no).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
   // With a Machine picked: every parameter Quality Master defines for that
-  // machine; otherwise the parameters measured in the loaded inspections.
+  // machine or for its machine category (044); otherwise the parameters measured in the loaded inspections.
   const paramOptions = [
     ...new Set(
       r.filters.machineId
-        ? opts.qualityParams.filter((p) => p.machine_id === r.filters.machineId).map((p) => p.quality_parameter)
+        ? parameterNamesForMachine(opts.qualityParams, opts.machines, r.filters.machineId)
         : readings.map((x) => x.quality_parameter)
     ),
   ].filter(Boolean).sort()

@@ -1,3 +1,4 @@
+import { qualityParamsForStage } from './qualityMatch'
 // Pure "can this machine run this stage" logic. Eligibility comes from
 // Cycle Time Master rows (part_serial_number + seq + machine_id) -- the route
 // itself says which machines can run which stage -- never from text-
@@ -118,16 +119,13 @@ export function cycleTimeForMachine({ cycleTimeRows = [], seq, chosenId, planned
 }
 
 /**
- * Quality Master parameters for an inspection: the chosen machine's for the
- * part + operation, else the planned machine's with a note.
+ * Quality Master parameters for an inspection -- kept for older callers;
+ * matching now lives in utils/qualityMatch.js (exact machine + its category,
+ * exact wins per parameter name, planned machine as fallback).
  */
-export function qualityParamsForMachine({ params = [], partSerialNumber, operation, chosenId, plannedId }) {
-  const match = (id) => params.filter((p) =>
-    p.part_serial_number === partSerialNumber && p.machine_id === id && (!p.type_of_operation || p.type_of_operation === operation))
-  const own = match(chosenId)
-  if (own.length || !plannedId || plannedId === chosenId) return { params: own, note: '' }
-  const fallback = match(plannedId)
-  return { params: fallback, note: fallback.length ? `parameters from planned machine ${plannedId}` : '' }
+export function qualityParamsForMachine({ params = [], partSerialNumber, operation, chosenId, plannedId, machines = [] }) {
+  const { params: rows, note } = qualityParamsForStage({ params, partSerialNumber, operation, chosenId, plannedId, machines })
+  return { params: rows, note }
 }
 
 /** "MC-005 (planned MC-004)" when they differ, else the actual machine. */

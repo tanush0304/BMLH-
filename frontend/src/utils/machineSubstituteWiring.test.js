@@ -62,7 +62,7 @@ describe('screens are wired', () => {
   it('Quality Inspection: same machine rule + planned-machine parameter fallback', () => {
     const s = src('modules/quality/QualityInspectionScreen.jsx')
     expect(s).toContain('machinesForStage({ mode: MACHINE_CHOICE_MODE')
-    expect(s).toContain('qualityParamsForMachine({')
+    expect(s).toContain('qualityParamsForStage({')
     expect(s).toContain('data-testid="param-note"')
   })
   it('Shift Verification shows the substitute line; Order Traceability has a Machine column', () => {

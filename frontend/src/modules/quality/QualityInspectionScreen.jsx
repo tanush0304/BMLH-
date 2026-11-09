@@ -27,14 +27,18 @@ import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/S
 import { employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
-import { machinesForStage, qualityParamsForMachine } from '../../utils/machineEligibility'
+import { machinesForStage } from '../../utils/machineEligibility'
+import { qualityParamsForStage, noParamsMessage, machineCategoryOf } from '../../utils/qualityMatch'
+import { stageLabel } from '../../utils/stageLabel'
 import { MACHINE_CHOICE_MODE } from '../../utils/constants'
 import { listAllMachineOperations } from '../../data/queries/machineOperations'
 import { supabase } from '../../lib/supabaseClient'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 
-const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
+// stage_id picks the stage (two stages may share an operation name); operation
+// is that stage's operation text, used for parameter matching and display.
+const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', stage_id: '', operation: '' }
 
 const HISTORY_COLUMNS = [
   { key: 'log_date', label: 'Date' },
@@ -115,7 +119,7 @@ export default function QualityInspectionScreen({ role }) {
 
   async function handlePrdChange(e) {
     const prd = e.target.value
-    setHeader((f) => ({ ...f, prd_no: prd, operation: '' }))
+    setHeader((f) => ({ ...f, prd_no: prd, stage_id: '', operation: '' }))
     setResolvedStage(null)
     if (!prd) {
       setPrdStages([])
@@ -138,7 +142,7 @@ export default function QualityInspectionScreen({ role }) {
   // generic "machine operations" names like "Rough Turning" at all.
   async function handleMachineChange(e) {
     const machineId = e.target.value
-    setHeader((f) => ({ ...f, machine_id: machineId, operation: '' }))
+    setHeader((f) => ({ ...f, machine_id: machineId, stage_id: '', operation: '' }))
     setResolvedStage(null)
     if (!machineId) {
       setEligibleStages([])
@@ -170,10 +174,10 @@ export default function QualityInspectionScreen({ role }) {
   }
 
   function handleOperationChange(e) {
-    const operation = e.target.value
-    setHeader((f) => ({ ...f, operation }))
-    const stage = prdStages.find((s) => s.operation === operation)
-    setResolvedStage(stage ?? null)
+    const stageId = e.target.value
+    const stage = prdStages.find((s) => String(s.id) === String(stageId)) ?? null
+    setHeader((f) => ({ ...f, stage_id: stage ? String(stage.id) : '', operation: stage?.operation ?? '' }))
+    setResolvedStage(stage)
   }
 
   // Before a machine is chosen, every stage on the route is a valid choice
@@ -183,7 +187,7 @@ export default function QualityInspectionScreen({ role }) {
   // product, the list is deliberately empty (see noEligibleForMachine
   // below) rather than silently offering stages it can't run.
   const machineChosen = !!header.machine_id
-  const operationOptions = machineChosen ? eligibleStages.map((s) => s.operation) : prdStages.map((s) => s.operation)
+  const operationOptions = (machineChosen ? eligibleStages : prdStages).map((s) => ({ value: String(s.id), label: stageLabel(s) }))
   const noEligibleForMachine = machineChosen && prdStages.length > 0 && eligibleStages.length === 0
 
   function resetHeader() {
@@ -204,8 +208,10 @@ export default function QualityInspectionScreen({ role }) {
     try {
       const params = await listQualityParameters()
       // Chosen machine's parameters, else the planned machine's (substitute machine).
-      const { params: matching, note } = qualityParamsForMachine({
+      // Exact machine + its category (exact wins per parameter name), else the planned machine's.
+      const { params: matching, note } = qualityParamsForStage({
         params,
+        machines,
         partSerialNumber: selectedOrder?.part_serial_number,
         operation: header.operation,
         chosenId: header.machine_id,
@@ -389,7 +395,7 @@ export default function QualityInspectionScreen({ role }) {
             </Field>
             <Field label="Type of Operation" required>
               <SearchableSelect
-                value={header.operation}
+                value={header.stage_id}
                 onChange={handleOperationChange}
                 disabled={!header.prd_no}
                 options={operationOptions}
@@ -428,8 +434,12 @@ export default function QualityInspectionScreen({ role }) {
             )}
             {readingRows.length === 0 ? (
               <div className="p-4 text-xs text-gray-500">
-                No quality parameters are defined for product "{selectedOrder?.part_serial_number}" on machine "
-                {header.machine_id}". Add them in Quality Master before an inspection can be logged here.
+                {noParamsMessage({
+                  partSerialNumber: selectedOrder?.part_serial_number,
+                  operation: header.operation,
+                  machineId: header.machine_id,
+                  category: machineCategoryOf(machines, header.machine_id),
+                })}
               </div>
             ) : (
               <div className="overflow-x-auto">

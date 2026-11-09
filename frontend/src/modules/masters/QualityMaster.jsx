@@ -12,7 +12,9 @@ import {
   createQualityParameter,
   updateQualityParameter,
   deleteQualityParameter,
+  qualityCategorySupported,
 } from '../../data/queries/qualityParameters'
+import { categoryOptions, operationsForTarget, appliesToLabel, isCategoryRow, normCategory } from '../../utils/qualityMatch'
 import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
@@ -24,6 +26,8 @@ import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 const EMPTY_FORM = {
   id: '',
   part_serial_number: '',
+  applies_to: 'category', // 'category' | 'machine' (044; before it always 'machine')
+  machine_category: '',
   machine_id: '',
   type_of_operation: '',
   quality_parameter: '',
@@ -38,7 +42,7 @@ const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_name', label: 'Part Name' },
   { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
-  { key: 'machine_label', label: 'Machine' },
+  { key: 'machine_label', label: 'Applies To' },
   { key: 'type_of_operation', label: 'Type of Operation' },
   { key: 'quality_parameter', label: 'Quality Parameter' },
   { key: 'standard', label: 'Standard' },
@@ -47,6 +51,22 @@ const LIST_COLUMNS = [
   { key: 'unit_of_measurement', label: 'UoM' },
   { key: 'remarks', label: 'Remarks' },
 ]
+
+/** Same part + operation + target (machine or category) + parameter name already saved. */
+export function duplicateParameter(records, form, byCategory) {
+  const name = form.quality_parameter.trim().toLowerCase()
+  const clash = records.find((r) =>
+    String(r.id) !== String(form.id || '') &&
+    r.part_serial_number === form.part_serial_number &&
+    (r.type_of_operation ?? '') === form.type_of_operation &&
+    String(r.quality_parameter ?? '').trim().toLowerCase() === name &&
+    (byCategory
+      ? isCategoryRow(r) && normCategory(r.machine_category) === normCategory(form.machine_category)
+      : r.machine_id === form.machine_id))
+  if (!clash) return null
+  const where = byCategory ? `${form.machine_category.trim()} (all)` : form.machine_id
+  return `${String(clash.quality_parameter).trim()} is already defined for ${form.part_serial_number} – ${form.type_of_operation} on ${where} -- edit it instead.`
+}
 
 function inputValue(value) {
   return value ?? ''
@@ -65,6 +85,15 @@ export default function QualityMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  // 044 run? null = not known yet (treated as "no": the old form).
+  const [categoryOn, setCategoryOn] = useState(null)
+  const byCategory = !!categoryOn && form.applies_to === 'category'
+
+  useEffect(() => {
+    let active = true
+    qualityCategorySupported().then((ok) => { if (active) setCategoryOn(ok) })
+    return () => { active = false }
+  }, [])
 
   async function refresh() {
     setLoading(true)
@@ -92,10 +121,14 @@ export default function QualityMaster() {
   }, [])
 
   const selectedProduct = products.find((product) => product.part_serial_number === form.part_serial_number)
-  const operations = [...new Set(cycleTimes
-    .filter((row) => row.part_serial_number === form.part_serial_number && row.machine_id === form.machine_id)
-    .map((row) => row.operation)
-    .filter(Boolean))]
+  const operations = operationsForTarget({
+    cycleTimes,
+    machines,
+    partSerialNumber: form.part_serial_number,
+    machineId: byCategory ? '' : form.machine_id,
+    category: byCategory ? form.machine_category : '',
+  })
+  const categories = categoryOptions(machines)
   const parameterSuggestions = [...new Set(records.map((row) => row.quality_parameter).filter(Boolean))]
   const displayRecords = useMemo(() => records.map((row) => {
     const product = products.find((p) => p.part_serial_number === row.part_serial_number)
@@ -104,9 +137,10 @@ export default function QualityMaster() {
     part_name: product?.part_name ?? '',
     part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
     unit_of_measurement: product?.unit_of_measurement ?? '',
-    machine_label: machines.find((machine) => machine.machine_id === row.machine_id)
-      ? machineOptionLabel(machines.find((machine) => machine.machine_id === row.machine_id))
-      : row.machine_id ?? '',
+    machine_label: appliesToLabel(row, (id) => {
+      const m = machines.find((machine) => machine.machine_id === id)
+      return m ? machineOptionLabel(m) : id
+    }),
     }
   }), [records, products, machines])
 
@@ -122,6 +156,14 @@ export default function QualityMaster() {
     setForm((current) => ({ ...current, machine_id: e.target.value, type_of_operation: '' }))
   }
 
+  function handleCategoryChange(e) {
+    setForm((current) => ({ ...current, machine_category: e.target.value, type_of_operation: '' }))
+  }
+
+  function handleAppliesTo(value) {
+    setForm((current) => ({ ...current, applies_to: value, machine_id: '', machine_category: '', type_of_operation: '' }))
+  }
+
   function handleNew() {
     setForm(EMPTY_FORM)
     setMode('new')
@@ -133,7 +175,11 @@ export default function QualityMaster() {
   }
 
   function handleRowClick(row) {
-    setForm({ ...EMPTY_FORM, ...Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value ?? ''])) })
+    setForm({
+      ...EMPTY_FORM,
+      ...Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value ?? ''])),
+      applies_to: isCategoryRow(row) ? 'category' : 'machine',
+    })
     setMode('view')
     setSaveError(null)
   }
@@ -144,8 +190,14 @@ export default function QualityMaster() {
   }
 
   async function handleSave() {
-    if (!form.part_serial_number || !form.machine_id || !form.type_of_operation || !form.quality_parameter.trim()) {
-      setSaveError('Part Serial Number, Machine, Type of Operation and Quality Parameter are required.')
+    const target = byCategory ? form.machine_category.trim() : form.machine_id
+    if (!form.part_serial_number || !target || !form.type_of_operation || !form.quality_parameter.trim()) {
+      setSaveError(`Part Serial Number, ${byCategory ? 'Machine Category' : 'Machine'}, Type of Operation and Quality Parameter are required.`)
+      return
+    }
+    const duplicate = duplicateParameter(records, form, byCategory)
+    if (duplicate) {
+      setSaveError(duplicate)
       return
     }
     // Standard is required; a blank Upper/Lower Tolerance is saved as null
@@ -167,7 +219,8 @@ export default function QualityMaster() {
     try {
       const payload = {
         part_serial_number: form.part_serial_number,
-        machine_id: form.machine_id,
+        machine_id: byCategory ? null : form.machine_id,
+        ...(categoryOn ? { machine_category: byCategory ? form.machine_category.trim() : null } : {}),
         type_of_operation: form.type_of_operation,
         quality_parameter: form.quality_parameter.trim(),
         standard: toNumberOrNull(form.standard),
@@ -189,7 +242,7 @@ export default function QualityMaster() {
 
   function handleDelete() {
     if (!form.id) return
-    del.ask({ recordType: 'quality parameter', label: recordLabel(form.part_serial_number, `${form.quality_parameter}${form.machine_id ? ` (${form.machine_id})` : ''}`), run: doDelete })
+    del.ask({ recordType: 'quality parameter', label: recordLabel(form.part_serial_number, `${form.quality_parameter}${appliesToLabel(form) ? ` (${appliesToLabel(form)})` : ''}`), run: doDelete })
   }
 
   async function doDelete() {
@@ -249,9 +302,27 @@ export default function QualityMaster() {
           <Field label="Part Name"><AutoFillBox value={selectedProduct?.part_name} /></Field>
           <Field label="Part Drawing Number"><AutoFillBox value={selectedProduct?.part_drawing_reference_number} /></Field>
           <Field label="UoM"><AutoFillBox value={selectedProduct?.unit_of_measurement} /></Field>
-          <Field label="Machine" required>
-            <SearchableSelect value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
-          </Field>
+          {categoryOn && (
+            <Field label="Applies To" required>
+              <div className="flex items-center gap-4 h-8 text-xs" role="radiogroup" aria-label="Applies To">
+                {[['category', 'Machine Category'], ['machine', 'Specific Machine']].map(([value, label]) => (
+                  <label key={value} className="inline-flex items-center gap-1.5">
+                    <input type="radio" name="qm-applies-to" value={value} checked={form.applies_to === value} onChange={() => handleAppliesTo(value)} disabled={readOnly} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </Field>
+          )}
+          {byCategory ? (
+            <Field label="Machine Category" required>
+              <SearchableSelect value={form.machine_category} onChange={handleCategoryChange} disabled={readOnly} options={categories} />
+            </Field>
+          ) : (
+            <Field label="Machine" required>
+              <SearchableSelect value={form.machine_id} onChange={handleMachineChange} disabled={readOnly} options={machines.map((machine) => ({ value: machine.machine_id, label: machineOptionLabel(machine) }))} />
+            </Field>
+          )}
           <Field label="Type of Operation" required>
             <SearchableSelect value={form.type_of_operation} onChange={handleField('type_of_operation')} disabled={readOnly || operations.length === 0} options={operations} />
           </Field>
