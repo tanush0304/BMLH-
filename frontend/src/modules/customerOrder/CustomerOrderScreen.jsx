@@ -31,6 +31,9 @@ import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 import { ORDER_TYPES, DEFAULT_ORDER_TYPE, orderTypeProblem } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { defaultAddressId, deliverToOptions, deliverToProblem, deliveryIdOrNull, deliveryText } from '../../utils/deliveryAddress'
+import PoView from './PoView'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
+import { fmtQtyIn, poFromMode } from '../../utils/openPo'
 
 const EMPTY_FORM = {
   order_line_id: '',
@@ -54,6 +57,8 @@ const EMPTY_PO_HEADER = {
   po_date: '',
   delivery_terms: '',
   payment_terms: '',
+  valid_from: '',
+  valid_to: '',
 }
 
 const NEW_PART_VALUE = '__new__'
@@ -89,13 +94,17 @@ const LIST_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'order_type', label: 'Order Type' },
   { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
+  { key: 'line_status', label: 'Line Status', type: 'status', needsOpenPo: true },
+  { key: 'planned_text', label: 'Planned', needsOpenPo: true },
+  { key: 'despatched_text', label: 'Despatched', needsOpenPo: true },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
 
 // Typed columns on a "customer orders" row -- blank optional ones go as null.
 const ORDER_LINE_TYPES = { numeric: ['order_qty'], date: ['po_date', 'expected_delivery'] }
 
-export default function CustomerOrderScreen() {
+// initialMode "po:<id>" (bell: PO validity ended) opens that PO's view.
+export default function CustomerOrderScreen({ initialMode = null, role = null }) {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
   const [enquiries, setEnquiries] = useState([])
@@ -111,7 +120,11 @@ export default function CustomerOrderScreen() {
   // before this rework. 'new-po' is the new two-level flow -- its own form
   // state below, kept separate so it never cross-contaminates the
   // single-row form.
-  const [mode, setMode] = useState('new-po')
+  const [mode, setMode] = useState(poFromMode(initialMode) ? 'po' : 'new-po') // + 'po' (043 PO view)
+  const [poId, setPoId] = useState(poFromMode(initialMode))
+  // 043: annual / open PO (hidden until the column exists)
+  const [openPo, setOpenPo] = useState(false)
+  const [lineStatus, setLineStatus] = useState(new Map())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const fieldError = useFieldError(saveError, setSaveError)
@@ -120,7 +133,7 @@ export default function CustomerOrderScreen() {
   const [lineItems, setLineItems] = useState([emptyLineItem()])
   // 042: customer delivery addresses (hidden until the table exists)
   const delivery = useDeliveryAddresses()
-  const listColumns = LIST_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported)
+  const listColumns = LIST_COLUMNS.filter((c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo))
 
   async function refresh() {
     setLoading(true)
@@ -135,6 +148,9 @@ export default function CustomerOrderScreen() {
         listPoHeaders(),
       ])
       setPoHeaders(headers)
+      const supported = await openPoSupported()
+      setOpenPo(supported)
+      if (supported) setLineStatus(new Map((await listLineStatuses()).map((l) => [l.order_line_id, l])))
       setRecords(orders.map((o) => {
         const own = prdRows.filter((p) => p.order_line_id === o.order_line_id)
         const planned = own.reduce((a, p) => a + Number(p.prd_qty), 0)
@@ -201,6 +217,13 @@ export default function CustomerOrderScreen() {
   }
 
   function handleRowClick(row) {
+    // 043: a line of a PO opens the whole PO (validity, status, lines, add line)
+    if (openPo && row.parent_po_id != null) {
+      setPoId(row.parent_po_id)
+      setMode('po')
+      setSaveError(null)
+      return
+    }
     // Guard against a DB null overwriting EMPTY_FORM's '' default (would
     // otherwise make a controlled input briefly uncontrolled on load) --
     // e.g. an old order saved with a null qtn_no must still render/save
@@ -363,6 +386,10 @@ export default function CustomerOrderScreen() {
       fieldError.fail(`po.${missingHeader}`, 'Customer, PO Number and PO Date are required for the PO header.')
       return
     }
+    if (openPo && poHeader.valid_to && poHeader.valid_to < (poHeader.valid_from || poHeader.po_date)) {
+      fieldError.fail('po.valid_to', 'Valid To cannot be before Valid From.')
+      return
+    }
     const validLines = lineItems.filter((it) => it.partSerialNumber || it.isNewPart)
     if (validLines.length === 0) {
       fieldError.fail(lineItems[0] ? `line.${lineItems[0].key}.part` : null, 'At least one line item is required.')
@@ -412,6 +439,7 @@ export default function CustomerOrderScreen() {
         po_date: poHeader.po_date,
         delivery_terms: poHeader.delivery_terms || null,
         payment_terms: poHeader.payment_terms || null,
+        ...(openPo ? { valid_from: poHeader.valid_from || poHeader.po_date, valid_to: poHeader.valid_to || null } : {}),
       })
 
       // Sequential -- a newly typed part is created (and confirmed) before
@@ -496,6 +524,13 @@ export default function CustomerOrderScreen() {
     customer_name: customers.find((c) => c.customer_id === r.customer_id)?.customer_name ?? r.customer_id ?? '',
     part_drawing_reference_number: products.find((p) => p.part_serial_number === r.part_serial_number)?.part_drawing_reference_number ?? '',
     deliver_to: deliveryText(r, delivery.byId),
+    ...(openPo && lineStatus.get(r.order_line_id)
+      ? {
+          line_status: lineStatus.get(r.order_line_id).line_status,
+          planned_text: fmtQtyIn(lineStatus.get(r.order_line_id).planned_qty),
+          despatched_text: fmtQtyIn(lineStatus.get(r.order_line_id).despatched_qty),
+        }
+      : {}),
   })).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -527,7 +562,18 @@ export default function CustomerOrderScreen() {
           <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
-        {isNewPo ? (
+        {mode === 'po' && poId != null ? (
+          <PoView
+            key={poId}
+            poId={poId}
+            role={role}
+            customers={customers}
+            products={products}
+            delivery={delivery}
+            orderLines={records}
+            onChanged={refresh}
+          />
+        ) : isNewPo ? (
           <>
             <FormSection icon={FileStack} title="1. PO Header" subtitle="Once per real customer PO">
               <Field name="po.customer_id" label="Customer" required>
@@ -543,6 +589,16 @@ export default function CustomerOrderScreen() {
               <Field name="po.po_date" label="PO Date" required>
                 <TextInput type="date" value={poHeader.po_date} onChange={handlePoHeaderField('po_date')} />
               </Field>
+              {openPo && (
+                <>
+                  <Field name="po.valid_from" label="Valid From">
+                    <TextInput type="date" value={poHeader.valid_from} onChange={handlePoHeaderField('valid_from')} placeholder="= PO Date" />
+                  </Field>
+                  <Field name="po.valid_to" label="Valid To">
+                    <TextInput type="date" value={poHeader.valid_to} onChange={handlePoHeaderField('valid_to')} />
+                  </Field>
+                </>
+              )}
               <Field label="Delivery Terms">
                 <SelectWithAddNew
                   value={poHeader.delivery_terms ?? ''}

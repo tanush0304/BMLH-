@@ -161,7 +161,9 @@ export default function CustomerMaster() {
       searchFields={['customer_id', 'customer_name']}
       api={{ list: listCustomers, create: createCustomer, update: updateCustomer, remove: deleteCustomer }}
       exportFilename="customer_master.csv"
-      renderAfterSections={({ form, mode }) => <DeliveryAddressesSection customerId={form.customer_id} mode={mode} />}
+      renderAfterSections={({ form, mode, nextNumber }) => (
+        <DeliveryAddressesSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber} />
+      )}
     />
   )
 }

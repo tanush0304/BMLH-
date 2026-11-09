@@ -9,7 +9,10 @@ import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listOrdersByPoDate, listFgTransactionsUpTo, getPoDateBounds } from '../../data/queries/reports'
-import { listProductionOrders } from '../../data/queries/customerOrders'
+import { listProductionOrders, listCustomerOrders } from '../../data/queries/customerOrders'
+import { listPoHeaders } from '../../data/queries/customerPoHeaders'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
+import { reportLineIncluded, poStatusCounts } from '../../utils/openPo'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
@@ -20,7 +23,7 @@ import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText, deliveryOptionLabel } from '../../utils/deliveryAddress'
 import Banner from '../../components/Banner'
 
-const STATUS_TONES = { Closed: 'green', Open: 'red' }
+const STATUS_TONES = { Closed: 'green', Open: 'red', Cancelled: 'slate' }
 
 /**
  * Customer Order Status Dashboard: order lines with PO date in the period,
@@ -37,6 +40,9 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
   const [prdRows, setPrdRows] = useState([])
+  // 043: line status from the view; PO counts by the header's po_status
+  const [openPo, setOpenPo] = useState(false)
+  const [headers, setHeaders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
@@ -51,9 +57,22 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    Promise.all([listOrdersByPoDate(r.applied), listFgTransactionsUpTo(r.applied.to), listProductionOrders()])
-      .then(([o, fg, prds]) => {
+    // 043: lines dated in the period + every line still Open dated up to To
+    // (an annual PO never drops out while open); before 043: PO date only.
+    const loadLines = async () => {
+      if (!(await openPoSupported())) return { lines: await listOrdersByPoDate(r.applied), heads: [], supported: false }
+      const [all, statuses, heads] = await Promise.all([listCustomerOrders(), listLineStatuses(), listPoHeaders()])
+      const st = new Map(statuses.map((x) => [x.order_line_id, x.line_status]))
+      const lines = all
+        .map((l) => ({ ...l, line_status: st.get(l.order_line_id) ?? 'Open' }))
+        .filter((l) => reportLineIncluded(l, r.applied))
+      return { lines, heads, supported: true }
+    }
+    Promise.all([loadLines(), listFgTransactionsUpTo(r.applied.to), listProductionOrders()])
+      .then(([{ lines: o, heads, supported }, fg, prds]) => {
         if (cancelled) return
+        setOpenPo(supported)
+        setHeaders(heads)
         setOrders(o)
         setPrdRows(prds)
         setDispatches(fg.filter((t) => t.transaction_type === 'Dispatch'))
@@ -85,6 +104,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         part_name: p?.part_name ?? '',
         drawing: p?.part_drawing_reference_number ?? '',
         deliver_to: deliveryText(l, delivery.byId),
+        ...(l.line_status ? { status: l.line_status } : {}),
       }
     })
   }, [orders, dispatches, prdRows, r.applied.customerId, r.applied.orderType, r.applied.deliveryAddressId, customerName, productBySerial, delivery.supported, delivery.byId])
@@ -103,10 +123,13 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     return () => { cancelled = true }
   }, [isEmpty, r.applied.customerId])
 
-  const po = useMemo(() => poSummary(lines), [lines])
-  const totalQty = lines.reduce((a, l) => a + l.order_qty, 0)
-  const totalDispatched = lines.reduce((a, l) => a + l.dispatched, 0)
-  const monthly = useMemo(() => monthlyPoVsDispatch(lines, dispatches, monthsBetween(r.applied.from, r.applied.to)), [lines, dispatches, r.applied])
+  // 043: Cancelled lines are listed but left out of qty totals / open counts;
+  // Open / Closed POs follow the header's own po_status.
+  const liveLines = useMemo(() => lines.filter((l) => l.status !== 'Cancelled'), [lines])
+  const po = useMemo(() => (openPo ? poStatusCounts(headers, lines) : poSummary(lines)), [openPo, headers, lines])
+  const totalQty = liveLines.reduce((a, l) => a + l.order_qty, 0)
+  const totalDispatched = liveLines.reduce((a, l) => a + l.dispatched, 0)
+  const monthly = useMemo(() => monthlyPoVsDispatch(liveLines, dispatches, monthsBetween(r.applied.from, r.applied.to)), [liveLines, dispatches, r.applied])
 
   const donut = [
     { key: 'closed', label: 'Closed', value: po.closedQty, color: CHART_COLORS.green },
@@ -169,7 +192,14 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         {error && <Banner tone="error" message={error} />}
 
         <KpiCardRow columns={5}>
-          <KpiCard label="Total POs" value={formatQty(po.total)} icon={FileText} tone="blue" loading={loading} />
+          <KpiCard
+            label="Total POs"
+            value={formatQty(po.total)}
+            sub={openPo ? `Lines: ${po.openLines} open · ${po.closedLines} closed · ${po.cancelledLines} cancelled` : undefined}
+            icon={FileText}
+            tone="blue"
+            loading={loading}
+          />
           <KpiCard label="Total PO Quantity" value={formatQty(totalQty)} unit="Nos" icon={Package} tone="green" loading={loading} />
           <KpiCard label="Total Quantity Despatched" value={formatQty(totalDispatched)} unit="Nos" icon={Truck} tone="orange" loading={loading} />
           <KpiCard label="Open POs" value={formatQty(po.open)} sub={`PO Qty: ${formatQty(po.openQty)} Nos`} icon={BarChart3} tone="purple" loading={loading} />

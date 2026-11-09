@@ -11,7 +11,7 @@ const TABS = [
 
 // Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
 // 'customer-order' subItems) -- this just maps the active key to a screen.
-export default function CustomerOrderModule({ activeTab, onSelect }) {
+export default function CustomerOrderModule({ activeTab, activeMode, role, onSelect }) {
   // No screen selected (module clicked in the sidebar / main menu): landing tiles.
   if (!activeTab) {
     return (
@@ -24,5 +24,6 @@ export default function CustomerOrderModule({ activeTab, onSelect }) {
   }
   const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
-  return <Screen />
+  // New Order takes the bell's "po:<id>" mode (open that PO) and the role (043 actions).
+  return <Screen initialMode={activeMode} role={role} />
 }

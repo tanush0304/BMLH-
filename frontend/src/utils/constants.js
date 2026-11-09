@@ -161,6 +161,7 @@ export const STATUS_COLORS = {
   'Action Pending': 'bg-orange-100 text-orange-800',
   Resolved: 'bg-teal-100 text-teal-800',
   Closed: 'bg-gray-100 text-gray-700',
+  Cancelled: 'bg-red-50 text-red-700',
   Approved: 'bg-green-100 text-green-800',
   Rejected: 'bg-red-100 text-red-800',
   'No entry': 'bg-gray-100 text-gray-600',

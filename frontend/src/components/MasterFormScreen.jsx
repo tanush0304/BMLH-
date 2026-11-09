@@ -51,7 +51,7 @@ export default function MasterFormScreen({
   exportFilename,
   recordType = 'record', // "Delete <recordType>?" in the confirm dialog
   nameField, // shown after the key: "CUST-001 – Acme Components"
-  renderAfterSections, // optional ({ form, mode }) => extra card(s) under the sections (own save)
+  renderAfterSections, // optional ({ form, mode, nextNumber }) => extra card(s) under the sections (own save); nextNumber = sections.length + 1
 }) {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
@@ -269,7 +269,7 @@ export default function MasterFormScreen({
           ))}
         </div>
 
-        {renderAfterSections?.({ form, mode })}
+        {renderAfterSections?.({ form, mode, nextNumber: sections.length + 1 })}
 
         <RecordsList
           title={`${title} List`}

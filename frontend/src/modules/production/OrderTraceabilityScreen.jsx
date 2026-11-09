@@ -14,6 +14,8 @@ import { stageLabel } from '../../utils/stageLabel'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 import usePartForPrd from '../../utils/usePartForPrd'
+import StatusPill from '../../components/StatusPill'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
 
 // One row per DC -- a stage split across two vendors shows two rows.
 const DC_COLUMNS = [
@@ -37,6 +39,21 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
   const [dcRows, setDcRows] = useState([])
   const [vendors, setVendors] = useState([])
   const part = usePartForPrd(prdNo) // Order Type + Deliver To of the PRD's PO line
+  // 043: the PO line's status (Open / Closed by despatch / Cancelled)
+  const [lineStatus, setLineStatus] = useState(null)
+  useEffect(() => {
+    let active = true
+    setLineStatus(null)
+    if (!part.order_line_id) return undefined
+    openPoSupported().then(async (ok) => {
+      if (!ok) return
+      const rows = await listLineStatuses().catch(() => [])
+      if (active) setLineStatus(rows.find((x) => x.order_line_id === part.order_line_id) ?? null)
+    })
+    return () => {
+      active = false
+    }
+  }, [part.order_line_id])
 
   useEffect(() => {
     async function load() {
@@ -85,6 +102,13 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
             <SearchableSelect value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
           </Field>
           {prdNo && <OrderLineFields part={part} />}
+          {prdNo && lineStatus && (
+            <Field label="PO Line Status" width="short">
+              <div className="flex h-[30px] items-center" title={lineStatus.cancel_reason ?? undefined}>
+                <StatusPill status={lineStatus.line_status} />
+              </div>
+            </Field>
+          )}
         </FormSection>
 
         {prdNo && <StageTraceTable prdNo={prdNo} onRowsChange={(columns, rows) => setTrace({ columns, rows })} />}

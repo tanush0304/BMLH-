@@ -135,7 +135,7 @@ function App() {
   if (restricted) content = <ComingSoon title={NAV_ITEMS.find((item) => item.key === activeKey).label} subtitle="Supervisor or admin access required." />
   else if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} activeMode={activeMode} role={role} onOpenScreen={(subKey, mode) => handleSelectSub('dashboard', subKey, mode)} />
   else if (activeKey === 'masters') content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
-  else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
+  else if (activeKey === 'customer-order') content = <CustomerOrderModule key={`${activeSubKey}-${activeMode ?? ''}`} activeTab={activeSubKey} activeMode={activeMode} role={role} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
   else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('production', subKey)} />
   else if (activeKey === 'quality') content = (
       <QualityModule

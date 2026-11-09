@@ -20,7 +20,8 @@ import { dbErrorMessage } from '../../utils/dbErrors'
 // Customer Master section "Delivery Addresses" (042): many per customer,
 // one default, Deactivate instead of Delete. Hidden before 042 is run.
 // Has its own Save -- the master's toolbar Save never touches it.
-export default function DeliveryAddressesSection({ customerId, mode }) {
+// sectionNumber: its position after the master's own sections (badge number).
+export default function DeliveryAddressesSection({ customerId, mode, sectionNumber }) {
   const [supported, setSupported] = useState(false)
   const [all, setAll] = useState([])
   const [editing, setEditing] = useState(null) // null | { id?: number, ...form }
@@ -129,7 +130,7 @@ export default function DeliveryAddressesSection({ customerId, mode }) {
     <FieldErrorProvider value={fieldError}>
       {error && <Banner tone="error" message={error} onClose={() => setError(null)} />}
       {notice && <Banner tone="success" message={notice} onClose={() => setNotice(null)} />}
-      <FormSection icon={Truck} title="Delivery Addresses" subtitle="Where goods are shipped -- one is picked per PO line (Deliver To)" columns={1}>
+      <FormSection icon={Truck} title={sectionNumber ? `${sectionNumber}. Delivery Addresses` : 'Delivery Addresses'} subtitle="Where goods are shipped -- one is picked per PO line (Deliver To)" columns={1}>
         <div className="basis-full w-full space-y-2" data-testid="delivery-addresses">
           {!saved ? (
             <p className="text-xs text-gray-500">Save the customer first, then add its delivery addresses here.</p>

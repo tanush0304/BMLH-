@@ -19,6 +19,9 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { isLabourOrder, LABOUR_ORDER_NOTE } from '../../utils/orderType'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
+import { planningLineAllowed, poExpired } from '../../utils/openPo'
+import { formatLocalISODate } from '../../utils/dates'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText, deliveryForLine, deliveryAddressLines } from '../../utils/deliveryAddress'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
@@ -98,7 +101,14 @@ export default function ProductionPlanningScreen() {
       listRawMaterialStockBalance(),
       listRawMaterials(),
     ])
-    setLines(lineRows)
+    // 043: only Open lines of Open POs (Closed by despatch / Cancelled / PO closed are left out)
+    let plannable = lineRows
+    if (await openPoSupported()) {
+      const status = new Map((await listLineStatuses()).map((l) => [l.order_line_id, l.line_status]))
+      const headerById = new Map(poHeaderRows.map((h) => [h.id, h]))
+      plannable = lineRows.filter((l) => planningLineAllowed(status.get(l.order_line_id) ?? 'Open', headerById.get(l.parent_po_id)))
+    }
+    setLines(plannable)
     setPoHeaders(poHeaderRows)
     setPlans(planRows)
     setBatchMaster(batchRows)
@@ -114,6 +124,8 @@ export default function ProductionPlanningScreen() {
   }, [])
 
   const selectedLine = lines.find((l) => String(l.order_line_id) === String(form.line_id))
+  const selectedHeader = poHeaders.find((h) => String(h.id) === String(form.po_key))
+  const selectedPoExpired = poExpired(selectedHeader, formatLocalISODate(new Date()))
   const selectedCustomer = customers.find((c) => c.customer_id === selectedLine?.customer_id)
   const selectedProduct = products.find((p) => p.part_serial_number === selectedLine?.part_serial_number)
   const masterBatchSize = masterBatchSizeFor(batchMaster, selectedLine?.part_serial_number)
@@ -346,6 +358,11 @@ export default function ProductionPlanningScreen() {
           <Field label="Total Units Can Be Produced">
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
+          {selectedPoExpired && (
+            <p className="col-span-full rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" role="status">
+              PO {selectedHeader.po_number} validity ended on {selectedHeader.valid_to} -- planning is still allowed.
+            </p>
+          )}
           {labourOrder && (
             <p className="col-span-full text-xs text-sky-700" role="note">
               {LABOUR_ORDER_NOTE}
