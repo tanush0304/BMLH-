@@ -66,6 +66,8 @@ export async function listProductionPlans() {
       order_qty: order?.order_qty ?? '',
       prd_qty: order?.prd_qty ?? '',
       expected_delivery: order?.expected_delivery ?? '',
+      order_type: order?.order_type ?? '',
+      delivery_address_id: order?.delivery_address_id ?? null,
       status: derivePlanStatus(stages),
       // Cancel is only offered (and only accepted by the database) while
       // nothing has started -- every stage still Pending.

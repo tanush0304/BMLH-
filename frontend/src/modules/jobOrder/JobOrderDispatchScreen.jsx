@@ -66,6 +66,7 @@ export function mergeDispatchRows(statusRows, tableRows) {
 }
 import { stageBackText } from '../../utils/reportOrders'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
@@ -428,6 +429,7 @@ export default function JobOrderDispatchScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>

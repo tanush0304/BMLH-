@@ -11,3 +11,12 @@ export const LABOUR_ORDER_NOTE = 'Labour order: no RM stock check'
 export function isLabourOrder(line) {
   return String(line?.order_type ?? '').trim().toLowerCase() === 'labour'
 }
+
+// PO line Order Type (Phase C): required, default Manufacturing.
+export const ORDER_TYPES = ['Labour', 'Manufacturing']
+export const DEFAULT_ORDER_TYPE = 'Manufacturing'
+export const ORDER_TYPE_REQUIRED = 'Order Type is required.'
+export function orderTypeProblem(value) {
+  const v = String(value ?? '').trim()
+  return ORDER_TYPES.includes(v) ? null : ORDER_TYPE_REQUIRED
+}

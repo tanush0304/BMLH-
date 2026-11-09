@@ -14,7 +14,10 @@ import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
 import { formatLocalISODate } from '../../utils/dates'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessage } from '../../utils/reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessage, filterOrderLines } from '../../utils/reportOrders'
+import { ORDER_TYPES } from '../../utils/orderType'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { deliveryText, deliveryOptionLabel } from '../../utils/deliveryAddress'
 import Banner from '../../components/Banner'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red' }
@@ -28,7 +31,7 @@ const STATUS_TONES = { Closed: 'green', Open: 'red' }
  */
 export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const chartType = useChartType()
-  const r = useReportPeriod({ customerId: '' }, { defaultPeriod: 'thisFY' })
+  const r = useReportPeriod({ customerId: '', orderType: '', deliveryAddressId: '' }, { defaultPeriod: 'thisFY' })
   const [orders, setOrders] = useState([])
   const [dispatches, setDispatches] = useState([])
   const [customers, setCustomers] = useState([])
@@ -36,6 +39,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const [prdRows, setPrdRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
 
   useEffect(() => {
     Promise.all([listCustomers(), listProducts()])
@@ -69,11 +73,21 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     // 030: a PO line's PRDs (one per batch); dispatched = sum over them.
     const prdsByLine = new Map()
     for (const p of prdRows) prdsByLine.set(p.order_line_id, [...(prdsByLine.get(p.order_line_id) ?? []), p.prd_no].sort())
-    return orderLines(scoped, dispatched, prdsByLine).map((l) => {
-      const p = productBySerial.get(l.part_serial_number)
-      return { ...l, customer_name: customerName.get(l.customer_id) ?? l.customer_id, part_name: p?.part_name ?? '', drawing: p?.part_drawing_reference_number ?? '' }
+    const filtered = filterOrderLines(scoped, {
+      orderType: r.applied.orderType,
+      deliveryAddressId: delivery.supported ? r.applied.deliveryAddressId : '',
     })
-  }, [orders, dispatches, prdRows, r.applied.customerId, customerName, productBySerial])
+    return orderLines(filtered, dispatched, prdsByLine).map((l) => {
+      const p = productBySerial.get(l.part_serial_number)
+      return {
+        ...l,
+        customer_name: customerName.get(l.customer_id) ?? l.customer_id,
+        part_name: p?.part_name ?? '',
+        drawing: p?.part_drawing_reference_number ?? '',
+        deliver_to: deliveryText(l, delivery.byId),
+      }
+    })
+  }, [orders, dispatches, prdRows, r.applied.customerId, r.applied.orderType, r.applied.deliveryAddressId, customerName, productBySerial, delivery.supported, delivery.byId])
 
   // Empty period: say where the POs are (latest) and offer "Show all POs"
   // (From = earliest PO date, To = today). Bounds are read only when the state shows.
@@ -105,6 +119,8 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     { key: 'part_serial_number', label: 'Part Sl No' },
     { key: 'part_name', label: 'Part Name' },
     { key: 'drawing', label: 'Drawing Ref No' },
+    { key: 'order_type', label: 'Order Type' },
+    ...(delivery.supported ? [{ key: 'deliver_to', label: 'Deliver To', render: (row) => <span className="block max-w-[180px] truncate" title={row.deliver_to}>{row.deliver_to}</span> }] : []),
     { key: 'order_qty', label: 'PO Qty (Nos)', align: 'right', format: formatQty },
     { key: 'prd_list', label: 'PRDs', format: (v) => v || 'Not planned' },
     { key: 'dispatched', label: 'Quantity Despatched (Nos)', align: 'right', format: formatQty },
@@ -134,7 +150,21 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[{ key: 'customer', label: 'Customer', value: r.filters.customerId, onChange: r.setFilter('customerId'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) }]}
+          filters={[
+            { key: 'customer', label: 'Customer', value: r.filters.customerId, onChange: r.setFilter('customerId'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
+            { key: 'orderType', label: 'Order Type', value: r.filters.orderType, onChange: r.setFilter('orderType'), options: ORDER_TYPES.map((t) => ({ value: t, label: t })) },
+            ...(delivery.supported
+              ? [{
+                  key: 'deliverTo',
+                  label: 'Deliver To',
+                  value: r.filters.deliveryAddressId,
+                  onChange: r.setFilter('deliveryAddressId'),
+                  options: delivery.addresses
+                    .filter((a) => !r.filters.customerId || a.customer_id === r.filters.customerId)
+                    .map((a) => ({ value: String(a.id), label: `${customerName.get(a.customer_id) ?? a.customer_id} – ${deliveryOptionLabel(a)}` })),
+                }]
+              : []),
+          ]}
         />
         {error && <Banner tone="error" message={error} />}
 

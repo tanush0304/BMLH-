@@ -44,6 +44,8 @@ import { dbErrorMessage } from '../../utils/dbErrors'
 import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
+import { orderLineSuffix } from '../../utils/deliveryAddress'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -428,6 +430,7 @@ export default function ManualOperationsScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
@@ -448,6 +451,7 @@ export default function ManualOperationsScreen({ role }) {
               <span>
                 <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
                   {runningBanner({ stage: resolvedStage })}
+                  {orderLineSuffix(part)}
                 </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · started{' '}
                 {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD and Stage are

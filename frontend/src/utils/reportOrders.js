@@ -163,3 +163,13 @@ export function stageBackText(stage) {
   if (!stage || num(stage.dc_count) === 0) return 'Not sent'
   return `${num(stage.received_qty).toLocaleString('en-IN')} of ${num(stage.sent_qty).toLocaleString('en-IN')} back`
 }
+
+// Phase C filters on PO lines: Order Type (exact, trimmed) and Deliver To
+// (delivery address id; '' = any). Applied before KPIs / charts / table.
+export function filterOrderLines(lines, { orderType = '', deliveryAddressId = '' } = {}) {
+  return (lines ?? []).filter((l) => {
+    if (orderType && String(l.order_type ?? '').trim() !== orderType) return false
+    if (deliveryAddressId !== '' && deliveryAddressId != null && String(l.delivery_address_id ?? '') !== String(deliveryAddressId)) return false
+    return true
+  })
+}

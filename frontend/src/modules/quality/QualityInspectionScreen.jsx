@@ -32,6 +32,7 @@ import { MACHINE_CHOICE_MODE } from '../../utils/constants'
 import { listAllMachineOperations } from '../../data/queries/machineOperations'
 import { supabase } from '../../lib/supabaseClient'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
 
 const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', operation: '' }
 
@@ -375,6 +376,7 @@ export default function QualityInspectionScreen({ role }) {
             <Field label="Part Name">
               <AutoFillBox value={part.part_name} />
             </Field>
+            <OrderLineFields part={part} />
             <Field label="Part Drawing Number">
               <AutoFillBox value={part.part_drawing_reference_number} />
             </Field>

@@ -12,6 +12,8 @@ import { listJobOrderStatus } from '../../data/queries/jobOrders'
 import { listVendors } from '../../data/queries/vendors'
 import { stageLabel } from '../../utils/stageLabel'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
+import usePartForPrd from '../../utils/usePartForPrd'
 
 // One row per DC -- a stage split across two vendors shows two rows.
 const DC_COLUMNS = [
@@ -34,6 +36,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
   const [trace, setTrace] = useState({ columns: [], rows: [] })
   const [dcRows, setDcRows] = useState([])
   const [vendors, setVendors] = useState([])
+  const part = usePartForPrd(prdNo) // Order Type + Deliver To of the PRD's PO line
 
   useEffect(() => {
     async function load() {
@@ -81,6 +84,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
           <Field label="Production Order (PRD No)">
             <SearchableSelect value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
           </Field>
+          {prdNo && <OrderLineFields part={part} />}
         </FormSection>
 
         {prdNo && <StageTraceTable prdNo={prdNo} onRowsChange={(columns, rows) => setTrace({ columns, rows })} />}

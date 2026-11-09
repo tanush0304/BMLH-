@@ -56,6 +56,8 @@ import Banner from '../../components/Banner'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import DailyChecklistGate from '../../components/DailyChecklistGate'
 import { gateApplies, gateAllowsStart } from '../../utils/dailyChecklist'
+import OrderLineFields from '../../components/OrderLineFields'
+import { orderLineSuffix } from '../../utils/deliveryAddress'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -642,6 +644,7 @@ export default function ProductionDataEntryScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
@@ -673,6 +676,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <span>
                 <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
                   {runningBanner({ stage: resolvedStage, machineLabel: actualMachineText(activeLog.machine_id) })}
+                  {orderLineSuffix(part)}
                 </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · Machine{' '}
                 <strong>{machineLabels[activeLog.machine_id] ?? activeLog.machine_id}</strong> · started{' '}

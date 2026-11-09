@@ -5,6 +5,8 @@ import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import RecordsList from '../../components/RecordsList'
 import { listPoSummary, listOrdersForPoHeader } from '../../data/queries/customerPoHeaders'
 import Banner from '../../components/Banner'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { deliveryText } from '../../utils/deliveryAddress'
 
 const PO_COLUMNS = [
   { key: 'po_number', label: 'PO Number' },
@@ -18,6 +20,7 @@ const LINE_COLUMNS = [
   { key: 'prd_no', label: 'PRDs' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_type', label: 'Order Type' },
+  { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
@@ -38,6 +41,9 @@ export default function CustomerPoSummaryScreen() {
   const [expandedId, setExpandedId] = useState(null)
   const [lineItems, setLineItems] = useState([])
   const [lineLoading, setLineLoading] = useState(false)
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const lineColumns = LINE_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported)
+  const lineRows = lineItems.map((l) => ({ ...l, deliver_to: deliveryText(l, delivery.byId) }))
 
   async function refresh() {
     setLoading(true)
@@ -104,8 +110,8 @@ export default function CustomerPoSummaryScreen() {
         {expandedId && (
           <RecordsList
             title={`Line Items -- PO Header #${expandedId}`}
-            columns={LINE_COLUMNS}
-            rows={lineItems}
+            columns={lineColumns}
+            rows={lineRows}
             loading={lineLoading}
             error={null}
             rowKey="order_line_id"

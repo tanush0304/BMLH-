@@ -22,6 +22,7 @@ import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '..
 import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -257,6 +258,7 @@ export default function WipIssueScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>

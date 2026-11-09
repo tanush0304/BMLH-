@@ -1,6 +1,7 @@
 import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import DeliveryAddressesSection from './DeliveryAddressesSection'
 import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import {
   listCustomers,
@@ -160,6 +161,7 @@ export default function CustomerMaster() {
       searchFields={['customer_id', 'customer_name']}
       api={{ list: listCustomers, create: createCustomer, update: updateCustomer, remove: deleteCustomer }}
       exportFilename="customer_master.csv"
+      renderAfterSections={({ form, mode }) => <DeliveryAddressesSection customerId={form.customer_id} mode={mode} />}
     />
   )
 }

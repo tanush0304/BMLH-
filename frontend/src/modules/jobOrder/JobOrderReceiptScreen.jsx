@@ -26,6 +26,7 @@ import {
 } from '../../utils/jobwork'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
 
 // One row per receipt (JR number); a DC can have several since migration 031.
 const LIST_COLUMNS = [
@@ -308,6 +309,7 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>

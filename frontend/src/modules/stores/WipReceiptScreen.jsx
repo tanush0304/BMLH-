@@ -24,6 +24,7 @@ import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { stageAcceptedQty, wipReceiptAvailable, qtyOverLimitError } from '../../utils/qtyLimits'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -300,6 +301,7 @@ export default function WipReceiptScreen({ role }) {
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>

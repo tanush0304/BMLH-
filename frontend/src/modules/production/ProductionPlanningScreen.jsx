@@ -19,6 +19,8 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { isLabourOrder, LABOUR_ORDER_NOTE } from '../../utils/orderType'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { deliveryText, deliveryForLine, deliveryAddressLines } from '../../utils/deliveryAddress'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
@@ -36,6 +38,8 @@ const LIST_COLUMNS = [
   { key: 'part_name', label: 'Part Name' },
   { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'order_qty', label: 'PO Line Qty' },
+  { key: 'order_type', label: 'Order Type' },
+  { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
   { key: 'expected_delivery', label: 'Expected Delivery' },
   { key: 'available_rm_qty_snapshot', label: 'Available RM Qty', render: (r) => r.available_rm_qty_snapshot ?? 'Pending BOM' },
   { key: 'units_producible', label: 'Total Units Can Be Produced', render: (r) => r.units_producible ?? 'Pending BOM' },
@@ -78,6 +82,8 @@ export default function ProductionPlanningScreen() {
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
   const [viewedPrd, setViewedPrd] = useState(null)
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const listColumns = LIST_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported)
   const [routeCardPrd, setRouteCardPrd] = useState(null)
 
   async function refresh() {
@@ -263,7 +269,7 @@ export default function ProductionPlanningScreen() {
     }
   }
 
-  const filteredPlans = plans.filter((p) => {
+  const filteredPlans = plans.map((p) => ({ ...p, deliver_to: deliveryText(p, delivery.byId) })).filter((p) => {
     const q = search.trim().toLowerCase()
     if (!q) return true
     return [p.customer_order_no, p.jc_no, p.po_number, p.customer_name, p.part_name].some((v) => String(v ?? '').toLowerCase().includes(q))
@@ -285,8 +291,8 @@ export default function ProductionPlanningScreen() {
           handleReset()
           setSearch('')
         }}
-        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredPlans, 'production_planning.csv')}
-        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredPlans, 'Production Planning', 'production_planning')}
+        onExportExcel={() => exportToCsv(listColumns, filteredPlans, 'production_planning.csv')}
+        onExportPdf={() => exportToPdf(listColumns, filteredPlans, 'Production Planning', 'production_planning')}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -324,6 +330,16 @@ export default function ProductionPlanningScreen() {
           <Field label="Expected Date of Delivery">
             <AutoFillBox value={selectedLine?.expected_delivery ?? ''} />
           </Field>
+          <Field label="Order Type">
+            <AutoFillBox value={selectedLine?.order_type ?? ''} />
+          </Field>
+          {delivery.supported && (
+            <Field label="Deliver To">
+              <div title={deliveryAddressLines(deliveryForLine(selectedLine, delivery.byId)).join('\n') || undefined} className="min-w-0">
+                <AutoFillBox value={deliveryText(selectedLine, delivery.byId)} />
+              </div>
+            </Field>
+          )}
           <Field label="Available RM Qty Stock">
             <AutoFillBox value={availableRmQtyDisplay} unit={rmUnit} />
           </Field>
@@ -401,7 +417,7 @@ export default function ProductionPlanningScreen() {
         <RecordsList
           title="Production Planning List"
           columns={[
-            ...LIST_COLUMNS,
+            ...listColumns,
             {
               key: 'action',
               label: 'Action',

@@ -10,6 +10,8 @@ import { listJobOrderStatus } from '../data/queries/jobOrders'
 import { listMachines } from '../data/queries/machines'
 import { listLogsForPrd } from '../data/queries/productionLogs'
 import { orderLineProgress } from '../utils/batchSplit'
+import { deliveryAddressesSupported, listDeliveryAddresses } from '../data/queries/deliveryAddresses'
+import { addressMap, deliveryForLine, deliveryLabel } from '../utils/deliveryAddress'
 import {
   JOB_ROUTE_CARD_COLUMNS,
   TEMPLATE_COLUMNS,
@@ -21,6 +23,17 @@ import {
 } from '../utils/jobRouteCard'
 
 const TEMPLATE_KEYS = new Set(TEMPLATE_COLUMNS.map((c) => c.key))
+
+// 042: Deliver To for the header (hidden before 042; a failed read only blanks it).
+async function deliveryHeader(order) {
+  try {
+    if (!(await deliveryAddressesSupported())) return { deliver_to: '', deliver_to_supported: false }
+    const byId = addressMap(await listDeliveryAddresses())
+    return { deliver_to: deliveryLabel(deliveryForLine(order, byId)), deliver_to_supported: true }
+  } catch {
+    return { deliver_to: '', deliver_to_supported: true }
+  }
+}
 
 function InfoCell({ label, value }) {
   return (
@@ -52,6 +65,8 @@ export function JobRouteCardBody({ header, rows, blank = false }) {
         <InfoCell label="Part Serial Number" value={header.part_serial_number} />
         <InfoCell label="Part Name" value={header.part_name} />
         <InfoCell label="Drawing Reference Number" value={header.part_drawing_reference_number} />
+        <InfoCell label="Order Type" value={header.order_type} />
+        {header.deliver_to_supported && <InfoCell label="Deliver To" value={header.deliver_to} />}
       </div>
 
       <div className="mt-3 overflow-x-auto">
@@ -142,6 +157,8 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           // 030: PO line + which batch of it this PRD is
           po_number: order?.po_number ?? '',
           batch: order ? `Batch ${order.batch_no} (PO line: ${orderLineProgress(order)})` : '',
+          order_type: order?.order_type ?? '',
+          ...(await deliveryHeader(order)),
         })
         setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines, logs }))
       } catch (e) {

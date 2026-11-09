@@ -14,6 +14,9 @@ import { changePct, trendBuckets } from '../../utils/reportAggregates'
 import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, dailyMovement, topN, orderFulfilment } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { listCustomerOrders } from '../../data/queries/customerOrders'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { deliveryText } from '../../utils/deliveryAddress'
 
 const IN = 'Production Receipt'
 const OUT = 'Dispatch'
@@ -47,6 +50,15 @@ export default function FgInventoryScreen() {
   const [drawings, setDrawings] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const [lineById, setLineById] = useState(new Map()) // order_line_id -> PO line (delivery_address_id)
+
+  useEffect(() => {
+    if (!delivery.supported) return
+    listCustomerOrders()
+      .then((lines) => setLineById(new Map(lines.map((l) => [l.order_line_id, l]))))
+      .catch((e) => console.warn('PO lines not loaded for Deliver To', e))
+  }, [delivery.supported])
 
   useEffect(() => {
     Promise.all([listFgMasterRows(), listPartDrawingRefs()])
@@ -96,6 +108,8 @@ export default function FgInventoryScreen() {
         part_serial_number: fg.part_serial_number ?? '',
         part_name: fg.part_name ?? '',
         drawing: drawings.get(fg.part_serial_number) ?? '',
+        order_type: fg.order_type ?? '',
+        deliver_to: deliveryText(lineById.get(fg.order_line_id), delivery.byId),
         uom: fg.unit_of_measurement ?? '',
         opening: v.opening,
         receipts: v.receipts,
@@ -105,7 +119,7 @@ export default function FgInventoryScreen() {
       })
     }
     return out.sort((a, b) => a.prd_no.localeCompare(b.prd_no, undefined, { numeric: true }))
-  }, [txns, r.applied, prdsInScope, masterByPrd, drawings])
+  }, [txns, r.applied, prdsInScope, masterByPrd, drawings, lineById, delivery.byId])
 
   const cur = useMemo(() => windowTotals(txns, r.applied, prdsInScope), [txns, r.applied, prdsInScope])
   const prev = useMemo(() => windowTotals(txns, previousRange(r.applied), prdsInScope), [txns, r.applied, prdsInScope])
@@ -158,6 +172,8 @@ export default function FgInventoryScreen() {
     { key: 'part_name', label: 'Part Name' },
     { key: 'drawing', label: 'Part Drawing Ref No' },
     { key: 'uom', label: 'UOM' },
+    { key: 'order_type', label: 'Order Type' },
+    ...(delivery.supported ? [{ key: 'deliver_to', label: 'Deliver To', render: (row) => <span className="block max-w-[180px] truncate" title={row.deliver_to}>{row.deliver_to}</span> }] : []),
     { key: 'opening', label: 'Opening FG Stock Quantity', align: 'right', format: formatQty },
     { key: 'receipts', label: 'Receipt Quantity for Despatch', align: 'right', format: formatQty },
     { key: 'dispatched', label: 'Quantity Despatched', align: 'right', format: formatQty },
