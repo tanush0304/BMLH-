@@ -47,7 +47,7 @@ const LIST_COLUMNS = [
  * can Close Short an open DC with a reason (even with nothing received).
  * The database enforces the same rules (migration 031).
  */
-export default function JobOrderReceiptScreen({ role }) {
+export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
   const [dcRows, setDcRows] = useState([])
   const [receipts, setReceipts] = useState([])
   const [vendors, setVendors] = useState([])
@@ -99,6 +99,13 @@ export default function JobOrderReceiptScreen({ role }) {
   useEffect(() => {
     refresh()
   }, [])
+
+  // Opened from a "Needs attention" reminder: pick that DC once loaded (only
+  // if it is still open -- received / closed DCs are not in the picker).
+  useEffect(() => {
+    if (!initialDcNo || loading) return
+    if (dcRows.some((d) => d.is_open && d.dc_no === initialDcNo)) setDcNo(initialDcNo)
+  }, [initialDcNo, loading, dcRows])
 
   const vendorName = useMemo(() => new Map(vendors.map((v) => [v.vendor_id, v.vendor_name])), [vendors])
   const openDcs = dcRows.filter((d) => d.is_open)

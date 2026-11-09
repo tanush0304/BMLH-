@@ -148,7 +148,8 @@ export function orderFulfilment(master, txns, lineIds, { inType, outType }) {
 /** Raw Material Status filters on one RM (an RM Master row): every set
  * filter must match -- Supplier (one of its linked suppliers), RM Type, UOM,
  * RM Code. Blank filters are ignored. */
-export function rmMatchesFilters(rm, { supplier, rmType, uom, rmCode } = {}) {
+export function rmMatchesFilters(rm, { supplier, rmType, uom, rmCode, grade } = {}) {
+  if (grade && (rm.grade ?? '').trim() !== grade) return false
   if (supplier && !(rm.supplier_names ?? '').split(', ').includes(supplier)) return false
   if (rmType && rm.rm_type !== rmType) return false
   if (uom && rm.unit_of_measurement !== uom) return false

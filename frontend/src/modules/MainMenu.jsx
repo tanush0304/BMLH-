@@ -10,6 +10,7 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
+import AlertBell from '../components/alerts/AlertBell'
 import bmlhLogo from '../assets/bmlh-logo.png'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
 import mainMenuHero from '../assets/main-menu-hero.jpg'
@@ -107,6 +108,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
               <House size={17} aria-hidden="true" /> Home
             </button>
           </nav>
+          <AlertBell />
           <button onClick={onSignOut} className="rounded-md border border-[#CBD5E1] px-3 py-2 text-xs font-medium text-[#465D73] transition hover:border-[#176FA8] hover:text-[#176FA8] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/25 sm:text-sm">
             Sign out
           </button>

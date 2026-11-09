@@ -18,6 +18,7 @@ import {
   createRawMaterial,
   updateRawMaterial,
   deleteRawMaterial,
+  rmGradeSupported,
 } from '../../data/queries/rawMaterials'
 import { listSuppliers } from '../../data/queries/suppliers'
 import {
@@ -63,6 +64,8 @@ function newDraftKey() {
 const LIST_COLUMNS = [
   { key: 'raw_material_code', label: 'RM Code' },
   { key: 'raw_material_name', label: 'RM Name' },
+  { key: 'grade', label: 'Grade', gradeOnly: true },
+  { key: 'diameter_mm', label: 'Dia (mm)' },
   { key: 'raw_material_category', label: 'Category' },
   { key: 'rm_type', label: 'Raw Material Type' },
   { key: 'unit_of_measurement', label: 'UoM' },
@@ -76,6 +79,11 @@ const LIST_COLUMNS = [
 
 // Display-only fields taken from "raw material stock master" (migration
 // 023) -- never part of the form/save payload.
+// Grade column only once migration 041 has been run.
+function rmListColumns(gradeSupported) {
+  return LIST_COLUMNS.filter((c) => gradeSupported || !c.gradeOnly).map((c) => ({ key: c.key, label: c.label }))
+}
+
 const STOCK_FIELDS = ['supplier_names', 'receipts', 'issued', 'closing_stock']
 
 export default function RawMaterialMaster() {
@@ -93,6 +101,8 @@ export default function RawMaterialMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  // Migration 041 (grade column) run? Until then Grade is hidden.
+  const [gradeOk, setGradeOk] = useState(false)
   const fieldError = useFieldError(saveError, setSaveError)
 
   const [supplierLinks, setSupplierLinks] = useState([])
@@ -122,6 +132,9 @@ export default function RawMaterialMaster() {
 
   useEffect(() => {
     refresh()
+    let active = true
+    rmGradeSupported().then((ok) => active && setGradeOk(ok)).catch(() => {})
+    return () => { active = false }
   }, [])
 
   async function refreshSupplierLinks(rawMaterialCode) {
@@ -247,7 +260,7 @@ export default function RawMaterialMaster() {
     setSaveError(null)
     try {
       const result = await saveRawMaterialWithSuppliers({
-        materialPayload: rawMaterialPayload(material),
+        materialPayload: rawMaterialPayload(material, { gradeSupported: gradeOk }),
         supplierRows: draftRows,
         saveMaterial: (payload) =>
           mode === 'edit' ? updateRawMaterial(form.raw_material_code, payload) : createRawMaterial(payload),
@@ -314,11 +327,11 @@ export default function RawMaterialMaster() {
   }
 
   function handleExportExcel() {
-    exportToCsv(LIST_COLUMNS, filteredRecords, 'raw_material_master.csv')
+    exportToCsv(rmListColumns(gradeOk), filteredRecords, 'raw_material_master.csv')
   }
 
   function handleExportPdf() {
-    exportToPdf(LIST_COLUMNS, filteredRecords, 'Raw Material Master', 'raw_material_master')
+    exportToPdf(rmListColumns(gradeOk), filteredRecords, 'Raw Material Master', 'raw_material_master')
   }
 
   const listRows = records.map((r) => {
@@ -333,7 +346,9 @@ export default function RawMaterialMaster() {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
     return (
-      r.raw_material_code?.toLowerCase().includes(q) || r.raw_material_name?.toLowerCase().includes(q)
+      r.raw_material_code?.toLowerCase().includes(q) ||
+      r.raw_material_name?.toLowerCase().includes(q) ||
+      (gradeOk && r.grade?.toLowerCase().includes(q))
     )
   })
 
@@ -379,6 +394,7 @@ export default function RawMaterialMaster() {
                 onChange={handleField('raw_material_code')}
                 disabled={codeLocked}
               />
+              <span className="text-[11px] text-gray-500">One code per size, e.g. SCM415H-D50</span>
             </Field>
             <Field name="raw_material_name" label="Raw Material Name" required>
               <TextInput
@@ -386,6 +402,19 @@ export default function RawMaterialMaster() {
                 onChange={handleField('raw_material_name')}
                 disabled={readOnly}
               />
+            </Field>
+            {gradeOk && (
+              <Field name="grade" label="Grade">
+                <SelectWithAddNew
+                  value={form.grade ?? ''}
+                  onChange={handleField('grade')}
+                  disabled={readOnly}
+                  options={mergeOptions([], records.map((r) => r.grade))}
+                />
+              </Field>
+            )}
+            <Field name="diameter_mm" label="Dia (mm)" width="short">
+              <TextInput value={form.diameter_mm ?? ''} onChange={handleField('diameter_mm')} disabled={readOnly} />
             </Field>
             <Field name="raw_material_category" label="Category">
               <SelectWithAddNew
@@ -408,9 +437,6 @@ export default function RawMaterialMaster() {
 
           <div className="lg:col-span-3">
           <FormSection icon={Ruler} title="2. Dimensions" subtitle="Physical size specifications">
-            <Field name="diameter_mm" label="Diameter (mm)">
-              <TextInput value={form.diameter_mm} onChange={handleField('diameter_mm')} disabled={readOnly} />
-            </Field>
             <Field name="length_mtrs" label="Length (mtrs)">
               <TextInput
                 type="number"
@@ -573,7 +599,7 @@ export default function RawMaterialMaster() {
 
         <RecordsList
           title="Raw Material Master List"
-          columns={LIST_COLUMNS}
+          columns={rmListColumns(gradeOk)}
           rows={filteredRecords}
           loading={loading}
           error={error}

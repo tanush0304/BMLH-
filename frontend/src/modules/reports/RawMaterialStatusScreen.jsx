@@ -10,6 +10,8 @@ import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components
 import ReportTable from '../../components/reports/ReportTable'
 import { listRmTransactionsUpTo, listRmStockMasterRows } from '../../data/queries/reports'
 import { listSuppliers } from '../../data/queries/suppliers'
+import { listRawMaterials, rmGradeSupported } from '../../data/queries/rawMaterials'
+import { rmOptionLabel } from '../../utils/rmLabel'
 import { displayDate, previousRange } from '../../utils/reportPeriods'
 import { changePct } from '../../utils/reportAggregates'
 import { stockMovement, topN, sumByUom, dominantUom, rmMatchesFilters } from '../../utils/reportStock'
@@ -37,16 +39,33 @@ function moveFor(movement, materials, code) {
  */
 export default function RawMaterialStatusScreen() {
   const chartType = useChartType()
-  const r = useReportPeriod({ supplier: '', rmType: '', uom: '', rmCode: '' })
+  const r = useReportPeriod({ supplier: '', rmType: '', uom: '', rmCode: '', grade: '' })
   const [txns, setTxns] = useState([])
   const [master, setMaster] = useState([])
   const [suppliers, setSuppliers] = useState([])
+  // Migration 041 run? (Grade filter + column only then.)
+  const [gradeOk, setGradeOk] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([listRmStockMasterRows(), listSuppliers()])
-      .then(([m, s]) => { setMaster(m); setSuppliers(s) })
+    // Grade / dia come from RM Master (the stock view predates 041); a
+    // failed lookup only drops them, never the report.
+    Promise.all([
+      listRmStockMasterRows(),
+      listSuppliers(),
+      listRawMaterials().catch(() => []),
+      rmGradeSupported().catch(() => false),
+    ])
+      .then(([m, s, rms, ok]) => {
+        const spec = new Map(rms.map((x) => [x.raw_material_code, x]))
+        setMaster(m.map((row) => {
+          const rm = spec.get(row.raw_material_code)
+          return { ...row, grade: (rm?.grade ?? '').trim(), diameter_mm: rm?.diameter_mm ?? row.diameter_mm ?? null }
+        }))
+        setSuppliers(s)
+        setGradeOk(ok)
+      })
       .catch((e) => setError(e.message))
   }, [])
 
@@ -92,6 +111,7 @@ export default function RawMaterialStatusScreen() {
             row_key: row.row_key,
             raw_material_code: row.raw_material_code,
             material: `${row.raw_material_name ?? ''} (${row.raw_material_code})`,
+            grade: row.grade ?? '',
             rm_type: row.rm_type ?? '',
             part: row.part_serial_number ? `${row.part_name ?? ''} (${row.part_serial_number})` : '—',
             supplier_names: row.supplier_names ?? '',
@@ -170,17 +190,19 @@ export default function RawMaterialStatusScreen() {
   const partsTotal = partsByType.reduce((a, x) => a + x.value, 0)
 
   const allRms = [...materials.values()]
+  const gradeOptions = [...new Set(allRms.map((x) => x.grade).filter(Boolean))].sort()
   const typeOptions = [...new Set(allRms.map((x) => x.rm_type).filter(Boolean))].sort()
   const uomOptions = [...new Set(allRms.map((x) => x.unit_of_measurement).filter(Boolean))].sort()
   // RM Code options from RM Master, narrowed by the other (not yet applied) filters.
   const rmCodeOptions = allRms
     .filter((x) => rmMatchesFilters(x, { ...r.filters, rmCode: '' }))
-    .map((x) => ({ value: x.raw_material_code, label: x.raw_material_name ? `${x.raw_material_code} – ${x.raw_material_name}` : x.raw_material_code }))
+    .map((x) => ({ value: x.raw_material_code, label: rmOptionLabel(x) }))
     .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }))
   const supplierOptions = [...new Set(allRms.flatMap((x) => (x.supplier_names ? x.supplier_names.split(', ') : [])))].sort()
 
   const columns = [
     { key: 'material', label: 'Raw Material' },
+    ...(gradeOk ? [{ key: 'grade', label: 'Grade' }] : []),
     { key: 'rm_type', label: 'Type of Raw Material' },
     { key: 'part', label: 'Related Finish Product Name' },
     { key: 'supplier_names', label: 'Supplier Name' },
@@ -203,6 +225,7 @@ export default function RawMaterialStatusScreen() {
           loading={loading}
           filters={[
             { key: 'supplier', label: 'Supplier', value: r.filters.supplier, onChange: r.setFilter('supplier'), options: supplierOptions },
+            ...(gradeOk ? [{ key: 'grade', label: 'Grade', value: r.filters.grade, onChange: r.setFilter('grade'), options: gradeOptions }] : []),
             { key: 'type', label: 'RM Type', value: r.filters.rmType, onChange: r.setFilter('rmType'), options: typeOptions },
             { key: 'uom', label: 'UOM', allLabel: 'UoM', value: r.filters.uom, onChange: r.setFilter('uom'), options: uomOptions },
             { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
@@ -264,7 +287,7 @@ export default function RawMaterialStatusScreen() {
           loading={loading}
           error={null}
           rowKey="row_key"
-          searchKeys={['material', 'rm_type', 'part', 'supplier_names']}
+          searchKeys={['material', 'grade', 'rm_type', 'part', 'supplier_names']}
           searchPlaceholder="Search by RM Type / Supplier / Product..."
           exportTitle={`Raw Material Status Report – ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
           exportName="raw_material_status_report"

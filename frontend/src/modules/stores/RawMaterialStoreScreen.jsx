@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { withRmSpec } from '../../utils/rmLabel'
 import { Boxes, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
@@ -435,7 +436,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                 onChange={handleIssueField('raw_material_code')}
                 options={rawMaterials.map((r) => ({
                   value: r.raw_material_code,
-                  label: r.raw_material_name || r.raw_material_code,
+                  label: withRmSpec(r.raw_material_name || r.raw_material_code, r),
                 }))}
               />
             </Field>
@@ -505,7 +506,7 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                 onChange={handleReceiptField('raw_material_code')}
                 options={rawMaterials.map((r) => ({
                   value: r.raw_material_code,
-                  label: r.raw_material_name || r.raw_material_code,
+                  label: withRmSpec(r.raw_material_name || r.raw_material_code, r),
                 }))}
               />
             </Field>

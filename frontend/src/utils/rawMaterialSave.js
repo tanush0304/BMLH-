@@ -71,11 +71,19 @@ export function validateSupplierDraftRows(rows, existingSupplierIds = []) {
 // blank. diameter_mm stays text (ranges like "75 to 80").
 export const RAW_MATERIAL_NUMERIC_FIELDS = ['length_mtrs', 'width', 'thickness', 'opening_stock', 'cost_per_unit']
 
-export function rawMaterialPayload(form) {
-  return {
+// `gradeSupported` = migration 041 run (column exists). Before that the
+// grade key is dropped so an insert/update never names a missing column.
+export function rawMaterialPayload(form, { gradeSupported = false } = {}) {
+  const payload = {
     ...withNumericFields(form, RAW_MATERIAL_NUMERIC_FIELDS, { zeroIfBlank: ['opening_stock'] }),
     rm_source: form.rm_source ? form.rm_source : null,
   }
+  delete payload.grade
+  if (gradeSupported) {
+    const grade = (form.grade ?? '').toString().trim()
+    payload.grade = grade || null
+  }
+  return payload
 }
 
 // One "rm suppliers" row: price / lead time blank -> null.

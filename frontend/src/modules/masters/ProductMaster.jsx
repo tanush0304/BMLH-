@@ -1,4 +1,5 @@
 import { checkMaster } from '../../utils/masterValidation'
+import { rmOptionLabel } from '../../utils/rmLabel'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { useEffect, useState } from 'react'
 import { Package, Boxes, Plus, X } from 'lucide-react'
@@ -274,7 +275,7 @@ export default function ProductMaster() {
                         disabled={readOnly}
                         options={rawMaterials.map((rm) => ({
                           value: rm.raw_material_code,
-                          label: rm.raw_material_name ? `${rm.raw_material_code} - ${rm.raw_material_name}` : rm.raw_material_code,
+                          label: rmOptionLabel(rm, ' - '),
                         }))}
                       />
                     </Field>

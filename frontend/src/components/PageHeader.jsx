@@ -2,6 +2,7 @@ import bmlhLogo from '../assets/bmlh-logo.png'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
 import { createContext, useContext } from 'react'
 import { ChevronRight } from 'lucide-react'
+import AlertBell from './alerts/AlertBell'
 
 // App wraps every module in this provider with its breadcrumb trail
 // (module > screen, from NAV_ITEMS); Masters overrides it with its own so
@@ -54,7 +55,8 @@ function BandHeader({ title, subtitle, breadcrumb }) {
             </div>
           )}
         </div>
-        <div className="z-10 flex shrink-0 items-center pl-3 pr-3 sm:pl-5 sm:pr-5">
+        <div className="z-10 flex shrink-0 items-center gap-3 pl-3 pr-3 sm:pl-5 sm:pr-5">
+          <AlertBell />
           <img src={bmlhLogo} alt="BMLH Engineering" className="h-11 w-auto max-w-[150px] object-contain sm:h-[64px]" />
         </div>
       </header>

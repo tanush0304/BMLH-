@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { rmOptionLabel } from '../../utils/rmLabel'
 import { ClipboardPlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
@@ -230,7 +231,7 @@ export default function RawMaterialRequisitionScreen({ role }) {
               disabled={!form.prd_no}
               options={bomForProduct.map((b) => {
                 const rm = rawMaterials.find((r) => r.raw_material_code === b.raw_material_code)
-                return { value: b.raw_material_code, label: rm?.raw_material_name ? `${b.raw_material_code} - ${rm.raw_material_name}` : b.raw_material_code }
+                return { value: b.raw_material_code, label: rm ? rmOptionLabel(rm, ' - ') : b.raw_material_code }
               })}
             />
           </Field>

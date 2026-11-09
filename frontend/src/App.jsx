@@ -17,6 +17,8 @@ import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS, isModuleRestricted } from './utils/constants'
 import { authTransition } from './utils/authTransition'
 import { headerBreadcrumb } from './utils/breadcrumb'
+import { AlertsProvider, useAlertsState } from './components/alerts/AlertsContext'
+import NeedsAttentionDialog from './components/alerts/NeedsAttentionDialog'
 
 // Lazy: Reports pulls in Recharts, which the other modules don't need.
 const ReportsModule = lazy(() => import('./modules/ReportsModule'))
@@ -37,6 +39,8 @@ function App() {
   // Id of the signed-in user the current screen belongs to; see authTransition.
   const userIdRef = useRef(null)
   const userId = session?.user?.id ?? null
+  // Supervisor/admin reminders (bell + "Needs attention" on the Main Menu).
+  const alerts = useAlertsState({ role: session ? role : null, userId, onMainMenu: Boolean(session) && role !== undefined && showMainMenu })
 
   useEffect(() => {
     function applySession(next) {
@@ -111,8 +115,15 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
   }
 
+  const alertsDialog = <NeedsAttentionDialog onOpenItem={(target) => handleSelectSub(target.topKey, target.subKey, target.mode)} />
+
   if (showMainMenu) {
-    return <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+    return (
+      <AlertsProvider value={alerts}>
+        <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+        {alertsDialog}
+      </AlertsProvider>
+    )
   }
 
   // Modules with `roles` in NAV_ITEMS (Masters, Reports & Dashboard) are
@@ -134,7 +145,7 @@ function App() {
         onSelect={(subKey, mode) => handleSelectSub('quality', subKey, mode)}
       />
     )
-  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
+  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} activeMode={activeMode} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
   else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
   else if (activeKey === 'stores') content = (
       <StoresModule
@@ -147,6 +158,7 @@ function App() {
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
+    <AlertsProvider value={alerts}>
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
       <Sidebar
         activeKey={activeKey}
@@ -169,6 +181,8 @@ function App() {
         </PageHeaderBandProvider>
       </ModuleThemeProvider>
     </div>
+    {alertsDialog}
+    </AlertsProvider>
   )
 }
 
