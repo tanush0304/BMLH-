@@ -20,7 +20,7 @@ import { parameterNamesForMachine } from '../../utils/qualityMatch'
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
-import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey } from '../../utils/reportQuality'
+import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary } from '../../utils/reportQuality'
 import Banner from '../../components/Banner'
 
 const RESULT_TONES = { OK: 'green', NG: 'red', Accepted: 'green', Rejected: 'red', 'No readings': 'amber' }
@@ -124,6 +124,7 @@ export default function QualityStatusScreen() {
     [readings, inspectionById, partForPrd, part, chartParameter]
   )
   const band = paramSeries.find((p) => p.min != null)
+  const gaugeInfo = gaugeSummary(readings, inspectionById, partForPrd, part, chartParameter) // 048
   const yDomain = useMemo(() => {
     const vals = paramSeries.flatMap((p) => [p.observed, p.min, p.max]).filter((v) => v != null)
     if (vals.length === 0) return ['auto', 'auto']
@@ -157,14 +158,15 @@ export default function QualityStatusScreen() {
       const list = byLog.get(i.quality_log_id) ?? []
       if (list.length === 0) out.push({ ...base, key: `${i.quality_log_id}-none`, parameter: '—', result: null })
       for (const x of list) {
-        const b = toleranceBand(x)
+        const gauge = x.check_type === 'Gauge' // 048
+        const b = gauge ? null : toleranceBand(x)
         out.push({
           ...base,
           key: `${i.quality_log_id}-${x.reading_id}`,
-          parameter: x.quality_parameter,
-          target: x.standard,
+          parameter: gauge ? `${x.quality_parameter} (Gauge${x.gauge_ref ? `: ${x.gauge_ref}` : ''})` : x.quality_parameter,
+          target: gauge ? null : x.standard,
           tolerance: b ? `${fmtNum(b.min)} – ${fmtNum(b.max)}` : '—',
-          actual: x.observed_value,
+          actual: gauge ? x.gauge_result ?? null : x.observed_value,
           result: x.result === 'Accepted' ? 'OK' : x.result === 'Not Accepted' ? 'NG' : null,
         })
       }
@@ -194,7 +196,7 @@ export default function QualityStatusScreen() {
     { key: 'parameter', label: 'Quality Parameter' },
     { key: 'target', label: 'Target', align: 'right', format: fmtNum },
     { key: 'tolerance', label: 'Tolerance Band' },
-    { key: 'actual', label: 'Actual', align: 'right', format: fmtNum },
+    { key: 'actual', label: 'Actual', align: 'right', format: (v) => (typeof v === 'string' ? v : fmtNum(v)) }, // gauge: OK / Not OK
     { key: 'result', label: 'Result', format: (v) => v ?? '—', render: (row) => (row.result ? <ReportBadge status={row.result} tones={RESULT_TONES} /> : '—') },
     { key: 'inspection_result', label: 'Inspection Result', render: (row) => <ReportBadge status={row.inspection_result} tones={RESULT_TONES} /> },
     { key: 'pieces', label: 'Production Pieces (Produced / Rejected)', align: 'right', format: (v) => (v ? `${formatQty(v.produced)} / ${formatQty(v.rejected)}` : '—') },
@@ -262,6 +264,7 @@ export default function QualityStatusScreen() {
             icon={Ruler}
             loading={loading}
             empty={paramSeries.length === 0}
+            emptyText={gaugeInfo ? `Gauge check: ${gaugeInfo.ok} OK / ${gaugeInfo.notOk} Not OK` : undefined}
             height={270}
             actions={
               <div className="flex gap-1.5">

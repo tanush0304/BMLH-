@@ -47,7 +47,7 @@ export function toleranceBand(r) {
  * reading's date / PRD; `partForPrd(prd)` its part. */
 export function parameterSeries(readings, inspectionById, partForPrd, part, parameter) {
   return readings
-    .filter((r) => r.quality_parameter === parameter)
+    .filter((r) => r.quality_parameter === parameter && r.check_type !== 'Gauge') // 048: gauge has no value to chart
     .map((r) => ({ r, i: inspectionById.get(r.quality_log_id) }))
     .filter(({ i }) => i && partForPrd(i.prd_no) === part)
     .sort((a, b) => (a.i.log_date < b.i.log_date ? -1 : a.i.log_date > b.i.log_date ? 1 : a.r.reading_id - b.r.reading_id))
@@ -78,4 +78,17 @@ export function qualityTrend(inspections, days, { maxDays = 62, dayLabel = (d) =
   const months = [...new Set(days.map((d) => d.slice(0, 7)))]
   const byMonth = groupBy(inspections, (i) => i.log_date.slice(0, 7))
   return months.map((m) => ({ key: m, label: monthLabel(m), ...inspectionCounts(byMonth.get(m) ?? []) }))
+}
+
+/** 048: Gauge readings of one part + parameter -> { gauge: true, ok, notOk }
+ * (null when the parameter is not a Gauge check for that part). */
+export function gaugeSummary(readings, inspectionById, partForPrd, part, parameter) {
+  const rows = readings
+    .filter((r) => r.quality_parameter === parameter && r.check_type === 'Gauge')
+    .filter((r) => {
+      const i = inspectionById.get(r.quality_log_id)
+      return i && partForPrd(i.prd_no) === part
+    })
+  if (rows.length === 0) return null
+  return { gauge: true, ok: rows.filter((r) => r.gauge_result === 'OK').length, notOk: rows.filter((r) => r.gauge_result === 'Not OK').length }
 }

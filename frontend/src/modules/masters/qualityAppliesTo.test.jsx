@@ -16,6 +16,8 @@ vi.mock('../../data/queries/qualityParameters', () => ({
   updateQualityParameter: vi.fn(),
   deleteQualityParameter: vi.fn(),
   qualityCategorySupported: async () => m.supported,
+  qualityCheckTypeSupported: async () => m.checkType ?? false,
+  parameterHasReadings: async (id) => (m.withReadings ?? []).includes(id),
 }))
 vi.mock('../../data/queries/products', () => ({ listProducts: async () => [{ part_serial_number: 'P1', part_name: 'Shaft' }] }))
 vi.mock('../../data/queries/machines', () => ({
@@ -141,5 +143,85 @@ describe('Quality Master -- Applies To', () => {
     const payload = m.create.mock.calls[0][0]
     expect(payload.machine_id).toBe('MC-004')
     expect('machine_category' in payload).toBe(false)
+  })
+})
+
+describe('Quality Master -- Check Type (048)', () => {
+  async function fillBase() {
+    await ready()
+    await waitFor(() => screen.getByLabelText('Machine Category'))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('CNC'), 'CNC')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'Thread' } })
+  }
+  const checkType = () => screen.getByText('Check Type', { selector: 'span' }).closest('label').querySelector('select')
+
+  it('Gauge: Standard / tolerances hidden and not required; saves check_type Gauge, nulls, gauge_ref', async () => {
+    m.checkType = true
+    try {
+      await fillBase()
+      fireEvent.change(checkType(), { target: { value: 'Gauge' } })
+      expect(screen.queryByText('Standard', { selector: 'span' })).toBeNull()
+      fireEvent.change(screen.getByText('Gauge (name / no.)', { selector: 'span' }).closest('label').querySelector('input'), { target: { value: ' M10 GO/NO-GO ' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Gauge', gauge_ref: 'M10 GO/NO-GO', standard: null, upper_tolerance: null, lower_tolerance: null })
+    } finally {
+      m.checkType = false
+    }
+  })
+
+  it('Measured (default): Standard still required; saves check_type Measured, gauge_ref null', async () => {
+    m.checkType = true
+    try {
+      await fillBase()
+      expect(checkType().value).toBe('Measured')
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      expect(await screen.findByText('Standard is required.')).toBeTruthy()
+      fillNumbers()
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Measured', gauge_ref: null, standard: 50 })
+    } finally {
+      m.checkType = false
+    }
+  })
+
+  it('before 048: no Check Type field, nothing about it sent', async () => {
+    await fillBase()
+    expect(screen.queryByText('Check Type', { selector: 'span' })).toBeNull()
+    fillNumbers()
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect(m.create.mock.calls[0][0]).not.toHaveProperty('check_type')
+  })
+})
+
+describe('Quality Master -- Check Type locked once there are readings (048)', () => {
+  it('a parameter with readings: Check Type disabled + note; without readings: editable', async () => {
+    m.checkType = true
+    m.withReadings = [1]
+    m.records = [
+      { id: 1, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'OD', standard: 50, check_type: 'Measured' },
+      { id: 2, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'Length', standard: 120, check_type: 'Measured' },
+    ]
+    try {
+      await ready()
+      const checkType = () => screen.getByText('Check Type', { selector: 'span' }).closest('label').querySelector('select')
+      fireEvent.click(await screen.findByText('OD'))
+      fireEvent.click(screen.getByRole('button', { name: /^Edit/ }))
+      expect(await screen.findByTestId('check-type-locked')).toBeTruthy()
+      expect(screen.getByTestId('check-type-locked').textContent).toBe('Has readings -- add a new parameter instead')
+      expect(checkType().disabled).toBe(true)
+
+      fireEvent.click(screen.getByText('Length'))
+      fireEvent.click(screen.getByRole('button', { name: /^Edit/ }))
+      await waitFor(() => expect(screen.queryByTestId('check-type-locked')).toBeNull())
+      expect(checkType().disabled).toBe(false)
+    } finally {
+      m.checkType = false
+      m.withReadings = []
+    }
   })
 })

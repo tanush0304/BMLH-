@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
-import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, TextInput, AutoFillBox, SelectInput } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import { productOptions } from '../../utils/productOptions'
 import RecordsList from '../../components/RecordsList'
@@ -13,6 +13,8 @@ import {
   updateQualityParameter,
   deleteQualityParameter,
   qualityCategorySupported,
+  qualityCheckTypeSupported,
+  parameterHasReadings,
 } from '../../data/queries/qualityParameters'
 import { categoryOptions, operationsForTarget, appliesToLabel, isCategoryRow, normCategory } from '../../utils/qualityMatch'
 import { listCycleTimes } from '../../data/queries/cycleTimes'
@@ -36,6 +38,8 @@ const EMPTY_FORM = {
   lower_tolerance: '',
   expected_text_value: '',
   remarks: '',
+  check_type: 'Measured', // 048
+  gauge_ref: '', // 048
 }
 
 const LIST_COLUMNS = [
@@ -45,6 +49,8 @@ const LIST_COLUMNS = [
   { key: 'machine_label', label: 'Applies To' },
   { key: 'type_of_operation', label: 'Type of Operation' },
   { key: 'quality_parameter', label: 'Quality Parameter' },
+  { key: 'check_type', label: 'Check Type', needsCheckType: true },
+  { key: 'gauge_ref', label: 'Gauge', needsCheckType: true },
   { key: 'standard', label: 'Standard' },
   { key: 'upper_tolerance', label: 'Upper Tolerance' },
   { key: 'lower_tolerance', label: 'Lower Tolerance' },
@@ -87,11 +93,28 @@ export default function QualityMaster() {
   const [saveError, setSaveError] = useState(null)
   // 044 run? null = not known yet (treated as "no": the old form).
   const [categoryOn, setCategoryOn] = useState(null)
+  const [checkTypeOn, setCheckTypeOn] = useState(false) // 048: Check Type (Measured / Gauge)
+  const isGauge = checkTypeOn && form.check_type === 'Gauge'
+  // 048: Check Type is fixed once the parameter has readings (DB guard too)
+  const [hasReadings, setHasReadings] = useState(false)
+  useEffect(() => {
+    let active = true
+    setHasReadings(false)
+    if (!checkTypeOn || !form.id) return undefined
+    parameterHasReadings(form.id)
+      .then((yes) => active && setHasReadings(!!yes))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [checkTypeOn, form.id])
+  const listColumns = LIST_COLUMNS.filter((c) => !c.needsCheckType || checkTypeOn)
   const byCategory = !!categoryOn && form.applies_to === 'category'
 
   useEffect(() => {
     let active = true
     qualityCategorySupported().then((ok) => { if (active) setCategoryOn(ok) })
+    qualityCheckTypeSupported().then((ok) => { if (active) setCheckTypeOn(!!ok) }).catch(() => {})
     return () => { active = false }
   }, [])
 
@@ -202,11 +225,12 @@ export default function QualityMaster() {
     }
     // Standard is required; a blank Upper/Lower Tolerance is saved as null
     // and means no allowance on that side (quality result treats it as 0).
-    if (String(form.standard ?? '').trim() === '') {
+    // Gauge (048): no Standard / tolerances -- OK / Not OK at inspection.
+    if (!isGauge && String(form.standard ?? '').trim() === '') {
       setSaveError('Standard is required.')
       return
     }
-    const numberError =
+    const numberError = isGauge ? null :
       validateNumber(form.standard, { label: 'Standard', max: 1000000000 }) ??
       validateNumber(form.upper_tolerance, { label: 'Upper Tolerance', ...NUMBER_RULES.NON_NEGATIVE }) ??
       validateNumber(form.lower_tolerance, { label: 'Lower Tolerance', ...NUMBER_RULES.NON_NEGATIVE })
@@ -223,9 +247,12 @@ export default function QualityMaster() {
         ...(categoryOn ? { machine_category: byCategory ? form.machine_category.trim() : null } : {}),
         type_of_operation: form.type_of_operation,
         quality_parameter: form.quality_parameter.trim(),
-        standard: toNumberOrNull(form.standard),
-        upper_tolerance: toNumberOrNull(form.upper_tolerance),
-        lower_tolerance: toNumberOrNull(form.lower_tolerance),
+        standard: isGauge ? null : toNumberOrNull(form.standard),
+        upper_tolerance: isGauge ? null : toNumberOrNull(form.upper_tolerance),
+        lower_tolerance: isGauge ? null : toNumberOrNull(form.lower_tolerance),
+        ...(checkTypeOn
+          ? { check_type: isGauge ? 'Gauge' : 'Measured', gauge_ref: isGauge ? String(form.gauge_ref ?? '').trim() || null : null }
+          : {}),
         expected_text_value: null,
         remarks: form.remarks.trim() || null,
       }
@@ -261,17 +288,17 @@ export default function QualityMaster() {
   }
 
   function handleExportExcel() {
-    exportToCsv(LIST_COLUMNS, filteredRecords, 'quality_master.csv')
+    exportToCsv(listColumns, filteredRecords, 'quality_master.csv')
   }
 
   function handleExportPdf() {
-    exportToPdf(LIST_COLUMNS, filteredRecords, 'Quality Master', 'quality_master')
+    exportToPdf(listColumns, filteredRecords, 'Quality Master', 'quality_master')
   }
 
   const filteredRecords = displayRecords.filter((row) => {
     if (!listSearch) return true
     const query = listSearch.toLowerCase()
-    return LIST_COLUMNS.some((column) => String(row[column.key] ?? '').toLowerCase().includes(query))
+    return listColumns.some((column) => String(row[column.key] ?? '').toLowerCase().includes(query))
   })
   const readOnly = mode === 'view'
 
@@ -332,15 +359,31 @@ export default function QualityMaster() {
               {parameterSuggestions.map((name) => <option key={name} value={name} />)}
             </datalist>
           </Field>
-          <Field label="Standard" required><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>
-          <Field label="Upper Tolerance"><TextInput type="number" value={inputValue(form.upper_tolerance)} onChange={handleField('upper_tolerance')} disabled={readOnly} /></Field>
-          <Field label="Lower Tolerance"><TextInput type="number" value={inputValue(form.lower_tolerance)} onChange={handleField('lower_tolerance')} disabled={readOnly} /></Field>
+          {checkTypeOn && (
+            <Field label="Check Type" required>
+              <SelectInput value={form.check_type || 'Measured'} onChange={handleField('check_type')} disabled={readOnly || hasReadings} options={['Measured', 'Gauge']} />
+              {hasReadings && (
+                <span className="mt-0.5 block text-[11px] text-gray-500" data-testid="check-type-locked">
+                  Has readings -- add a new parameter instead
+                </span>
+              )}
+            </Field>
+          )}
+          {isGauge ? (
+            <Field label="Gauge (name / no.)"><TextInput value={form.gauge_ref ?? ''} onChange={handleField('gauge_ref')} disabled={readOnly} /></Field>
+          ) : (
+            <>
+              <Field label="Standard" required><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>
+              <Field label="Upper Tolerance"><TextInput type="number" value={inputValue(form.upper_tolerance)} onChange={handleField('upper_tolerance')} disabled={readOnly} /></Field>
+              <Field label="Lower Tolerance"><TextInput type="number" value={inputValue(form.lower_tolerance)} onChange={handleField('lower_tolerance')} disabled={readOnly} /></Field>
+            </>
+          )}
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
 
         <RecordsList
           title="Quality Master List"
-          columns={LIST_COLUMNS}
+          columns={listColumns}
           rows={filteredRecords}
           loading={loading}
           error={error}

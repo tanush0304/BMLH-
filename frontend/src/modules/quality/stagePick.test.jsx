@@ -130,3 +130,34 @@ describe('Quality Inspection -- stage pick + category parameters', () => {
     expect(await screen.findByText('No quality parameters are defined for P1 - Rough Turning (MC-004 / CNC). Add them in Quality Master before an inspection can be logged here.')).toBeTruthy()
   })
 })
+
+describe('Quality Inspection -- Gauge checks (048)', () => {
+  const PARAMS = [
+    { id: 1, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'OD', standard: 50, check_type: 'Measured' },
+    { id: 2, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', standard: null, check_type: 'Gauge', gauge_ref: 'M10 GO/NO-GO' },
+  ]
+
+  it('gauge row: OK / Not OK buttons (required), no number box, live Accepted / Rejected; saved as gauge_result with no value', async () => {
+    m.params = PARAMS
+    m.createReadings.mockClear()
+    await fillHeader('13')
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(screen.getByText('Thread')).toBeTruthy())
+    expect(screen.getByText('Gauge: M10 GO/NO-GO')).toBeTruthy()
+    const gaugeRow = screen.getByText('Thread').closest('tr')
+    expect(gaugeRow.querySelector('input[type="number"]')).toBeNull()
+
+    fireEvent.change(document.querySelector('tbody input[type="number"]'), { target: { value: '50' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Inspection' }))
+    expect(await screen.findByText('Choose OK or Not OK for Thread.')).toBeTruthy()
+    expect(m.createLog).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thread gauge: Not OK' }))
+    expect(gaugeRow.textContent).toContain('Rejected')
+    fireEvent.click(screen.getByRole('button', { name: 'Save Inspection' }))
+    await waitFor(() => expect(m.createReadings).toHaveBeenCalled())
+    const rows = m.createReadings.mock.calls[0][0]
+    expect(rows.find((r) => r.quality_parameter_id === 2)).toEqual({ quality_log_id: 500, quality_parameter_id: 2, observed_value: null, gauge_result: 'Not OK' })
+    expect(rows.find((r) => r.quality_parameter_id === 1)).toEqual({ quality_log_id: 500, quality_parameter_id: 1, observed_value: 50 })
+  })
+})

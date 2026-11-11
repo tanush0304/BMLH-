@@ -1,4 +1,5 @@
-import { computeQualityResult } from '../../utils/qualityResult'
+import { computeQualityResult, isGaugeRow, gaugeResultLabel, readingValueText, readingResultText } from '../../utils/qualityResult'
+import GaugeButtons from '../../components/GaugeButtons'
 import { useEffect, useState } from 'react'
 import { ClipboardCheck, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -47,8 +48,9 @@ const HISTORY_COLUMNS = [
   { key: 'operation', label: 'Operation' },
   { key: 'inspected_by', label: 'Inspected By' },
   { key: 'quality_parameter', label: 'Parameter' },
-  { key: 'observed_value', label: 'Observed Value' },
-  { key: 'result', label: 'Result', type: 'status' },
+  { key: 'check_type_text', label: 'Check Type', needsCheckType: true },
+  { key: 'value_text', label: 'Observed Value' },
+  { key: 'result_text', label: 'Result', type: 'status' },
 ]
 
 /**
@@ -226,6 +228,9 @@ export default function QualityInspectionScreen({ role }) {
           upper_tolerance: p.upper_tolerance,
           lower_tolerance: p.lower_tolerance,
           observed_value: '',
+          check_type: p.check_type ?? 'Measured', // 048
+          gauge_ref: p.gauge_ref ?? '',
+          gauge_result: '',
         }))
       )
       setSaveError(null)
@@ -235,6 +240,10 @@ export default function QualityInspectionScreen({ role }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handleGaugeChange(paramId, value) {
+    setReadingRows((rows) => rows.map((r) => (r.quality_parameter_id === paramId ? { ...r, gauge_result: value } : r)))
   }
 
   function handleObservedChange(paramId, value) {
@@ -248,7 +257,13 @@ export default function QualityInspectionScreen({ role }) {
 
   async function handleSaveReadings() {
     setSaveError(null)
-    const filled = readingRows.filter((r) => r.observed_value !== '')
+    // 048: every Gauge check needs OK / Not OK; Measured rows as before
+    const unansweredGauge = readingRows.find((r) => isGaugeRow(r) && !r.gauge_result)
+    if (unansweredGauge) {
+      setSaveError(`Choose OK or Not OK for ${unansweredGauge.quality_parameter}.`)
+      return
+    }
+    const filled = readingRows.filter((r) => (isGaugeRow(r) ? !!r.gauge_result : r.observed_value !== ''))
     if (filled.length === 0) {
       setSaveError('Enter at least one Observed Value before saving.')
       return
@@ -266,7 +281,9 @@ export default function QualityInspectionScreen({ role }) {
         filled.map((r) => ({
           quality_log_id: log.id,
           quality_parameter_id: r.quality_parameter_id,
-          observed_value: Number(r.observed_value),
+          ...(isGaugeRow(r)
+            ? { observed_value: null, gauge_result: r.gauge_result }
+            : { observed_value: Number(r.observed_value) }),
         }))
       )
       resetHeader()
@@ -295,7 +312,13 @@ export default function QualityInspectionScreen({ role }) {
   const historyRows = withEditedLabels(history, appUsers).map((r) => ({
     ...r,
     inspected_by: employeeLabelForId(r.employee_id, employees),
+    // 048: a Gauge reading shows OK / Not OK and Accepted / Rejected
+    value_text: readingValueText(r),
+    result_text: readingResultText(r),
+    check_type_text: isGaugeRow(r) ? `Gauge${r.gauge_ref ? ` (${r.gauge_ref})` : ''}` : 'Measured',
   }))
+  // 048: the view only has check_type once 048 is run
+  const historyColumns = HISTORY_COLUMNS.filter((c) => !c.needsCheckType || history.some((r) => 'check_type' in r))
   const editingRows = editingLogId ? history.filter((r) => r.quality_log_id === editingLogId) : []
 
   async function handleSaveEdit({ employee_id, shift_code, values }) {
@@ -303,12 +326,20 @@ export default function QualityInspectionScreen({ role }) {
     if (!employee_id || !shift_code) return 'Employee and Shift are required.'
     for (const r of editingRows) {
       const v = values[r.reading_id]
+      if (isGaugeRow(r)) {
+        if (v !== 'OK' && v !== 'Not OK') return `Choose OK or Not OK for ${r.quality_parameter}.`
+        continue
+      }
       if (v === '' || v === undefined || !Number.isFinite(Number(v))) return `Enter a number for ${r.quality_parameter}.`
     }
     if (employee_id !== first.employee_id || shift_code !== first.shift_code) {
       await updateQualityLog(editingLogId, { employee_id, shift_code })
     }
     for (const r of editingRows) {
+      if (isGaugeRow(r)) {
+        if (values[r.reading_id] !== r.gauge_result) await updateQualityLogReading(r.reading_id, { gauge_result: values[r.reading_id] })
+        continue
+      }
       const v = Number(values[r.reading_id])
       if (v !== Number(r.observed_value)) await updateQualityLogReading(r.reading_id, { observed_value: v })
     }
@@ -345,8 +376,8 @@ export default function QualityInspectionScreen({ role }) {
         canSave={step === 'header' || readingRows.length > 0}
         saving={submitting || saving}
         saveLabel={step === 'header' ? 'Submit' : 'Save Inspection'}
-        onExportExcel={() => exportToCsv(HISTORY_COLUMNS, filteredHistory, 'quality_inspections.csv')}
-        onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredHistory, 'Quality Inspection History', 'quality_inspections')}
+        onExportExcel={() => exportToCsv(historyColumns, filteredHistory, 'quality_inspections.csv')}
+        onExportPdf={() => exportToPdf(historyColumns, filteredHistory, 'Quality Inspection History', 'quality_inspections')}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
@@ -456,21 +487,37 @@ export default function QualityInspectionScreen({ role }) {
                   </thead>
                   <tbody>
                     {readingRows.map((row) => {
-                      const result = computeQualityResult(row.standard, row.upper_tolerance, row.lower_tolerance, row.observed_value)
-                      const noLimit = row.standard === null || row.standard === undefined
+                      const gauge = isGaugeRow(row)
+                      const result = gauge
+                        ? gaugeResultLabel(row.gauge_result)
+                        : computeQualityResult(row.standard, row.upper_tolerance, row.lower_tolerance, row.observed_value)
+                      const noLimit = !gauge && (row.standard === null || row.standard === undefined)
                       return (
-                        <tr key={row.quality_parameter_id} className="border-t border-gray-100">
-                          <td className="px-3 py-1">{row.quality_parameter}</td>
-                          <td className="px-3 py-1 text-gray-500">{row.standard ?? '—'}</td>
-                          <td className="px-3 py-1 text-gray-500">{row.upper_tolerance ?? '—'}</td>
-                          <td className="px-3 py-1 text-gray-500">{row.lower_tolerance ?? '—'}</td>
+                        <tr key={row.quality_parameter_id} className="border-t border-gray-100" data-check-type={row.check_type}>
                           <td className="px-3 py-1">
+                            {row.quality_parameter}
+                            {gauge && (
+                              <span className="block text-[10px] text-gray-500">Gauge{row.gauge_ref ? `: ${row.gauge_ref}` : ''}</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.standard ?? '—'}</td>
+                          <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.upper_tolerance ?? '—'}</td>
+                          <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.lower_tolerance ?? '—'}</td>
+                          <td className="px-3 py-1">
+                            {gauge ? (
+                              <GaugeButtons
+                                label={`${row.quality_parameter} gauge`}
+                                value={row.gauge_result}
+                                onChange={(v) => handleGaugeChange(row.quality_parameter_id, v)}
+                              />
+                            ) : (
                             <input
                               type="number"
                               value={row.observed_value}
                               onChange={(e) => handleObservedChange(row.quality_parameter_id, e.target.value)}
                               className="border border-gray-300 rounded px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
                             />
+                            )}
                           </td>
                           <td className="px-3 py-1">
                             {noLimit ? (
@@ -503,7 +550,7 @@ export default function QualityInspectionScreen({ role }) {
 
         <RecordsList
           title="Quality Inspection History"
-          columns={[...HISTORY_COLUMNS, EDITED_COLUMN]}
+          columns={[...historyColumns, EDITED_COLUMN]}
           rows={filteredHistory}
           loading={loading}
           error={null}
@@ -527,7 +574,9 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
   const first = rows[0]
   const [employeeId, setEmployeeId] = useState(first.employee_id ?? '')
   const [shiftCode, setShiftCode] = useState(first.shift_code ?? '')
-  const [values, setValues] = useState(() => Object.fromEntries(rows.map((r) => [r.reading_id, String(r.observed_value ?? '')])))
+  const [values, setValues] = useState(() =>
+    Object.fromEntries(rows.map((r) => [r.reading_id, isGaugeRow(r) ? r.gauge_result ?? '' : String(r.observed_value ?? '')])),
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -579,23 +628,37 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
           </thead>
           <tbody>
             {rows.map((r) => {
-              const noLimit = r.standard === null || r.standard === undefined
+              const gauge = isGaugeRow(r)
+              const noLimit = !gauge && (r.standard === null || r.standard === undefined)
               return (
                 <tr key={r.reading_id} className="border-t border-gray-100">
-                  <td className="px-3 py-1">{r.quality_parameter}</td>
-                  <td className="px-3 py-1 text-gray-500">{r.standard ?? '—'}</td>
-                  <td className="px-3 py-1 text-gray-500">{r.upper_tolerance ?? '—'}</td>
-                  <td className="px-3 py-1 text-gray-500">{r.lower_tolerance ?? '—'}</td>
                   <td className="px-3 py-1">
-                    <input
-                      type="number"
-                      value={values[r.reading_id]}
-                      onChange={(e) => setValues((v) => ({ ...v, [r.reading_id]: e.target.value }))}
-                      className="border border-gray-300 rounded px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
-                    />
+                    {r.quality_parameter}
+                    {gauge && <span className="block text-[10px] text-gray-500">Gauge{r.gauge_ref ? `: ${r.gauge_ref}` : ''}</span>}
+                  </td>
+                  <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.standard ?? '—'}</td>
+                  <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.upper_tolerance ?? '—'}</td>
+                  <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.lower_tolerance ?? '—'}</td>
+                  <td className="px-3 py-1">
+                    {gauge ? (
+                      <GaugeButtons
+                        label={`${r.quality_parameter} gauge`}
+                        value={values[r.reading_id]}
+                        onChange={(val) => setValues((v) => ({ ...v, [r.reading_id]: val }))}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={values[r.reading_id]}
+                        onChange={(e) => setValues((v) => ({ ...v, [r.reading_id]: e.target.value }))}
+                        className="border border-gray-300 rounded px-2.5 py-1.5 text-xs w-28 focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+                      />
+                    )}
                   </td>
                   <td className="px-3 py-1">
-                    {noLimit ? (
+                    {gauge ? (
+                      <StatusPill status={gaugeResultLabel(values[r.reading_id])} />
+                    ) : noLimit ? (
                       <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">No limit set</span>
                     ) : (
                       <StatusPill status={computeQualityResult(r.standard, r.upper_tolerance, r.lower_tolerance, values[r.reading_id])} />
