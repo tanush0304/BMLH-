@@ -15,7 +15,7 @@ import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { createWipReceipt, updateWipTransaction, listWipBalanceForPrd, listWipTransactionsForPrd } from '../../data/queries/wip'
-import { parsePositiveWipQuantity, validateWipReceiptStage } from '../../utils/wipValidation'
+import { parsePositiveWipQuantity, validateWipReceiptStage, wipReceiptStageChoices, wipReceiptStageLabel } from '../../utils/wipValidation'
 import { stageLabel } from '../../utils/stageLabel'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
@@ -41,7 +41,6 @@ export default function WipReceiptScreen({ role }) {
   const [orders, setOrders] = useState([])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
-  const [completedStages, setCompletedStages] = useState([])
   const [stageAggregates, setStageAggregates] = useState({})
   // Every stage of the PRD -- only to label the history list.
   const [allStages, setAllStages] = useState([])
@@ -79,7 +78,6 @@ export default function WipReceiptScreen({ role }) {
     setSelectedRow(null)
     setEditingRow(null)
     setForm((f) => ({ ...EMPTY_FORM, prd_no: prd, employee_id: f.employee_id, shift_code: f.shift_code }))
-    setCompletedStages([])
     setStageAggregates({})
     setAllStages([])
     setBalances([])
@@ -95,7 +93,6 @@ export default function WipReceiptScreen({ role }) {
       ])
       if (requestId !== prdRequestRef.current) return
       setStageAggregates(aggs)
-      setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
       setAllStages(stages)
       setBalances(
         bal
@@ -121,7 +118,6 @@ export default function WipReceiptScreen({ role }) {
     ])
     if (requestId !== prdRequestRef.current) return
     setStageAggregates(aggs)
-    setCompletedStages(stages.filter((s) => s.status === 'Completed' || s.status === 'Received'))
     setAllStages(stages)
     setBalances(
       bal
@@ -160,6 +156,9 @@ export default function WipReceiptScreen({ role }) {
     })
   }
   const availableToReceive = form.stage_id ? availableToReceiveFor(form.stage_id) : null
+  // Option B: Completed / Received stages + any stage with something to receive.
+  const stageChoices = wipReceiptStageChoices(allStages, availableToReceiveFor)
+  const offeredStages = stageChoices.map((c) => c.stage)
 
   async function handleSave() {
     setError(null)
@@ -171,7 +170,7 @@ export default function WipReceiptScreen({ role }) {
       setError('Select a Production Order that has a Route Card.')
       return
     }
-    const stageError = validateWipReceiptStage(form.prd_no, form.stage_id, completedStages)
+    const stageError = validateWipReceiptStage(form.prd_no, form.stage_id, offeredStages)
     if (stageError) {
       setError(stageError)
       return
@@ -305,12 +304,12 @@ export default function WipReceiptScreen({ role }) {
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
-          <Field label="Completed Stage" required>
+          <Field label="Stage" required>
             <SearchableSelect
               value={form.stage_id}
               onChange={handleField('stage_id')}
               disabled={!form.prd_no}
-              options={completedStages.map((s) => ({ value: s.id, label: stageLabel(s) }))}
+              options={stageChoices.map((c) => ({ value: c.stage.id, label: wipReceiptStageLabel(c, stageLabel(c.stage)) }))}
             />
           </Field>
           <Field label={availableToReceive === null ? 'Qty' : `Qty (available to receive: ${availableToReceive})`} required>

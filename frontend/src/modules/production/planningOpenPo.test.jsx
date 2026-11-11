@@ -9,6 +9,9 @@ const m = vi.hoisted(() => ({
   supported: true,
   none: async () => [],
 }))
+// No real Supabase client: tests never reach the network (src/test/noNetwork.js).
+vi.mock('../../lib/supabaseClient', () => ({ supabase: {} }))
+vi.mock('../../data/queries/deliveryAddresses', () => ({ deliveryAddressesSupported: async () => false, listDeliveryAddresses: async () => [] }))
 vi.mock('../../data/queries/productionPlanning', () => ({
   listOrdersAvailableForPlanning: async () => [
     { order_line_id: 1, parent_po_id: 7, customer_id: 'C', part_serial_number: 'P-OPEN', order_qty: 100, remaining_qty: 100, planned_qty: 0, prds: [] },

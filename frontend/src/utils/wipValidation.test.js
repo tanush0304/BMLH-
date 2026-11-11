@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  wipReceiptStageChoices,
+  wipReceiptStageLabel,
   parsePositiveWipQuantity,
   validateWipIssueQuantity,
   validateWipIssueStages,
@@ -31,8 +33,8 @@ describe('validateWipReceiptStage', () => {
     expect(validateWipReceiptStage('PRD-101', '101', [routeStages[0]])).toBeNull()
   })
 
-  it('rejects an empty stage, another PRD stage, or a non-completed stage', () => {
-    expect(validateWipReceiptStage('PRD-101', '', [routeStages[0]])).toMatch(/select a completed stage/i)
+  it('rejects an empty stage, another PRD stage, or a stage not offered', () => {
+    expect(validateWipReceiptStage('PRD-101', '', [routeStages[0]])).toMatch(/select a stage/i)
     expect(validateWipReceiptStage('PRD-101', 201, [routeStages[2]])).toMatch(/does not belong/i)
     expect(validateWipReceiptStage('PRD-101', 102, [])).toMatch(/does not belong/i)
   })
@@ -84,5 +86,30 @@ describe('validateWipIssueQuantity', () => {
 
   it('rejects missing or invalid balances', () => {
     expect(validateWipIssueQuantity('1', null).error).toMatch(/unavailable/i)
+  })
+})
+
+describe('wipReceiptStageChoices (option B: partial output can go to WIP)', () => {
+  const stages = [
+    { id: 3, prd_no: 'P', seq: 3, status: 'Pending' },
+    { id: 1, prd_no: 'P', seq: 1, status: 'Completed' },
+    { id: 2, prd_no: 'P', seq: 2, status: 'Pending' },
+    { id: 4, prd_no: 'P', seq: 4, status: 'Received' },
+  ]
+  const avail = { 1: 0, 2: 120, 3: 0, 4: 5 }
+  const choices = wipReceiptStageChoices(stages, (id) => avail[id])
+
+  it('Completed / Received always offered; other stages only with something to receive; route-card order', () => {
+    expect(choices.map((c) => c.stage.id)).toEqual([1, 2, 4])
+    expect(choices.map((c) => c.inProgress)).toEqual([false, true, false])
+  })
+
+  it('labels: completed as today, in-progress with the available qty', () => {
+    expect(wipReceiptStageLabel(choices[0], 'Stage 1 – Cutting')).toBe('Stage 1 – Cutting')
+    expect(wipReceiptStageLabel(choices[1], 'Stage 2 – Turning')).toBe('Stage 2 – Turning · in progress · 120 available')
+  })
+
+  it('all Pending with nothing produced -> nothing offered (as on live today)', () => {
+    expect(wipReceiptStageChoices([{ id: 9, seq: 1, status: 'Pending' }], () => 0)).toEqual([])
   })
 })

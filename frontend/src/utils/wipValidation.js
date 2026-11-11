@@ -3,16 +3,40 @@ export function parsePositiveWipQuantity(value) {
   return quantity !== null && quantity > 0 ? quantity : null
 }
 
-export function validateWipReceiptStage(prdNo, stageId, completedStages) {
+const isDoneStage = (s) => s?.status === 'Completed' || s?.status === 'Received'
+
+/**
+ * WIP Receipt "Stage" options (2026-11-11, option B): Completed / Received
+ * stages as before, plus any other stage with WIP-receivable qty > 0
+ * (batch flow -- partial accepted output can go to WIP). `availableFor(id)`
+ * = the screen's wipReceiptAvailable for that stage (same rule as the 036
+ * DB guard). Route-card order. Returns [{ stage, inProgress, available }].
+ */
+export function wipReceiptStageChoices(stages, availableFor) {
+  return [...(stages ?? [])]
+    .sort((a, b) => Number(a.seq) - Number(b.seq))
+    .map((stage) => {
+      const available = Number(availableFor(stage.id)) || 0
+      return { stage, inProgress: !isDoneStage(stage), available }
+    })
+    .filter((c) => !c.inProgress || c.available > 0)
+}
+
+/** Completed stages: the plain label; others "<label> · in progress · N available". */
+export function wipReceiptStageLabel(choice, baseLabel) {
+  return choice.inProgress ? `${baseLabel} · in progress · ${choice.available} available` : baseLabel
+}
+
+export function validateWipReceiptStage(prdNo, stageId, offeredStages) {
   if (!prdNo) return 'Select a Production Order first.'
   if (stageId === '' || stageId === null || stageId === undefined) {
-    return "Select a completed stage from this Production Order's Route Card."
+    return "Select a stage from this Production Order's Route Card."
   }
 
-  const stage = completedStages.find(
+  const stage = offeredStages.find(
     (candidate) => sameId(candidate.id, stageId) && sameId(candidate.prd_no, prdNo)
   )
-  return stage ? null : "The selected completed stage does not belong to this Production Order's Route Card."
+  return stage ? null : "The selected stage does not belong to this Production Order's Route Card or has nothing to receive."
 }
 
 export function validateWipIssueStages(prdNo, sourceStageId, targetStageId, stages) {

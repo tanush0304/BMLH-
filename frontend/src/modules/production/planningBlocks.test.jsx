@@ -5,6 +5,16 @@
 // Labour orders skip the BOM + stock checks.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+// The screen's migration probes (043 open PO, 042 delivery addresses) are
+// mocked: unmocked they made real network calls to Supabase, which is what
+// made this file flaky under full-suite load (refresh waited on the probe).
+// No real Supabase client at all: any query left unmocked fails fast instead
+// of going to the network.
+vi.mock('../../lib/supabaseClient', () => ({ supabase: {} }))
+vi.mock('../../components/JobRouteCardSheet', () => ({ default: () => null }))
+vi.mock('../../components/StageTraceTable', () => ({ default: () => null }))
+vi.mock('../../data/queries/openPo', () => ({ openPoSupported: async () => false, listLineStatuses: async () => [] }))
+vi.mock('../../data/queries/deliveryAddresses', () => ({ deliveryAddressesSupported: async () => false, listDeliveryAddresses: async () => [] }))
 
 const m = vi.hoisted(() => ({
   plan: vi.fn(),

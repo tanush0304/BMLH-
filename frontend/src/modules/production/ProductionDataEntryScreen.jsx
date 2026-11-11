@@ -55,7 +55,7 @@ import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
-import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
+import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner, plannedMachineHint, plannedFirst } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import DailyChecklistGate from '../../components/DailyChecklistGate'
@@ -93,7 +93,8 @@ export default function ProductionDataEntryScreen({ role }) {
   const [machineOpsForPrd, setMachineOpsForPrd] = useState([]) // {machine_id, seq} rows -- Cycle Time Master's record of which machines can run which of prdStages' seqs
   const [resolving, setResolving] = useState(false)
   const [prdAllStages, setPrdAllStages] = useState([]) // every stage of the PRD (any type / status) -- earlier-stage check
-  const [nextStageMachineId, setNextStageMachineId] = useState('') // default pick, labelled "(next stage)"
+  const [nextStageMachineId, setNextStageMachineId] = useState('') // next stage's PLANNED machine: hint + listed first, never pre-selected
+  const [nextStage, setNextStage] = useState(null)
   const [confirmEarlier, setConfirmEarlier] = useState(false) // "I confirm" for an incomplete earlier stage
 
   const [machineId, setMachineId] = useState('')
@@ -230,6 +231,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setMachineId('')
     setNextStageMachineId('')
     setNextStageSeq(null)
+    setNextStage(null)
     setOptionsBySeq({})
     setPrdAllStages([])
     setStageChoiceId('')
@@ -284,8 +286,10 @@ export default function ProductionDataEntryScreen({ role }) {
       const rows = Object.entries(bySeq).flatMap(([seq, opts]) => opts.map((o) => ({ machine_id: o.machine_id, seq: Number(seq) })))
       setMachineOpsForPrd(rows)
       if (autoPick) {
-        // Default: the machine of the EARLIEST pending stage (route card
-        // order) that has something available -- labelled "(next stage)".
+        // Hint only (2026-11-11): the EARLIEST pending stage (route card
+        // order) with something available, and its PLANNED machine -- shown
+        // next to the field and listed first, but the Machine field stays
+        // empty: the operator must pick it.
         const [allStages, aggregates, wipAggregates] = await Promise.all([
           getStagesForPrd(prd),
           getStageAggregatesForPrd(prd),
@@ -296,10 +300,10 @@ export default function ProductionDataEntryScreen({ role }) {
         const candidates = stages.filter((s) => rows.some((r) => r.seq === s.seq))
         const next = pickDefaultStage(candidates, availability)
         const machine = defaultMachineForStage(next, rows)
-        if (next && machine) {
-          setNextStageMachineId(machine)
+        if (next) {
+          setNextStage(next)
           setNextStageSeq(next.seq)
-          selectMachine(machine, { stages, rows, prd, preferStage: next, token })
+          setNextStageMachineId(machine && machine === next.machine_id ? machine : '')
         }
       }
     } catch (e) {
@@ -425,6 +429,10 @@ export default function ProductionDataEntryScreen({ role }) {
     if (checklistBlocksStart) return
     if (substituteError) {
       fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
+      return
+    }
+    if (prdNo && !machineId) {
+      fieldError.fail('machine', 'Select the Machine.')
       return
     }
     const missing = !employeeId ? 'employee' : !prdNo ? 'prd' : !machineId || !resolvedStage ? 'machine' : !shiftCode ? 'shift' : null
@@ -711,11 +719,22 @@ export default function ProductionDataEntryScreen({ role }) {
               value={machineId}
               onChange={handleMachineChange}
               disabled={selectionLocked || !prdNo || eligibleMachineIds.length === 0}
-              options={eligibleMachineIds.map((id) => ({
+              options={plannedFirst(eligibleMachineIds, nextStageMachineId).map((id) => ({
                 value: id,
-                label: `${optionLabel(id)}${id === nextStageMachineId ? ' (next stage)' : ''}`,
+                label: `${optionLabel(id)}${id === nextStageMachineId ? ' (planned · next stage)' : ''}`,
               }))}
             />
+            {!activeLog && nextStage && (
+              <span className="mt-0.5 block text-[11px] text-gray-500" data-testid="planned-machine-hint">
+                {plannedMachineHint(nextStage, nextStageMachineId ? optionLabel(nextStageMachineId) : '', stageLabel(nextStage))}
+              </span>
+            )}
+            {/* Start (and the stage / cycle time section) only appears once a machine is picked. */}
+            {!activeLog && prdNo && !machineId && eligibleMachineIds.length > 0 && (
+              <span className="mt-0.5 block text-[11px] font-medium text-amber-700" data-testid="machine-required-note">
+                Select the machine to continue.
+              </span>
+            )}
           </Field>
           {stageChoicesForPrd.length > 1 && (
             <Field label="Which Stage?" required>

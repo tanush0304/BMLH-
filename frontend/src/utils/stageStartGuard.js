@@ -28,6 +28,20 @@ export function defaultMachineForStage(stage, machineRows) {
   return forSeq[0] ?? ''
 }
 
+/** Hint next to Data Entry's (empty) Machine field: the next stage's
+ * planned machine (route card), never pre-selected. "" when no next stage;
+ * stage only when the planned machine isn't eligible. */
+export function plannedMachineHint(stage, plannedMachineLabel, stageText) {
+  if (!stage) return ''
+  return plannedMachineLabel ? `Planned: ${plannedMachineLabel} (${stageText}, next stage)` : `Next stage: ${stageText}`
+}
+
+/** Eligible machine ids with the planned one first (order only). */
+export function plannedFirst(ids, plannedId) {
+  if (!plannedId || !ids.includes(plannedId)) return ids
+  return [plannedId, ...ids.filter((id) => id !== plannedId)]
+}
+
 /** "Stage 20 – Rough Turning on CNC 1 (MC-004) · Available: 198" (no machine part on Manual Ops). */
 export function startSummary({ stage, machineLabel, available }) {
   if (!stage) return ''

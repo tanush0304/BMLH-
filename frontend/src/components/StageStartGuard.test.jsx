@@ -39,10 +39,12 @@ describe('wired into both screens', () => {
       expect(s).not.toMatch(/window\.confirm\([^)]*partial/)
     })
   }
-  it('Data Entry pre-selects the next stage machine and labels it', () => {
+  it('Data Entry never pre-selects the machine: planned machine is a hint + listed first', () => {
     const s = src('modules/production/ProductionDataEntryScreen.jsx')
-    expect(s).toContain("' (next stage)'")
+    expect(s).toContain("' (planned · next stage)'")
     expect(s).toContain('pickDefaultStage(candidates, availability)')
+    expect(s).toContain('plannedFirst(eligibleMachineIds, nextStageMachineId)')
+    expect(s).not.toContain('selectMachine(machine, { stages, rows, prd, preferStage: next, token })')
     expect(s).toContain("selectPrd(log.prd_no, pending, { autoPick: false, token })")
   })
 })
