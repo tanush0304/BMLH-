@@ -37,6 +37,8 @@ import Banner from '../../components/Banner'
 import OrderLineFields, { DeliveryAddressBlock } from '../../components/OrderLineFields'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText } from '../../utils/deliveryAddress'
+import { useCustomerPartNumbers } from '../../utils/useCustomerPartNumbers'
+import { customerPartFields } from '../../utils/customerPartNumber'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -64,6 +66,8 @@ const DISPATCH_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_type', label: 'Type of Order' },
   { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
+  { key: 'customer_part_no', label: 'Customer Part No', needsCustomerParts: true },
+  { key: 'customer_drawing_ref', label: 'Customer Drawing Ref', needsCustomerParts: true },
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
@@ -88,6 +92,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
   const [mode, setMode] = useState(initialMode) // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
   const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const cparts = useCustomerPartNumbers() // 045; Customer Part No hidden before it
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [balances, setBalances] = useState([])
@@ -343,6 +348,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
         employee_name: employeeName(t.employee_id),
         order_type: orderTypeForPrd(orders, t.prd_no),
         deliver_to: deliveryText(order, delivery.byId),
+        ...customerPartFields(order, cparts.map),
         order_qty: order?.order_qty ?? '',
         qty_in_stock: qtyInStockForPrd(t.prd_no),
         qty_received: qtyReceivedForPrd(t.prd_no),
@@ -384,7 +390,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     )
   })
 
-  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported) : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'dispatch' ? [VOID_COLUMN] : [])]
+  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS.filter((c) => (!c.needsAddresses || delivery.supported) && (!c.needsCustomerParts || cparts.supported)) : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'dispatch' ? [VOID_COLUMN] : [])]
   const listTitle = mode === 'dispatch' ? 'Finished Goods Despatch List' : 'Finished Goods Production Receipt List'
   const exportName = mode === 'dispatch' ? 'fg_despatch' : 'fg_production_receipt'
 
@@ -520,6 +526,16 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             <Field label="Part Drawing Number">
               <AutoFillBox value={dispatchPart.part_drawing_reference_number} />
             </Field>
+            {dispatchPart.customer_part_supported && (
+              <>
+                <Field label="Customer Part No">
+                  <AutoFillBox value={dispatchForm.prd_no ? dispatchPart.customer_part_no : ''} />
+                </Field>
+                <Field label="Customer Drawing Ref">
+                  <AutoFillBox value={dispatchForm.prd_no ? dispatchPart.customer_drawing_ref : ''} />
+                </Field>
+              </>
+            )}
             <Field label="Type of Order">
               <AutoFillBox value={orderTypeForPrd(orders, dispatchForm.prd_no)} />
             </Field>

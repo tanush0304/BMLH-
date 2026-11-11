@@ -101,7 +101,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
           <Field label="Production Order (PRD No)">
             <SearchableSelect value={prdNo} onChange={(e) => setPrdNo(e.target.value)} options={orders.map((o) => o.prd_no)} />
           </Field>
-          {prdNo && <OrderLineFields part={part} />}
+          {prdNo && <OrderLineFields part={part} showCustomerPart />}
           {prdNo && lineStatus && (
             <Field label="PO Line Status" width="short">
               <div className="flex h-[30px] items-center" title={lineStatus.cancel_reason ?? undefined}>

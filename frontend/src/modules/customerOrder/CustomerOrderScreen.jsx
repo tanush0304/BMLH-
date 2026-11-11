@@ -30,6 +30,8 @@ import { orderLineProblem } from '../../utils/orderValidation'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 import { ORDER_TYPES, DEFAULT_ORDER_TYPE, orderTypeProblem } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { useCustomerPartNumbers } from '../../utils/useCustomerPartNumbers'
+import { customerDrawingText, customerPartFor, customerPartNoText } from '../../utils/customerPartNumber'
 import { defaultAddressId, deliverToOptions, deliverToProblem, deliveryIdOrNull, deliveryText } from '../../utils/deliveryAddress'
 import PoView from './PoView'
 import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
@@ -94,6 +96,7 @@ const LIST_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'order_type', label: 'Order Type' },
   { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
+  { key: 'customer_part_no', label: 'Customer Part No', needsCustomerParts: true },
   { key: 'line_status', label: 'Line Status', type: 'status', needsOpenPo: true },
   { key: 'planned_text', label: 'Planned', needsOpenPo: true },
   { key: 'despatched_text', label: 'Despatched', needsOpenPo: true },
@@ -133,7 +136,11 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
   const [lineItems, setLineItems] = useState([emptyLineItem()])
   // 042: customer delivery addresses (hidden until the table exists)
   const delivery = useDeliveryAddresses()
-  const listColumns = LIST_COLUMNS.filter((c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo))
+  // 045: customer part numbers -- read-only lookup by customer + part, never saved on the line
+  const cparts = useCustomerPartNumbers()
+  const listColumns = LIST_COLUMNS.filter(
+    (c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo) && (!c.needsCustomerParts || cparts.supported),
+  )
 
   async function refresh() {
     setLoading(true)
@@ -524,6 +531,7 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
     customer_name: customers.find((c) => c.customer_id === r.customer_id)?.customer_name ?? r.customer_id ?? '',
     part_drawing_reference_number: products.find((p) => p.part_serial_number === r.part_serial_number)?.part_drawing_reference_number ?? '',
     deliver_to: deliveryText(r, delivery.byId),
+    customer_part_no: customerPartNoText(customerPartFor(cparts.map, r.customer_id, r.part_serial_number)),
     ...(openPo && lineStatus.get(r.order_line_id)
       ? {
           line_status: lineStatus.get(r.order_line_id).line_status,
@@ -567,6 +575,7 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
             key={poId}
             poId={poId}
             role={role}
+            cparts={cparts}
             customers={customers}
             products={products}
             delivery={delivery}
@@ -682,6 +691,16 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                         disabled={!it.isNewPart}
                       />
                     </Field>
+                    {cparts.supported && (
+                      <>
+                        <Field label="Customer Part No" width="medium">
+                          <AutoFillBox value={customerPartNoText(customerPartFor(cparts.map, poHeader.customer_id, it.isNewPart ? '' : it.partSerialNumber))} />
+                        </Field>
+                        <Field label="Customer Drawing Ref" width="medium">
+                          <AutoFillBox value={customerDrawingText(customerPartFor(cparts.map, poHeader.customer_id, it.isNewPart ? '' : it.partSerialNumber))} />
+                        </Field>
+                      </>
+                    )}
                     <Field label="Quotation (QTN)" width="medium">
                       <SearchableSelect
                         value={it.qtnNo}
@@ -796,6 +815,16 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                 options={productOptions(products)}
               />
             </Field>
+            {cparts.supported && (
+              <>
+                <Field label="Customer Part No">
+                  <AutoFillBox value={customerPartNoText(customerPartFor(cparts.map, form.customer_id, form.part_serial_number))} />
+                </Field>
+                <Field label="Customer Drawing Ref">
+                  <AutoFillBox value={customerDrawingText(customerPartFor(cparts.map, form.customer_id, form.part_serial_number))} />
+                </Field>
+              </>
+            )}
             <Field name="order_type" label="Order Type" required>
               <SelectInput
                 value={form.order_type}

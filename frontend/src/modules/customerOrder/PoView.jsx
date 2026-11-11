@@ -13,6 +13,7 @@ import { dbErrorMessage } from '../../utils/dbErrors'
 import { withTypedFields } from '../../utils/numericFields'
 import { orderLineProblem } from '../../utils/orderValidation'
 import { ORDER_TYPES, DEFAULT_ORDER_TYPE, orderTypeProblem } from '../../utils/orderType'
+import { customerPartFor, customerPartNoText, customerDrawingText } from '../../utils/customerPartNumber'
 import { defaultAddressId, deliverToOptions, deliverToProblem, deliveryIdOrNull, deliveryText } from '../../utils/deliveryAddress'
 import { fmtQtyIn, orderQtyProblem, cancelLineProblem, prdState, poExpired } from '../../utils/openPo'
 import { getPoHeader, updatePoHeader, listLineStatuses, listLineEdits, updateLineQty, cancelLine, listPrdStatesForLine } from '../../data/queries/openPo'
@@ -76,7 +77,7 @@ function ReasonDialog({ title, note, confirmLabel, onConfirm, onCancel }) {
  * Supervisor / admin for the changes (the module is supervisor/admin only;
  * the DB guards check again).
  */
-export default function PoView({ poId, role, customers, products, delivery, orderLines = [], onChanged }) {
+export default function PoView({ poId, role, customers, products, delivery, cparts = null, orderLines = [], onChanged }) {
   const canChange = role === 'supervisor' || role === 'admin'
   const appUsers = useAppUsers()
   const confirm = useDeleteConfirm()
@@ -318,7 +319,7 @@ export default function PoView({ poId, role, customers, products, delivery, orde
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-[#1F3A5F] text-left text-white">
-                {['Part', 'Order Type', ...(delivery.supported ? ['Deliver To'] : []), 'Order Qty', 'Planned', 'Despatched', 'Status', 'Last Edit', ''].map((h) => (
+                {['Part', ...(cparts?.supported ? ['Customer Part No'] : []), 'Order Type', ...(delivery.supported ? ['Deliver To'] : []), 'Order Qty', 'Planned', 'Despatched', 'Status', 'Last Edit', ''].map((h) => (
                   <th key={h} className="whitespace-nowrap px-2 py-1.5 font-semibold">{h}</th>
                 ))}
               </tr>
@@ -335,6 +336,11 @@ export default function PoView({ poId, role, customers, products, delivery, orde
                 return (
                   <tr key={l.order_line_id} className={`border-b ${l.line_status === 'Cancelled' ? 'text-gray-400' : ''}`} data-testid={`po-line-${l.order_line_id}`}>
                     <td className="px-2 py-1.5 font-medium">{l.part_serial_number}</td>
+                    {cparts?.supported && (
+                      <td className="px-2 py-1.5" title={customerDrawingText(customerPartFor(cparts.map, header.customer_id, l.part_serial_number))}>
+                        {customerPartNoText(customerPartFor(cparts.map, header.customer_id, l.part_serial_number))}
+                      </td>
+                    )}
                     <td className="px-2 py-1.5">{source.order_type ?? ''}</td>
                     {delivery.supported && (
                       <td className="max-w-[180px] truncate px-2 py-1.5" title={deliveryText(source, delivery.byId)}>
@@ -414,6 +420,16 @@ export default function PoView({ poId, role, customers, products, delivery, orde
             <Field label="Part Serial Number" required width="medium">
               <SearchableSelect value={newLine.part} onChange={setNL('part')} options={productOptions(products)} />
             </Field>
+            {cparts?.supported && (
+              <>
+                <Field label="Customer Part No" width="medium">
+                  <AutoFillBox value={customerPartNoText(customerPartFor(cparts.map, header.customer_id, newLine.part))} />
+                </Field>
+                <Field label="Customer Drawing Ref" width="medium">
+                  <AutoFillBox value={customerDrawingText(customerPartFor(cparts.map, header.customer_id, newLine.part))} />
+                </Field>
+              </>
+            )}
             <Field label="Order Type" required width="medium">
               <SelectInput value={newLine.orderType} onChange={setNL('orderType')} options={ORDER_TYPES} />
             </Field>

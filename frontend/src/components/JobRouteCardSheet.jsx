@@ -12,6 +12,8 @@ import { listLogsForPrd } from '../data/queries/productionLogs'
 import { orderLineProgress } from '../utils/batchSplit'
 import { deliveryAddressesSupported, listDeliveryAddresses } from '../data/queries/deliveryAddresses'
 import { addressMap, deliveryForLine, deliveryLabel } from '../utils/deliveryAddress'
+import { customerPartNumbersSupported, listCustomerPartNumbers } from '../data/queries/customerPartNumbers'
+import { customerPartFields, customerPartMap } from '../utils/customerPartNumber'
 import {
   JOB_ROUTE_CARD_COLUMNS,
   TEMPLATE_COLUMNS,
@@ -32,6 +34,16 @@ async function deliveryHeader(order) {
     return { deliver_to: deliveryLabel(deliveryForLine(order, byId)), deliver_to_supported: true }
   } catch {
     return { deliver_to: '', deliver_to_supported: true }
+  }
+}
+
+// 045: Customer Part No / Drawing for the header (hidden before 045; a failed read shows "—").
+async function customerPartHeader(order) {
+  try {
+    if (!(await customerPartNumbersSupported())) return { customer_part_supported: false }
+    return { ...customerPartFields(order, customerPartMap(await listCustomerPartNumbers())), customer_part_supported: true }
+  } catch {
+    return { customer_part_no: '—', customer_drawing_ref: '—', customer_part_supported: true }
   }
 }
 
@@ -67,6 +79,8 @@ export function JobRouteCardBody({ header, rows, blank = false }) {
         <InfoCell label="Drawing Reference Number" value={header.part_drawing_reference_number} />
         <InfoCell label="Order Type" value={header.order_type} />
         {header.deliver_to_supported && <InfoCell label="Deliver To" value={header.deliver_to} />}
+        {header.customer_part_supported && <InfoCell label="Customer Part No" value={header.customer_part_no} />}
+        {header.customer_part_supported && <InfoCell label="Customer Drawing Ref" value={header.customer_drawing_ref} />}
       </div>
 
       <div className="mt-3 overflow-x-auto">
@@ -159,6 +173,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
           batch: order ? `Batch ${order.batch_no} (PO line: ${orderLineProgress(order)})` : '',
           order_type: order?.order_type ?? '',
           ...(await deliveryHeader(order)),
+          ...(await customerPartHeader(order)),
         })
         setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines, logs }))
       } catch (e) {

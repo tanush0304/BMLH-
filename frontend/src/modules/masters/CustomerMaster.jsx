@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
+import { deliveryAddressesSupported } from '../../data/queries/deliveryAddresses'
 import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import CustomerPartNumbersSection from './CustomerPartNumbersSection'
 import DeliveryAddressesSection from './DeliveryAddressesSection'
 import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import {
@@ -148,6 +151,17 @@ const LIST_COLUMNS = [
 ]
 
 export default function CustomerMaster() {
+  // Delivery Addresses (042) is hidden before 042 -> number the next card after it only when shown
+  const [addressesShown, setAddressesShown] = useState(false)
+  useEffect(() => {
+    let active = true
+    deliveryAddressesSupported()
+      .then((ok) => active && setAddressesShown(ok))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
   return (
     <MasterFormScreen
       title="Customer Master"
@@ -162,7 +176,10 @@ export default function CustomerMaster() {
       api={{ list: listCustomers, create: createCustomer, update: updateCustomer, remove: deleteCustomer }}
       exportFilename="customer_master.csv"
       renderAfterSections={({ form, mode, nextNumber }) => (
-        <DeliveryAddressesSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber} />
+        <>
+          <DeliveryAddressesSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber} />
+          <CustomerPartNumbersSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber + (addressesShown ? 1 : 0)} />
+        </>
       )}
     />
   )

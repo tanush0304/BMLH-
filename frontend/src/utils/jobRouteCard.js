@@ -212,7 +212,9 @@ export function jobRouteCardPrintHtml({ header, rows, blank = false }) {
     <table class="info">
       <tr>${cell('PRD Number', header.prd_no)}${cell('Batch Qty', header.batch_qty)}${cell('Shift Hours', header.shift_hours)}</tr>
       <tr>${cell('PO Number', header.po_number)}${cell('Batch', header.batch)}${cell('Order Type', header.order_type)}</tr>
-      ${header.deliver_to_supported ? `<tr>${cell('Deliver To', header.deliver_to)}${cell('', '')}${cell('', '')}</tr>` : ''}
+      ${header.deliver_to_supported || header.customer_part_supported
+        ? `<tr>${header.deliver_to_supported ? cell('Deliver To', header.deliver_to) : cell('', '')}${header.customer_part_supported ? cell('Customer Part No', header.customer_part_no) + cell('Customer Drawing Ref', header.customer_drawing_ref) : cell('', '') + cell('', '')}</tr>`
+        : ''}
       <tr>${cell('Part Serial Number', header.part_serial_number)}${cell('Part Name', header.part_name)}${cell('Drawing Reference Number', header.part_drawing_reference_number)}</tr>
     </table>
     <table class="stages${blank ? ' blank' : ''}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>

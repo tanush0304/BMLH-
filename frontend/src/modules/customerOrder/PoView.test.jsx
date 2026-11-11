@@ -144,6 +144,28 @@ describe('PO view', () => {
     expect(q.createCustomerOrder.mock.calls[0][0]).toMatchObject({ parent_po_id: 7, customer_id: 'CUST-001', po_number: 'PO-ANNUAL', part_serial_number: 'P-9', order_qty: 300, order_type: 'Manufacturing' })
   })
 
+  it('045: Add line shows the customer part no (read-only lookup, "—" without a row, never saved); hidden before 045', async () => {
+    const { customerPartMap } = await import('../../utils/customerPartNumber')
+    const cparts = { supported: true, map: customerPartMap([{ id: 1, customer_id: 'CUST-001', part_serial_number: 'P-9', customer_part_number: 'ACME-9', customer_drawing_ref: 'AD-1', is_active: true }]) }
+    renderView({ cparts })
+    fireEvent.click(await screen.findByRole('button', { name: /Add line/ }))
+    const form = screen.getByTestId('add-line-form')
+    const cpn = () => within(form).getByText('Customer Part No').closest('label')
+    expect(cpn().textContent).toContain('—')
+    expect(within(cpn()).queryByRole('textbox')).toBeNull()
+    fireEvent.change(within(within(form).getByText('Part Serial Number').closest('label')).getByRole('combobox'), { target: { value: 'P-9' } })
+    expect(cpn().textContent).toContain('ACME-9')
+    expect(within(form).getByText('Customer Drawing Ref').closest('label').textContent).toContain('AD-1')
+    fireEvent.change(within(within(form).getByText('Order Qty').closest('label')).getByRole('spinbutton'), { target: { value: '300' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Line' }))
+    await waitFor(() => expect(q.createCustomerOrder).toHaveBeenCalled())
+    expect(JSON.stringify(q.createCustomerOrder.mock.calls[0][0])).not.toMatch(/ACME-9|customer_part/)
+    cleanup()
+    renderView({ cparts: { supported: false, map: new Map() } })
+    fireEvent.click(await screen.findByRole('button', { name: /Add line/ }))
+    expect(within(screen.getByTestId('add-line-form')).queryByText('Customer Part No')).toBeNull()
+  })
+
   it('Closed PO: no Add line; Reopen offered; DB refusal of a line is shown', async () => {
     q.getPoHeader.mockResolvedValue({ ...HEADER, po_status: 'Closed' })
     renderView()

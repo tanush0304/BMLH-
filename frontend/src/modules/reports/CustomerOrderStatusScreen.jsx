@@ -21,6 +21,8 @@ import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessa
 import { ORDER_TYPES } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText, deliveryOptionLabel } from '../../utils/deliveryAddress'
+import { useCustomerPartNumbers } from '../../utils/useCustomerPartNumbers'
+import { customerPartFields } from '../../utils/customerPartNumber'
 import Banner from '../../components/Banner'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red', Cancelled: 'slate' }
@@ -46,6 +48,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const cparts = useCustomerPartNumbers() // 045; Customer Part No hidden before it
 
   useEffect(() => {
     Promise.all([listCustomers(), listProducts()])
@@ -104,10 +107,11 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         part_name: p?.part_name ?? '',
         drawing: p?.part_drawing_reference_number ?? '',
         deliver_to: deliveryText(l, delivery.byId),
+        ...customerPartFields(l, cparts.map),
         ...(l.line_status ? { status: l.line_status } : {}),
       }
     })
-  }, [orders, dispatches, prdRows, r.applied.customerId, r.applied.orderType, r.applied.deliveryAddressId, customerName, productBySerial, delivery.supported, delivery.byId])
+  }, [orders, dispatches, prdRows, r.applied.customerId, r.applied.orderType, r.applied.deliveryAddressId, customerName, productBySerial, delivery.supported, delivery.byId, cparts.map])
 
   // Empty period: say where the POs are (latest) and offer "Show all POs"
   // (From = earliest PO date, To = today). Bounds are read only when the state shows.
@@ -142,6 +146,12 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     { key: 'part_serial_number', label: 'Part Sl No' },
     { key: 'part_name', label: 'Part Name' },
     { key: 'drawing', label: 'Drawing Ref No' },
+    ...(cparts.supported
+      ? [
+          { key: 'customer_part_no', label: 'Customer Part No' },
+          { key: 'customer_drawing_ref', label: 'Customer Drawing Ref' },
+        ]
+      : []),
     { key: 'order_type', label: 'Order Type' },
     ...(delivery.supported ? [{ key: 'deliver_to', label: 'Deliver To', render: (row) => <span className="block max-w-[180px] truncate" title={row.deliver_to}>{row.deliver_to}</span> }] : []),
     { key: 'order_qty', label: 'PO Qty (Nos)', align: 'right', format: formatQty },
@@ -259,7 +269,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           loading={loading}
           error={null}
           rowKey="order_line_id"
-          searchKeys={['customer_name', 'po_number', 'part_name', 'drawing', 'prd_list', 'status']}
+          searchKeys={['customer_name', 'po_number', 'part_name', 'drawing', 'customer_part_no', 'prd_list', 'status']}
           searchPlaceholder="Search by Customer / PO Reference / Part Name / Drawing No..."
           exportTitle={`Customer Order Status – PO date ${displayDate(r.applied.from)} to ${displayDate(r.applied.to)}`}
           exportName="customer_order_status"

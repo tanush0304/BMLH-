@@ -96,6 +96,19 @@ describe('buildJobRouteCardRows', () => {
     expect(html).toContain('size: A4 landscape')
   })
 
+  it('045: Customer Part No + Drawing Ref in the print header (shares the Deliver To row; none before 045)', () => {
+    const before = jobRouteCardPrintHtml({ header, rows: rows() })
+    expect(before).not.toContain('Customer Part No')
+    const html = jobRouteCardPrintHtml({ header: { ...header, customer_part_supported: true, customer_part_no: 'ACME-77', customer_drawing_ref: '—' }, rows: rows() })
+    expect(html).toContain('Customer Part No')
+    expect(html).toContain('ACME-77')
+    expect(html).toContain('Customer Drawing Ref')
+    const both = jobRouteCardPrintHtml({ header: { ...header, deliver_to_supported: true, deliver_to: 'Plant 1', customer_part_supported: true, customer_part_no: 'ACME-77', customer_drawing_ref: 'AD-9' }, rows: rows() })
+    // still 4 info rows (A4 fit unchanged vs 042)
+    expect((both.match(/<tr>/g) ?? []).length - (before.match(/<tr>/g) ?? []).length).toBe(1)
+    expect(both).toMatch(/Deliver To.*Plant 1.*Customer Part No.*ACME-77.*Customer Drawing Ref.*AD-9/s)
+  })
+
   it('status print variant is unchanged (dates + statuses filled; default)', () => {
     const html = jobRouteCardPrintHtml({ header, rows: rows() })
     expect(html).toBe(jobRouteCardPrintHtml({ header, rows: rows(), blank: false }))
