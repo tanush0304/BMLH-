@@ -81,3 +81,24 @@ export function runningBanner({ stage, machineLabel }) {
   if (!stage) return ''
   return `Running: ${stageLabel(stage)}${machineLabel ? ` on ${machineLabel}` : ''}`
 }
+
+// ---------------------------------------------------------------- 2026-11-11
+// Mark Stage Complete: supervisor / admin only (047 guard); prompted, never
+// automatic. Trigger = pieces PROCESSED (incl. rejects / rework) >= target.
+
+export const canCompleteStageRole = (role) => role === 'supervisor' || role === 'admin'
+
+/** Processed output reached the stage target (target > 0). */
+export function stageReachedTarget(output, target) {
+  return Number(target) > 0 && Number(output) >= Number(target)
+}
+
+/** "Stage 2 – Turning reached 500 of 500 (accepted 488) -- mark it complete?" */
+export function completePromptText({ label, output, target, accepted }) {
+  return `${label} reached ${Number(output)} of ${Number(target)} (accepted ${Number(accepted)}) -- mark it complete?`
+}
+
+/** Operator note instead of the button. */
+export function askSupervisorText({ label, output, target }) {
+  return `${label} reached ${Number(output)} of ${Number(target)} -- ask a supervisor to mark it complete.`
+}

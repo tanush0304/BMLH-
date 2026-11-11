@@ -11,7 +11,9 @@ import { Loader2, Trash2 } from 'lucide-react'
  *   body         default "<label> will be permanently deleted. This can't be undone."
  *   confirmLabel default "Delete"
  */
-export default function ConfirmDialog({ open, recordType = 'record', label, title, body, confirmLabel = 'Delete', onConfirm, onClose }) {
+export default function ConfirmDialog({ open, recordType = 'record', label, title, body, confirmLabel = 'Delete', onConfirm, onClose, tone = 'danger', cancelLabel = 'Cancel' }) {
+  // tone 'confirm' (green) for non-destructive confirmations, e.g. Mark Stage Complete
+  const confirmTone = tone === 'confirm'
   const [busy, setBusy] = useState(false)
   const cancelRef = useRef(null)
 
@@ -58,7 +60,7 @@ export default function ConfirmDialog({ open, recordType = 'record', label, titl
           <Trash2 size={18} />
           <h2 id="confirm-dialog-title" className="text-base font-semibold">{heading}</h2>
         </div>
-        <p id="confirm-dialog-body" className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p id="confirm-dialog-body" className={`mb-3 rounded border px-3 py-2 text-sm ${confirmTone ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
           {body ?? (
             <>
               <strong>{label}</strong> will be permanently deleted. This can't be undone.
@@ -67,9 +69,9 @@ export default function ConfirmDialog({ open, recordType = 'record', label, titl
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button ref={cancelRef} type="button" onClick={onClose} disabled={busy} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-40">
-            Cancel
+            {cancelLabel}
           </button>
-          <button type="button" onClick={handleConfirm} disabled={busy} className="inline-flex items-center gap-1.5 rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60">
+          <button type="button" onClick={handleConfirm} disabled={busy} className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 ${confirmTone ? 'bg-green-600' : 'bg-red-600'}`}>
             {busy && <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
             {confirmLabel}
           </button>
