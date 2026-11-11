@@ -55,12 +55,12 @@ describe('Customer Master -- Delivery Addresses', () => {
     expect(q.listDeliveryAddresses).not.toHaveBeenCalled()
   })
 
-  it('numbered after the last master section (8 on Customer Master)', async () => {
+  it('numbered after the last master section (7 on Customer Master; old section 7 removed)', async () => {
     render(<CustomerMaster />)
     const heading = await screen.findByRole('heading', { name: 'Delivery Addresses' })
     const badge = heading.closest('section').querySelector('span')
-    expect(badge.textContent).toBe('8')
-    expect(screen.getByRole('heading', { name: 'Customer Product & Drawing Details' })).toBeTruthy()
+    expect(badge.textContent).toBe('7')
+    expect(screen.queryByRole('heading', { name: 'Customer Product & Drawing Details' })).toBeNull()
   })
 
   it('new customer: asks to save the customer first', async () => {

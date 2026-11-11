@@ -19,6 +19,7 @@ const q = vi.hoisted(() => ({
   listCustomers: vi.fn(),
   listProducts: vi.fn(),
   resolveProductWithConfirmation: vi.fn(),
+  productCustomerSupported: vi.fn(async () => false),
   deliveryAddressesSupported: vi.fn(),
   listDeliveryAddresses: vi.fn(),
 }))

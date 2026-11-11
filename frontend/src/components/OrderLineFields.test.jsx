@@ -73,19 +73,6 @@ describe('OrderLineFields', () => {
   })
 })
 
-describe('OrderLineFields -- customer part (045)', () => {
-  it('shown only with showCustomerPart and once 045 exists; "—" passes through', async () => {
-    const part = { ...PART, customer_part_supported: true, customer_part_no: 'ACME-77', customer_drawing_ref: '—' }
-    const { rerender } = render(<OrderLineFields part={part} />)
-    expect(screen.queryByText('Customer Part No')).toBeNull()
-    rerender(<OrderLineFields part={part} showCustomerPart />)
-    expect(screen.getByText('ACME-77')).toBeTruthy()
-    expect(screen.getByText('—')).toBeTruthy()
-    rerender(<OrderLineFields part={{ ...part, customer_part_supported: false }} showCustomerPart />)
-    expect(screen.queryByText('Customer Part No')).toBeNull()
-  })
-})
-
 describe('DeliveryAddressBlock', () => {
   it('renders the full block, blank without an address', () => {
     const { rerender } = render(<DeliveryAddressBlock address={{ ...PART.delivery, gstin: '33AAAAA0000A1Z5' }} />)

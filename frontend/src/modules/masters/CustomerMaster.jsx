@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
-import { deliveryAddressesSupported } from '../../data/queries/deliveryAddresses'
-import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
+import { User, Phone, Home, MapPin, FileText, Landmark } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
-import CustomerPartNumbersSection from './CustomerPartNumbersSection'
 import DeliveryAddressesSection from './DeliveryAddressesSection'
+import CustomerProductsSection from './CustomerProductsSection'
+import { useDeliverySupported } from '../../components/OrderLineFields'
 import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import {
   listCustomers,
@@ -37,10 +36,6 @@ const EMPTY_FORM = {
   payment_terms: '',
   credit_period: '',
   currency: '',
-  customer_product_part_number: '',
-  customer_product_part_name: '',
-  customer_drawing_ref_no: '',
-  revision_drawing_no: '',
   status: '',
 }
 
@@ -125,19 +120,10 @@ const SECTIONS = [
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], width: 'short' },
     ],
   },
-  {
-    icon: Settings,
-    title: '7. Customer Product & Drawing Details',
-    subtitle: 'Linked product and drawing refs',
-    width: 'full',
-    fields: [
-      { key: 'customer_product_part_number', label: 'Customer Product Part Number' },
-      { key: 'customer_drawing_ref_no', label: 'Customer Drawing Reference No', required: true },
-      { key: 'customer_product_part_name', label: 'Customer Product Part Name' },
-      { key: 'revision_drawing_no', label: 'Revision Drawing No' },
-    ],
-  },
 ]
+// Section 7 "Customer Product & Drawing Details" was removed (2026-11-11):
+// a product's customer now lives on Product Master (045). The four DB
+// columns are KEPT and never sent on save, so their old values stay.
 
 const LIST_COLUMNS = [
   { key: 'customer_id', label: 'Customer ID' },
@@ -150,18 +136,25 @@ const LIST_COLUMNS = [
   { key: 'status', label: 'Status', type: 'status' },
 ]
 
+// Old section-7 columns: never sent (the form loads the whole row, so they
+// are stripped here to leave the stored values untouched).
+export const LEGACY_SECTION7_KEYS = ['customer_product_part_number', 'customer_product_part_name', 'customer_drawing_ref_no', 'revision_drawing_no']
+
+export function withoutLegacySection7(payload) {
+  const out = { ...payload }
+  for (const k of LEGACY_SECTION7_KEYS) delete out[k]
+  return out
+}
+
+const API = {
+  list: listCustomers,
+  create: (payload) => createCustomer(withoutLegacySection7(payload)),
+  update: (pk, payload) => updateCustomer(pk, withoutLegacySection7(payload)),
+  remove: deleteCustomer,
+}
+
 export default function CustomerMaster() {
-  // Delivery Addresses (042) is hidden before 042 -> number the next card after it only when shown
-  const [addressesShown, setAddressesShown] = useState(false)
-  useEffect(() => {
-    let active = true
-    deliveryAddressesSupported()
-      .then((ok) => active && setAddressesShown(ok))
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [])
+  const addressesShown = useDeliverySupported() // number the products card after Delivery Addresses only when shown
   return (
     <MasterFormScreen
       title="Customer Master"
@@ -173,12 +166,12 @@ export default function CustomerMaster() {
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}
       searchFields={['customer_id', 'customer_name']}
-      api={{ list: listCustomers, create: createCustomer, update: updateCustomer, remove: deleteCustomer }}
+      api={API}
       exportFilename="customer_master.csv"
       renderAfterSections={({ form, mode, nextNumber }) => (
         <>
           <DeliveryAddressesSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber} />
-          <CustomerPartNumbersSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber + (addressesShown ? 1 : 0)} />
+          <CustomerProductsSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber + (addressesShown ? 1 : 0)} />
         </>
       )}
     />

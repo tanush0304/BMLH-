@@ -12,6 +12,9 @@ import { uomOptions } from '../../utils/uomOptions'
 import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
+import { listCustomers } from '../../data/queries/customers'
+import { customerDropdownOptions, customerOptionLabel } from '../../utils/customerLabel'
+import { useProductCustomerSupported } from '../../utils/useProductCustomer'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
 import Banner from '../../components/Banner'
@@ -24,6 +27,7 @@ const EMPTY_FORM = {
   part_drawing_reference_number: '',
   unit_of_measurement: '',
   product_status: '',
+  customer_id: '', // 045; never sent before it
 }
 
 const EMPTY_BOM_ROW = { raw_material_code: '', consumption_per_unit: '' }
@@ -34,12 +38,15 @@ const LIST_COLUMNS = [
   { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'unit_of_measurement', label: 'UoM' },
   { key: 'product_status', label: 'Status', type: 'status' },
+  { key: 'customer_label', label: 'Customer', needsCustomer: true },
 ]
 
 export default function ProductMaster() {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
   const [rawMaterials, setRawMaterials] = useState([])
+  const [customers, setCustomers] = useState([])
+  const productCustomer = useProductCustomerSupported() // 045: Customer field + column
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -58,9 +65,14 @@ export default function ProductMaster() {
     setLoading(true)
     setError(null)
     try {
-      const [products, rms] = await Promise.all([listProducts(), listRawMaterials()])
+      const [products, rms, custs] = await Promise.all([
+        listProducts(),
+        listRawMaterials(),
+        listCustomers().catch(() => []), // display/picker only -- never blocks the screen
+      ])
       setRecords(products)
       setRawMaterials(rms)
+      setCustomers(custs)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -146,6 +158,10 @@ export default function ProductMaster() {
         part_serial_number: mode === 'edit' ? form.part_serial_number : cleaned.part_serial_number,
         part_drawing_reference_number: cleaned.part_drawing_reference_number || null,
       }
+      // 045: customer_id only once the column exists (blank -> null)
+      if (productCustomer) payload.customer_id = cleaned.customer_id || null
+      else delete payload.customer_id
+      delete payload.customer_label // list display only (row click copies it into the form)
       if (mode === 'edit') {
         await updateProduct(form.part_serial_number, payload)
       } else {
@@ -185,18 +201,29 @@ export default function ProductMaster() {
   }
 
   function handleExportExcel() {
-    exportToCsv(LIST_COLUMNS, filteredRecords, 'product_master.csv')
+    exportToCsv(listColumns, filteredRecords, 'product_master.csv')
   }
 
   function handleExportPdf() {
-    exportToPdf(LIST_COLUMNS, filteredRecords, 'Product Master', 'product_master')
+    exportToPdf(listColumns, filteredRecords, 'Product Master', 'product_master')
   }
 
-  const filteredRecords = records.filter((r) => {
-    if (!listSearch) return true
-    const q = listSearch.toLowerCase()
-    return r.part_serial_number?.toLowerCase().includes(q) || r.part_name?.toLowerCase().includes(q)
-  })
+  const listColumns = LIST_COLUMNS.filter((c) => !c.needsCustomer || productCustomer)
+  const customerById = new Map(customers.map((c) => [c.customer_id, c]))
+  const filteredRecords = records
+    .map((r) => ({
+      ...r,
+      customer_label: r.customer_id ? (customerById.has(r.customer_id) ? customerOptionLabel(customerById.get(r.customer_id)) : r.customer_id) : '',
+    }))
+    .filter((r) => {
+      if (!listSearch) return true
+      const q = listSearch.toLowerCase()
+      return (
+        r.part_serial_number?.toLowerCase().includes(q) ||
+        r.part_name?.toLowerCase().includes(q) ||
+        (productCustomer && r.customer_label.toLowerCase().includes(q))
+      )
+    })
 
   const readOnly = mode === 'view'
   const idLocked = mode !== 'new'
@@ -260,6 +287,17 @@ export default function ProductMaster() {
                   options={['Active', 'Inactive', 'Obsolete']}
                 />
               </Field>
+              {productCustomer && (
+                <Field name="customer_id" label="Customer">
+                  <SearchableSelect
+                    aria-label="Customer"
+                    value={form.customer_id ?? ''}
+                    onChange={handleField('customer_id')}
+                    disabled={readOnly}
+                    options={customerDropdownOptions(customers)}
+                  />
+                </Field>
+              )}
             </FormSection>
           </div>
 
@@ -315,7 +353,7 @@ export default function ProductMaster() {
 
         <RecordsList
           title="Product Master List"
-          columns={LIST_COLUMNS}
+          columns={listColumns}
           rows={filteredRecords}
           loading={loading}
           error={error}

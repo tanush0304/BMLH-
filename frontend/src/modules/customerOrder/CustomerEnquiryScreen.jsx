@@ -5,7 +5,8 @@ import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
-import { productOptions } from '../../utils/productOptions'
+import { productOptions, partsForCustomer, partBelongsToOtherCustomer } from '../../utils/productOptions'
+import { useProductCustomerSupported } from '../../utils/useProductCustomer'
 import RecordsList from '../../components/RecordsList'
 import {
   listCustomerEnquiries,
@@ -65,6 +66,7 @@ export default function CustomerEnquiryScreen() {
   const del = useDeleteConfirm()
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
+  const productCustomer = useProductCustomerSupported() // 045: parts filtered by customer
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -110,6 +112,16 @@ export default function CustomerEnquiryScreen() {
 
   function handleField(key) {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  }
+
+  // 045: on a NEW enquiry, a part of another customer is cleared when the
+  // customer changes (unassigned parts are kept); an existing one keeps its part.
+  function handleCustomerChange(e) {
+    const customerId = e.target.value
+    setForm((f) => {
+      const clear = mode === 'new' && partBelongsToOtherCustomer(products, f.part_serial_number, customerId, { enabled: productCustomer })
+      return { ...f, customer_id: customerId, ...(clear ? { part_serial_number: '', part_name: '', drawing_number: '' } : {}) }
+    })
   }
 
   function resetPartPicker() {
@@ -352,7 +364,7 @@ export default function CustomerEnquiryScreen() {
           <Field label="Customer" required>
             <SearchableSelect
               value={form.customer_id}
-              onChange={handleField('customer_id')}
+              onChange={handleCustomerChange}
               disabled={readOnly || isRevision}
               options={customerDropdownOptions(customers)}
             />
@@ -374,7 +386,7 @@ export default function CustomerEnquiryScreen() {
                 onChange={handlePartChange}
                 disabled={partLocked}
                 options={[
-                  ...productOptions(products),
+                  ...productOptions(partsForCustomer(products, form.customer_id, form.part_serial_number, { enabled: productCustomer })),
                   { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                 ]}
               />

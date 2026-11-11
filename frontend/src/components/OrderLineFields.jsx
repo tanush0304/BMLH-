@@ -20,9 +20,8 @@ export function useDeliverySupported() {
 
 /** Read-only "Order Type" + "Deliver To" boxes for a PRD's PO line, from
  * usePartForPrd(prd). Deliver To is hidden before 042. Long labels truncate
- * with the full address as a tooltip. showCustomerPart: also "Customer Part
- * No" + "Customer Drawing Ref" (045; hidden before it, "—" when none). */
-export default function OrderLineFields({ part, width = 'medium', showCustomerPart = false }) {
+ * with the full address as a tooltip. */
+export default function OrderLineFields({ part, width = 'medium' }) {
   const supported = useDeliverySupported()
   const tooltip = deliveryAddressLines(part?.delivery).join('\n')
   return (
@@ -36,16 +35,6 @@ export default function OrderLineFields({ part, width = 'medium', showCustomerPa
             <AutoFillBox value={part?.deliver_to ?? ''} />
           </div>
         </Field>
-      )}
-      {showCustomerPart && part?.customer_part_supported && (
-        <>
-          <Field label="Customer Part No" width="medium">
-            <AutoFillBox value={part.customer_part_no} />
-          </Field>
-          <Field label="Customer Drawing Ref" width="medium">
-            <AutoFillBox value={part.customer_drawing_ref} />
-          </Field>
-        </>
       )}
     </>
   )

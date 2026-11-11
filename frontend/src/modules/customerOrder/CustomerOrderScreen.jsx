@@ -24,14 +24,14 @@ import { paymentTermsOptions, deliveryTermsOptions, withCustomer } from '../../u
 import { listProducts, resolveProductWithConfirmation } from '../../data/queries/products'
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
+import { partsForCustomer, partBelongsToOtherCustomer } from '../../utils/productOptions'
+import { useProductCustomerSupported } from '../../utils/useProductCustomer'
 import Banner from '../../components/Banner'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { orderLineProblem } from '../../utils/orderValidation'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 import { ORDER_TYPES, DEFAULT_ORDER_TYPE, orderTypeProblem } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
-import { useCustomerPartNumbers } from '../../utils/useCustomerPartNumbers'
-import { customerDrawingText, customerPartFor, customerPartNoText } from '../../utils/customerPartNumber'
 import { defaultAddressId, deliverToOptions, deliverToProblem, deliveryIdOrNull, deliveryText } from '../../utils/deliveryAddress'
 import PoView from './PoView'
 import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
@@ -96,7 +96,6 @@ const LIST_COLUMNS = [
   { key: 'order_qty', label: 'Order Qty' },
   { key: 'order_type', label: 'Order Type' },
   { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
-  { key: 'customer_part_no', label: 'Customer Part No', needsCustomerParts: true },
   { key: 'line_status', label: 'Line Status', type: 'status', needsOpenPo: true },
   { key: 'planned_text', label: 'Planned', needsOpenPo: true },
   { key: 'despatched_text', label: 'Despatched', needsOpenPo: true },
@@ -115,6 +114,7 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
   // Saved PO headers -- only for the Delivery / Payment Terms dropdown options.
   const [poHeaders, setPoHeaders] = useState([])
   const [products, setProducts] = useState([])
+  const productCustomer = useProductCustomerSupported() // 045: parts filtered by customer
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -136,11 +136,7 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
   const [lineItems, setLineItems] = useState([emptyLineItem()])
   // 042: customer delivery addresses (hidden until the table exists)
   const delivery = useDeliveryAddresses()
-  // 045: customer part numbers -- read-only lookup by customer + part, never saved on the line
-  const cparts = useCustomerPartNumbers()
-  const listColumns = LIST_COLUMNS.filter(
-    (c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo) && (!c.needsCustomerParts || cparts.supported),
-  )
+  const listColumns = LIST_COLUMNS.filter((c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo))
 
   async function refresh() {
     setLoading(true)
@@ -194,6 +190,8 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
       customer_id: customerId,
       delivery_address_id:
         customerId === f.customer_id ? f.delivery_address_id : String(defaultAddressId(delivery.addresses, customerId) || ''),
+      // 045: this form only edits EXISTING lines, so the part is never cleared
+      // (partsForCustomer keeps it in the list).
     }))
   }
 
@@ -202,7 +200,16 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
     const customerId = e.target.value
     setPoHeader((h) => withCustomer(h, customerId, customers))
     const def = String(defaultAddressId(delivery.addresses, customerId) || '')
-    setLineItems((items) => items.map((it) => ({ ...it, deliveryAddressId: def })))
+    setLineItems((items) =>
+      items.map((it) => ({
+        ...it,
+        deliveryAddressId: def,
+        // 045: these are new lines -- a part of another customer is cleared
+        ...(!it.isNewPart && partBelongsToOtherCustomer(products, it.partSerialNumber, customerId, { enabled: productCustomer })
+          ? { partSerialNumber: '', partName: '', drawingNumber: '' }
+          : {}),
+      })),
+    )
   }
 
   function handleNew() {
@@ -462,6 +469,8 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
           partName: it.partName,
           drawingNumber: it.drawingNumber,
           knownProducts,
+          // 045: a part created here belongs to the PO's customer
+          customerId: productCustomer ? poHeader.customer_id : null,
         })
         const partSerialNumber = resolved.partSerialNumber
         knownProducts = resolved.knownProducts
@@ -531,7 +540,6 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
     customer_name: customers.find((c) => c.customer_id === r.customer_id)?.customer_name ?? r.customer_id ?? '',
     part_drawing_reference_number: products.find((p) => p.part_serial_number === r.part_serial_number)?.part_drawing_reference_number ?? '',
     deliver_to: deliveryText(r, delivery.byId),
-    customer_part_no: customerPartNoText(customerPartFor(cparts.map, r.customer_id, r.part_serial_number)),
     ...(openPo && lineStatus.get(r.order_line_id)
       ? {
           line_status: lineStatus.get(r.order_line_id).line_status,
@@ -575,7 +583,6 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
             key={poId}
             poId={poId}
             role={role}
-            cparts={cparts}
             customers={customers}
             products={products}
             delivery={delivery}
@@ -654,7 +661,7 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                           value={it.partSerialNumber}
                           onChange={handleLineItemProductChange(it.key)}
                           options={[
-                            ...productOptions(products),
+                            ...productOptions(partsForCustomer(products, poHeader.customer_id, it.partSerialNumber, { enabled: productCustomer })),
                             { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                           ]}
                         />
@@ -691,16 +698,6 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                         disabled={!it.isNewPart}
                       />
                     </Field>
-                    {cparts.supported && (
-                      <>
-                        <Field label="Customer Part No" width="medium">
-                          <AutoFillBox value={customerPartNoText(customerPartFor(cparts.map, poHeader.customer_id, it.isNewPart ? '' : it.partSerialNumber))} />
-                        </Field>
-                        <Field label="Customer Drawing Ref" width="medium">
-                          <AutoFillBox value={customerDrawingText(customerPartFor(cparts.map, poHeader.customer_id, it.isNewPart ? '' : it.partSerialNumber))} />
-                        </Field>
-                      </>
-                    )}
                     <Field label="Quotation (QTN)" width="medium">
                       <SearchableSelect
                         value={it.qtnNo}
@@ -709,6 +706,8 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                           enquiries,
                           customerId: poHeader.customer_id,
                           partSerialNumber: it.isNewPart ? '' : it.partSerialNumber,
+                          products: productCustomer ? products : null,
+                          currentQtn: it.qtnNo,
                         })}
                       />
                     </Field>
@@ -790,6 +789,8 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                   enquiries,
                   customerId: form.customer_id,
                   partSerialNumber: form.part_serial_number,
+                  products: productCustomer ? products : null,
+                  currentQtn: form.qtn_no,
                 })}
               />
             </Field>
@@ -812,19 +813,9 @@ export default function CustomerOrderScreen({ initialMode = null, role = null })
                 value={form.part_serial_number}
                 onChange={handleField('part_serial_number')}
                 disabled={readOnly}
-                options={productOptions(products)}
+                options={productOptions(partsForCustomer(products, form.customer_id, form.part_serial_number, { enabled: productCustomer }))}
               />
             </Field>
-            {cparts.supported && (
-              <>
-                <Field label="Customer Part No">
-                  <AutoFillBox value={customerPartNoText(customerPartFor(cparts.map, form.customer_id, form.part_serial_number))} />
-                </Field>
-                <Field label="Customer Drawing Ref">
-                  <AutoFillBox value={customerDrawingText(customerPartFor(cparts.map, form.customer_id, form.part_serial_number))} />
-                </Field>
-              </>
-            )}
             <Field name="order_type" label="Order Type" required>
               <SelectInput
                 value={form.order_type}

@@ -1,6 +1,38 @@
 import { supabase } from '../../lib/supabaseClient'
+import { isMissingColumnError } from './openPo'
 
 const TABLE = 'products master'
+
+// Migration 045: "products master".customer_id (one product = one customer).
+// Until 045 is run the column is missing, so Product Master's Customer field,
+// the part-by-customer filter and Customer Master's products card stay off
+// and customer_id is never sent. Cached once known; a network error is not
+// cached. Before 045 the probe shows one expected 400 in the browser console.
+let customerSupported = null
+let customerProbe = null
+
+export async function productCustomerSupported() {
+  if (customerSupported !== null) return customerSupported
+  customerProbe ??= (async () => {
+    let error
+    try {
+      ;({ error } = await supabase.from(TABLE).select('customer_id').limit(0))
+    } catch {
+      return false // no client / network: not cached, retried next call
+    }
+    if (!error) return (customerSupported = true)
+    if (isMissingColumnError(error)) return (customerSupported = false)
+    return false
+  })().finally(() => {
+    customerProbe = null
+  })
+  return customerProbe
+}
+
+export function resetProductCustomerSupportedCache() {
+  customerSupported = null
+  customerProbe = null
+}
 
 export async function listProducts() {
   const { data, error } = await supabase.from(TABLE).select('*').order('part_serial_number')
@@ -70,6 +102,7 @@ export async function resolveOrCreateProduct({
   drawingNumber,
   knownProducts,
   confirmCreateNew = false,
+  customerId = null, // 045: set only when the column exists (caller checks productCustomerSupported)
 }) {
   if (!isNewPart) return { status: 'existing', partSerialNumber, knownProducts }
 
@@ -89,6 +122,7 @@ export async function resolveOrCreateProduct({
     part_serial_number: trimmedCode,
     part_name: (partName ?? '').trim(),
     part_drawing_reference_number: drawingNumber ? drawingNumber.trim() : null,
+    ...(customerId ? { customer_id: customerId } : {}),
   })
   return { status: 'created', partSerialNumber: created.part_serial_number, knownProducts: [...knownProducts, created] }
 }
