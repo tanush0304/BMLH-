@@ -3,7 +3,7 @@
 // Correct flow in Data Entry / Manual Operations. The DB enforces all of
 // this (closed-log guard, locked columns, knock-on, planned qty); these
 // helpers give the screen the same rules and clear messages.
-import { IDLE_CATEGORIES } from './productionReport'
+import { IDLE_CATEGORIES, totalIdle } from './productionReport'
 import { userDisplayName } from './stockEdit'
 import { formatStamp } from './shiftVerification'
 
@@ -15,6 +15,11 @@ export const CORRECTION_FIELDS = [
   ...IDLE_CATEGORIES.map((c) => c.key),
   'remarks',
 ]
+
+/** 046: rows that carry setup_min (column exists) also correct Setup. */
+export function correctionFieldsFor(row) {
+  return row && 'setup_min' in row ? [...CORRECTION_FIELDS.slice(0, 3), 'setup_min', ...CORRECTION_FIELDS.slice(3)] : CORRECTION_FIELDS
+}
 
 const QTY_LABELS = { qty_produced: 'Produced', qty_rejected: 'Rejected', qty_rework: 'Rework' }
 
@@ -48,7 +53,7 @@ export function correctBlockedReason(row, role, currentUserId) {
 
 function normalise(key, value) {
   if (key === 'remarks') return value?.trim() ? value.trim() : null
-  if (value === '' || value === null || value === undefined) return 0
+  if (value === '' || value === null || value === undefined) return key === 'setup_min' ? null : 0
   const n = Number(value)
   return Number.isFinite(n) ? n : value
 }
@@ -56,10 +61,13 @@ function normalise(key, value) {
 /** Only the editable fields that changed, typed (numbers / null remarks). */
 export function correctionPatch(original, draft) {
   const patch = {}
-  for (const key of CORRECTION_FIELDS) {
+  for (const key of correctionFieldsFor(original)) {
     if (!(key in (draft ?? {}))) continue
     const next = normalise(key, draft[key])
-    const prev = key === 'remarks' ? (original[key] ?? null) : Number(original[key] ?? 0)
+    const prev =
+      key === 'remarks' || key === 'setup_min'
+        ? (original[key] ?? null) === null ? null : key === 'remarks' ? original[key] : Number(original[key])
+        : Number(original[key] ?? 0)
     if (next !== prev) patch[key] = next
   }
   return patch
@@ -77,11 +85,11 @@ export function correctionChanges(hourRows, drafts) {
 export function correctionError(hourRows, drafts) {
   for (const h of hourRows) {
     const d = { ...h, ...(drafts[h.id] ?? {}) }
-    for (const key of CORRECTION_FIELDS.filter((k) => k !== 'remarks')) {
+    for (const key of correctionFieldsFor(h).filter((k) => k !== 'remarks')) {
       const n = Number(d[key] === '' ? 0 : d[key])
       if (!Number.isFinite(n) || n < 0) return `Hour ${h.hour_slot}: values must be numbers of 0 or more.`
     }
-    const idle = IDLE_CATEGORIES.reduce((s, c) => s + Number(d[c.key] || 0), 0)
+    const idle = totalIdle(d) // 8 categories + setup (046)
     if (idle > 60) return `Hour ${h.hour_slot}: idle minutes add up to ${idle} (max 60).`
     if (Number(d.qty_rejected || 0) + Number(d.qty_rework || 0) > Number(d.qty_produced || 0)) {
       return `Hour ${h.hour_slot}: rejected + rework can't be more than produced.`

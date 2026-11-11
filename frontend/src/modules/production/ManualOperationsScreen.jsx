@@ -24,6 +24,7 @@ import {
   endProductionLog,
   listOpenLogsForUser,
   updateProductionLogHours,
+  shiftHours046Supported,
 } from '../../data/queries/productionLogs'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import { releasedPlannedQty, pickOpenLogForScreen, logMatchesScreen, createRequestGate, OUT_OF_SYNC_MESSAGE } from '../../utils/productionLogLock'
@@ -54,6 +55,14 @@ import { orderLineSuffix } from '../../utils/deliveryAddress'
  * Entry uses for Internal stages, just without a machine-selection step.
  */
 export default function ManualOperationsScreen({ role }) {
+  const [v046, setV046] = useState(false)
+  useEffect(() => {
+    let active = true
+    shiftHours046Supported().then((ok) => active && setV046(!!ok)).catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Manual stage, any PRD
@@ -391,11 +400,25 @@ export default function ManualOperationsScreen({ role }) {
   const earlierIncomplete = resolvedStage ? earlierIncompleteStage(prdAllStages, resolvedStage) : null
   const noEligibleStage = prdNo && !resolving && stageChoicesForPrd.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
+  // 046: per-log shift-hours limit (Manual logs have no machine) +
+  // good-vs-target efficiency (off until 046 is run).
+  const entryShiftRow = {
+    shift_code: shiftCode,
+    start_time: entryShift.start_time,
+    end_time: entryShift.end_time,
+    lunch_break_duration: shifts.find((x) => x.shift_code === shiftCode)?.lunch_break_duration ?? '',
+  }
+  const canOvertime = role === 'supervisor' || role === 'admin'
 
   // Footer totals update live while hour rows are typed: every saved hour of
   // the log + unsaved rows (same rule as the "production log totals" view).
   const liveTotals = activeLog
-    ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
+    ? computeLiveLogTotals({
+        savedHours: logHours,
+        draftRows: draftHourRows,
+        standardQtyPerHour: activeLog.standard_qty_per_hour,
+        goodVsTarget: v046 ? { shifts, draftShiftCode: shiftCode, cycleTimeMin: activeLog.cycle_time_min } : null,
+      })
     : null
 
   return (
@@ -546,13 +569,20 @@ export default function ManualOperationsScreen({ role }) {
                   setShiftCode(shift)
                 }}
                 onDraftRowsChange={setDraftHourRows}
+                hoursLimit={{ shift: entryShiftRow, otherRows: [], canOvertime, machineLabel: '' }}
               />
               {liveTotals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
                   <span>Total Produced: <strong className="num-highlight">{liveTotals.total_produced}</strong></span>
                   <span>Total Rejected: <strong className="num-highlight">{liveTotals.total_rejected ?? 0}</strong></span>
                   <span>Total Rework: <strong className="num-highlight">{liveTotals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong className="num-highlight">{liveTotals.efficiency_pct ?? '—'}%</strong></span>
+                  {v046 && (
+                    <>
+                      <span>Good Qty: <strong className="num-highlight">{liveTotals.total_good}</strong></span>
+                      <span>Target Qty: <strong className="num-highlight">{liveTotals.no_cycle_time ? 'No cycle time' : liveTotals.target_qty ?? '—'}</strong></span>
+                    </>
+                  )}
+                  <span>Efficiency: <strong className="num-highlight">{v046 && liveTotals.no_cycle_time ? 'No cycle time' : `${liveTotals.efficiency_pct ?? '—'}%`}</strong></span>
                   <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>

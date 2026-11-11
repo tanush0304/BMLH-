@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { isMissingColumnError } from './openPo'
 import { acceptedFromHour } from '../../utils/qtyLimits'
 import { stageNumber } from '../../utils/stageLabel'
 import { isMachineBusyError, machineBusyMessage, SAME_STAGE_MESSAGE } from '../../utils/productionLogConflict'
@@ -230,4 +231,53 @@ export async function listAllOpenLogs() {
     .eq('is_open', true)
   if (error) throw error
   return data
+}
+
+// ---------------------------------------------------------------- 046
+// Migration 046 adds "production log hours".setup_min (+ the shift-hours
+// guard and the good-vs-target efficiency views). Until it is run the app
+// keeps today's grid / formula. Cached once known; a network error is not
+// cached. Before 046 the probe shows one expected 400 in the browser console.
+let shiftHours046 = null
+let shiftHours046Probe = null
+
+export async function shiftHours046Supported() {
+  if (shiftHours046 !== null) return shiftHours046
+  shiftHours046Probe ??= (async () => {
+    let error
+    try {
+      ;({ error } = await supabase.from('production log hours').select('setup_min').limit(0))
+    } catch {
+      return false // no client / network: not cached, retried next call
+    }
+    if (!error) return (shiftHours046 = true)
+    if (isMissingColumnError(error)) return (shiftHours046 = false)
+    return false
+  })().finally(() => {
+    shiftHours046Probe = null
+  })
+  return shiftHours046Probe
+}
+
+export function resetShiftHours046Cache() {
+  shiftHours046 = null
+  shiftHours046Probe = null
+}
+
+/** Hour rows ({ id, log_id, hour_slot, lunch }) of OTHER logs on the same machine for
+ * a date + shift -- for the shift-hours limit (046). [] without a machine. */
+export async function listOtherMachineShiftHours({ machineId, logDate, shiftCode, excludeLogId }) {
+  if (!machineId || !logDate || !shiftCode) return []
+  const { data: logs, error: logsError } = await supabase.from('production logs').select('id').eq('machine_id', machineId)
+  if (logsError) throw logsError
+  const ids = (logs ?? []).map((l) => l.id).filter((id) => id !== excludeLogId)
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('production log hours')
+    .select('id, log_id, hour_slot, lunch')
+    .in('log_id', ids)
+    .eq('log_date', logDate)
+    .eq('shift_code', shiftCode)
+  if (error) throw error
+  return data ?? []
 }

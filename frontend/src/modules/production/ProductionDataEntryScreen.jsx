@@ -29,7 +29,11 @@ import {
   updateProductionLogHours,
   listOpenLogsForUser,
   listAllOpenLogs,
+  shiftHours046Supported,
+  listOtherMachineShiftHours,
 } from '../../data/queries/productionLogs'
+import { withSettingTimeAsSetup } from '../../utils/shiftHoursLimit'
+import { totalIdle } from '../../utils/productionReport'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
@@ -113,6 +117,17 @@ export default function ProductionDataEntryScreen({ role }) {
   const [entryDate, setEntryDate] = useState(todayISO())
   const shiftCheck = useLogShiftVerifications({ logId: activeLog?.id, entryDate, shiftCode, role, appUsers })
   const [logHours, setLogHours] = useState([])
+  // 046: per-hour Setup + good-vs-target efficiency (off until 046 is run);
+  // shift-hours limit uses the other logs' hours on the same machine.
+  const [v046, setV046] = useState(false)
+  const [otherMachineHours, setOtherMachineHours] = useState([])
+  useEffect(() => {
+    let active = true
+    shiftHours046Supported().then((ok) => active && setV046(!!ok)).catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
   const [totals, setTotals] = useState(null)
   const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
@@ -484,7 +499,17 @@ export default function ProductionDataEntryScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
-      const stamped = rows.map((r) => ({
+      // 046: Start's Setting Time goes into the first hour rows' Setup, once
+      // (only while no hour of the log has setup) -- counted once in reports.
+      const withSetup = v046
+        ? withSettingTimeAsSetup(rows, {
+            settingTimeMin: activeLog.setting_time_min,
+            logHasRowSetup: logHours.some((h) => h.setup_min != null),
+            shift: entryShiftRow,
+            otherIdle: (r) => totalIdle({ ...r, setup_min: null }) || 0,
+          })
+        : rows
+      const stamped = withSetup.map((r) => ({
         ...r,
         log_id: activeLog.id,
         log_date: entryDate,
@@ -598,11 +623,44 @@ export default function ProductionDataEntryScreen({ role }) {
     `${machineLabels[actualId] ?? actualId}${plannedMachineId && plannedMachineId !== actualId ? ` (planned ${plannedMachineId})` : ''}`
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
+  const entryShiftRow = {
+    shift_code: shiftCode,
+    start_time: entryShift.start_time,
+    end_time: entryShift.end_time,
+    lunch_break_duration: shifts.find((x) => x.shift_code === shiftCode)?.lunch_break_duration ?? '',
+  }
+  const canOvertime = role === 'supervisor' || role === 'admin'
+
+  // Other logs' hour rows on this machine for the grid's date + shift (046
+  // limit is per machine + date + shift). A failed read only drops them.
+  const otherHoursKey = activeLog ? `${activeLog.id}|${activeLog.machine_id}|${entryDate}|${shiftCode}|${logHours.length}` : ''
+  useEffect(() => {
+    if (!activeLog?.machine_id || !shiftCode) {
+      setOtherMachineHours([])
+      return undefined
+    }
+    let active = true
+    listOtherMachineShiftHours({ machineId: activeLog.machine_id, logDate: entryDate, shiftCode, excludeLogId: activeLog.id })
+      .then((rows) => active && setOtherMachineHours(rows))
+      .catch((err) => {
+        console.warn('Other logs on this machine not loaded', err)
+        if (active) setOtherMachineHours([])
+      })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherHoursKey])
 
   // Footer totals update live while hour rows are typed: every saved hour of
   // the log + unsaved rows (same rule as the "production log totals" view).
   const liveTotals = activeLog
-    ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
+    ? computeLiveLogTotals({
+        savedHours: logHours,
+        draftRows: draftHourRows,
+        standardQtyPerHour: activeLog.standard_qty_per_hour,
+        goodVsTarget: v046 ? { shifts, draftShiftCode: shiftCode, cycleTimeMin: activeLog.cycle_time_min } : null,
+      })
     : null
 
   // New logs on an Internal stage wait for today's Daily checklist on the
@@ -826,13 +884,26 @@ export default function ProductionDataEntryScreen({ role }) {
                 onDraftRowsChange={setDraftHourRows}
                 showIdle
                 settingTimeMin={activeLog.setting_time_min}
+                withSetup={v046}
+                hoursLimit={{
+                  shift: entryShiftRow,
+                  otherRows: otherMachineHours,
+                  canOvertime,
+                  machineLabel: machineLabels[activeLog.machine_id] ?? activeLog.machine_id ?? '',
+                }}
               />
               {liveTotals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
                   <span>Total Produced: <strong className="num-highlight">{liveTotals.total_produced}</strong></span>
                   <span>Total Rejected: <strong className="num-highlight">{liveTotals.total_rejected ?? 0}</strong></span>
                   <span>Total Rework: <strong className="num-highlight">{liveTotals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong className="num-highlight">{liveTotals.efficiency_pct ?? '—'}%</strong></span>
+                  {v046 && (
+                    <>
+                      <span>Good Qty: <strong className="num-highlight">{liveTotals.total_good}</strong></span>
+                      <span>Target Qty: <strong className="num-highlight">{liveTotals.no_cycle_time ? 'No cycle time' : liveTotals.target_qty ?? '—'}</strong></span>
+                    </>
+                  )}
+                  <span>Efficiency: <strong className="num-highlight">{v046 && liveTotals.no_cycle_time ? 'No cycle time' : `${liveTotals.efficiency_pct ?? '—'}%`}</strong></span>
                   <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
                 </div>

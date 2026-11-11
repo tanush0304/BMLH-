@@ -11,6 +11,8 @@ vi.mock('../../lib/supabaseClient', () => ({ supabase: { auth: { getUser: async 
 vi.mock('../../data/queries/productionLogs', () => ({
   listOpenLogsForUser: vi.fn(() => new Promise((resolve) => { releaseOpenLogs = resolve })),
   listAllOpenLogs: vi.fn(async () => []),
+  shiftHours046Supported: vi.fn(async () => false),
+  listOtherMachineShiftHours: vi.fn(async () => []),
   getStageAggregatesForPrd: vi.fn(async () => ({})),
   createProductionLog: vi.fn(),
   addProductionLogHour: vi.fn(),

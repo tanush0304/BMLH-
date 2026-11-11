@@ -31,9 +31,9 @@ import { acceptedFromHour } from '../../utils/qtyLimits'
 import { totalIdle } from '../../utils/productionReport'
 import { SHIFT_STATUSES, buildShiftRows, filterShiftRows, approveBlockedReason } from '../../utils/shiftVerification'
 import { updateHourCorrection } from '../../data/queries/shiftVerifications'
-import { IDLE_CATEGORIES } from '../../utils/productionReport'
+import { idleCategories } from '../../utils/productionReport'
 import {
-  CORRECTION_FIELDS,
+  correctionFieldsFor,
   canCorrectRole,
   correctBlockedReason,
   correctionChanges,
@@ -44,7 +44,7 @@ import {
 } from '../../utils/shiftCorrection'
 import Banner from '../../components/Banner'
 
-const draftFromHour = (h) => Object.fromEntries(CORRECTION_FIELDS.map((k) => [k, h[k] ?? (k === 'remarks' ? '' : 0)]))
+const draftFromHour = (h) => Object.fromEntries(correctionFieldsFor(h).map((k) => [k, h[k] ?? (k === 'remarks' || k === 'setup_min' ? '' : 0)]))
 
 const MACHINE_COLUMNS = [
   { key: 'machine', label: 'Machine' },
@@ -233,6 +233,7 @@ export default function ShiftVerificationScreen({ role }) {
 
   // Live totals while correcting (saved values overlaid with the drafts).
   const gridHours = selected ? selected.hourRows.map((h) => (correcting ? { ...h, ...drafts[h.id] } : h)) : []
+  const idleCats = idleCategories(gridHours.length > 0 && 'setup_min' in gridHours[0]) // 046: + Setup
   const n = (v) => Number(v || 0)
   const totals = {
     produced: gridHours.reduce((s, h) => s + n(h.qty_produced), 0),
@@ -400,7 +401,7 @@ export default function ShiftVerificationScreen({ role }) {
                         <th className="px-2 py-1.5 font-medium">Rejected</th>
                         <th className="px-2 py-1.5 font-medium">Rework</th>
                         <th className="px-2 py-1.5 font-medium">Accepted</th>
-                        {IDLE_CATEGORIES.map((c) => (
+                        {idleCats.map((c) => (
                           <th key={c.key} className="px-2 py-1.5 font-medium">{c.label}</th>
                         ))}
                         <th className="px-2 py-1.5 font-medium">Remarks</th>
@@ -416,7 +417,7 @@ export default function ShiftVerificationScreen({ role }) {
                             </td>
                           ))}
                           <td className="px-2 py-1 num-highlight">{acceptedFromHour(h)}</td>
-                          {IDLE_CATEGORIES.map((c) => (
+                          {idleCats.map((c) => (
                             <td key={c.key} className="px-1 py-1">
                               <input type="number" min="0" aria-label={`Hour ${h.hour_slot} ${c.label}`} value={drafts[h.id][c.key]} onChange={(e) => setDraft(h.id, c.key, e.target.value)} className="w-12 rounded border border-gray-300 px-1 py-0.5" />
                             </td>
@@ -434,7 +435,7 @@ export default function ShiftVerificationScreen({ role }) {
                         <td className="px-2 py-1 num-highlight">{totals.rejected}</td>
                         <td className="px-2 py-1 num-highlight">{totals.rework}</td>
                         <td className="px-2 py-1 num-highlight">{totals.accepted}</td>
-                        <td className="px-2 py-1" colSpan={IDLE_CATEGORIES.length}>Idle {totals.idle} min</td>
+                        <td className="px-2 py-1" colSpan={idleCats.length}>Idle {totals.idle} min</td>
                         <td />
                       </tr>
                     </tfoot>

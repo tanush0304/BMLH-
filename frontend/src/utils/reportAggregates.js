@@ -4,6 +4,8 @@
 // Ratios are always sum-over-sum (weighted), never an average of row %s:
 //   efficiency % = 100 x sum(produced) / sum(standard_qty_per_hour x hour_rows)
 //                  -- same formula as computeLiveLogTotals / "production log totals"
+//   046 (rows carry target_qty / good_qty): efficiency % = 100 x sum(good) /
+//                  sum(target); "standard" = sum(target) (Good vs Target)
 //   reject %     = 100 x sum(rejected) / sum(produced)   (produced incl. rejects)
 //   rework %     = 100 x sum(rework)   / sum(produced)
 import { IDLE_CATEGORIES } from './productionReport'
@@ -25,7 +27,19 @@ export function pct(part, whole) {
 /** Standard qty of a row: std qty per hour x logged hour rows (0 when the
  * log has no standard). */
 export function standardQty(row) {
+  if (isTargetRow(row)) return num(row.target_qty)
   return num(row.standard_qty_per_hour) * num(row.hour_rows)
+}
+
+/** 046: the row comes from the new view (good_qty / target_qty appended). */
+export function isTargetRow(row) {
+  return !!row && 'target_qty' in row
+}
+
+/** Good qty of a row: 046's good_qty, else produced - rejected - rework. */
+export function goodQty(row) {
+  if (row && 'good_qty' in row) return num(row.good_qty)
+  return num(row?.produced) - num(row?.rejected) - num(row?.rework)
 }
 
 /** Totals over any set of rows. */
@@ -34,18 +48,23 @@ export function totals(rows) {
   let rejected = 0
   let rework = 0
   let standard = 0
+  let good = 0
+  let targetRows = false
   for (const r of rows) {
     produced += num(r.produced)
     rejected += num(r.rejected)
     rework += num(r.rework)
     standard += standardQty(r)
+    good += goodQty(r)
+    if (isTargetRow(r)) targetRows = true
   }
   return {
     produced,
     rejected,
     rework,
     standard,
-    efficiency_pct: pct(produced, standard),
+    good,
+    efficiency_pct: targetRows ? pct(good, standard) : pct(produced, standard),
     reject_pct: pct(rejected, produced),
     rework_pct: pct(rework, produced),
   }
@@ -109,7 +128,7 @@ export function dailyTrend(rows, days) {
   const byDate = groupBy(rows, (r) => r.log_date)
   return days.map((date) => {
     const t = totals(byDate.get(date) ?? [])
-    return { date, produced: t.produced, standard: t.standard, efficiency_pct: t.efficiency_pct }
+    return { date, produced: t.produced, good: t.good, standard: t.standard, efficiency_pct: t.efficiency_pct }
   })
 }
 
@@ -202,6 +221,8 @@ export const DOWNTIME_TYPES = [
 
 /** Available minutes of an hour group = logged hour rows x 60 - lunch. */
 export function availableMinutes(row) {
+  // 046: real slot minutes (short last slot = its minutes) when the view has them
+  if (row && 'slot_minutes' in row) return num(row.slot_minutes) - num(row.lunch)
   return num(row.hour_rows) * 60 - num(row.lunch)
 }
 

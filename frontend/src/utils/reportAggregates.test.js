@@ -74,9 +74,9 @@ describe('productionStatusKpis', () => {
 describe('dailyTrend / byMachine', () => {
   it('fills every day, zeros where empty', () => {
     expect(dailyTrend(ROWS, ['2026-09-30', '2026-10-01', '2026-10-02'])).toEqual([
-      { date: '2026-09-30', produced: 0, standard: 0, efficiency_pct: null },
-      { date: '2026-10-01', produced: 36, standard: 40, efficiency_pct: 90 },
-      { date: '2026-10-02', produced: 44, standard: 20, efficiency_pct: 220 },
+      { date: '2026-09-30', produced: 0, good: 0, standard: 0, efficiency_pct: null },
+      { date: '2026-10-01', produced: 36, good: 33, standard: 40, efficiency_pct: 90 },
+      { date: '2026-10-02', produced: 44, good: 39, standard: 20, efficiency_pct: 220 },
     ])
   })
   it('groups by machine', () => {
