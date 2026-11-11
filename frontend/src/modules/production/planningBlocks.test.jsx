@@ -57,6 +57,7 @@ async function fillAndSave() {
   const po = within(screen.getByText('Customer PO No').closest('label')).getByRole('combobox')
   await screen.findByRole('option', { name: 'PO-7' })
   fireEvent.change(po, { target: { value: '7' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Tick all' })) // batches start unticked
   fireEvent.change(within(screen.getByText('Shift Hours').closest('label')).getByRole('spinbutton'), { target: { value: '8' } })
   fireEvent.click(screen.getByRole('button', { name: /^Save/ }))
 }
@@ -76,6 +77,7 @@ describe('Production Planning blocks', () => {
     render(<ProductionPlanningScreen />)
     await screen.findByRole('option', { name: 'PO-7' })
     fireEvent.change(within(screen.getByText('Customer PO No').closest('label')).getByRole('combobox'), { target: { value: '7' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tick all' }))
     fireEvent.click(screen.getByRole('button', { name: /^Save/ }))
     expect((await screen.findByRole('alert')).textContent).toContain('Shift Hours')
     const field = screen.getByText('Shift Hours').closest('label')

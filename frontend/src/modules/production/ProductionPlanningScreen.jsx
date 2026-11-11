@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ClipboardList, Eye, Route, Layers, Plus, Trash2, Ban } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
@@ -63,7 +63,7 @@ export const CANCEL_BLOCKED = "Production has started -- can't cancel"
  * plan into batches (suggested from Production Batch Master: max per PRD,
  * last = remainder; editable; a batch above the master size is blocked --
  * row error, Save disabled, and plan_production_orders refuses it, 038),
- * tick the batches to plan now, Save -> one PRD + Job Route Card per ticked
+ * tick the batches to plan now (none ticked by default; "Tick all"), Save -> one PRD + Job Route Card per ticked
  * batch (plan_production_orders). The rest stays on the line for later.
  * Supervisor/admin can Cancel a PRD that has not started (reason required).
  */
@@ -88,6 +88,12 @@ export default function ProductionPlanningScreen() {
   const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
   const listColumns = LIST_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported)
   const [routeCardPrd, setRouteCardPrd] = useState(null)
+  // Route card / stage table open UNDER the list and scroll into view
+  // (row click, Route Card button, after Save).
+  const detailRef = useRef(null)
+  useEffect(() => {
+    if (routeCardPrd || viewedPrd) detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [routeCardPrd, viewedPrd])
 
   async function refresh() {
     const [lineRows, poHeaderRows, planRows, batchRows, customerRows, productRows, bomRows, balanceRows, rmRows] = await Promise.all([
@@ -176,7 +182,7 @@ export default function ProductionPlanningScreen() {
     const line = lines.find((l) => String(l.order_line_id) === String(lineId))
     const size = masterBatchSizeFor(batchMaster, line?.part_serial_number)
     setForm((f) => ({ po_key: poKey, line_id: lineId ? String(lineId) : '', shift_hours: f.shift_hours }))
-    setSplit(line ? suggestSplit(line.remaining_qty, size).map((qty) => ({ qty: String(qty), plan: true })) : [])
+    setSplit(line ? suggestSplit(line.remaining_qty, size).map((qty) => ({ qty: String(qty), plan: false })) : [])
     setNotice('')
   }
 
@@ -411,24 +417,22 @@ export default function ProductionPlanningScreen() {
                 </tbody>
               </table>
               <div className="flex flex-wrap items-center gap-3 text-[13px]">
-                <button type="button" onClick={() => setSplit((rows) => [...rows, { qty: '', plan: true }])} className="inline-flex items-center gap-1 text-bmlhblue hover:underline">
+                <button type="button" onClick={() => setSplit((rows) => [...rows, { qty: '', plan: false }])} className="inline-flex items-center gap-1 text-bmlhblue hover:underline">
                   <Plus size={13} /> Add batch
+                </button>
+                <button type="button" onClick={() => setSplit((rows) => rows.map((r) => ({ ...r, plan: true })))} className="text-bmlhblue hover:underline">
+                  Tick all
                 </button>
                 <button type="button" onClick={() => selectLine(form.line_id, form.po_key)} className="text-bmlhblue hover:underline">
                   Reset to suggestion
                 </button>
-                <span className="text-slate-600">
-                  Total {check.total} of {selectedLine.remaining_qty} · planning now {check.planned.length} PRD(s), {check.plannedTotal} pcs
+                <span className="text-slate-600" data-testid="batch-summary">
+                  Total {check.total} of {selectedLine.remaining_qty} · ticked {check.planned.length} PRD(s), {check.plannedTotal} pcs
+                  {check.total - check.plannedTotal > 0 ? ` · ${check.total - check.plannedTotal} stays on the line` : ''}
                 </span>
               </div>
             </div>
           </FormSection>
-        )}
-
-        {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} onClose={() => setRouteCardPrd(null)} />}
-
-        {viewedPrd && (
-          <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} card={plans.find((p) => p.prd_no === viewedPrd)} />
         )}
 
         <RecordsList
@@ -440,16 +444,17 @@ export default function ProductionPlanningScreen() {
               label: 'Action',
               render: (r) => (
                 <span className="inline-flex items-center gap-3">
-                  <button className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm" onClick={() => setViewedPrd(r.prd_no)}>
+                  <button className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm" onClick={(e) => { e.stopPropagation(); setViewedPrd(r.prd_no) }}>
                     <Eye size={14} /> View
                   </button>
-                  <button className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm" onClick={() => setRouteCardPrd(r.prd_no)}>
+                  <button className="inline-flex items-center gap-1 text-bmlhblue hover:underline text-sm" onClick={(e) => { e.stopPropagation(); setRouteCardPrd(r.prd_no) }}>
                     <Route size={14} /> Route Card
                   </button>
                   {r.can_cancel && r.has_production_logs && (
                     <button
                       type="button"
                       disabled
+                      onClick={(e) => e.stopPropagation()}
                       title={CANCEL_BLOCKED}
                       aria-label={CANCEL_BLOCKED}
                       className="inline-flex items-center gap-1 text-slate-400 cursor-not-allowed text-sm"
@@ -458,7 +463,7 @@ export default function ProductionPlanningScreen() {
                     </button>
                   )}
                   {r.can_cancel && !r.has_production_logs && (
-                    <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={() => handleCancelPrd(r)}>
+                    <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={(e) => { e.stopPropagation(); handleCancelPrd(r) }}>
                       <Ban size={14} /> Cancel
                     </button>
                   )}
@@ -468,11 +473,21 @@ export default function ProductionPlanningScreen() {
           ]}
           rows={filteredPlans}
           rowKey="prd_no"
+          selectedKey={routeCardPrd}
+          onRowClick={(r) => setRouteCardPrd((cur) => (cur === r.prd_no ? null : r.prd_no))}
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by PRD / JC / PO / Customer / Product..."
         />
         <div className="text-xs text-gray-500 px-1">Total Records: {filteredPlans.length}</div>
+
+        {/* Below the list, scrolled into view when opened (detailRef). */}
+        <div ref={detailRef} className="scroll-mt-4 space-y-3">
+          {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} onClose={() => setRouteCardPrd(null)} />}
+          {viewedPrd && (
+            <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} card={plans.find((p) => p.prd_no === viewedPrd)} />
+          )}
+        </div>
       </div>
     </div>
     </FieldErrorProvider>
