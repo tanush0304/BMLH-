@@ -37,13 +37,6 @@ export function normalizeHourCapSettings({ mode, tolerancePct } = {}) {
   return { mode: okMode, tolerancePct: pct }
 }
 
-/** Problem text for a tolerance value typed on the settings screen, or null. */
-export function tolerancePctProblem(value) {
-  const text = String(value ?? '').trim()
-  if (!/^[0-9]+(\.[0-9]+)?$/.test(text) || Number(text) > 100) return 'Tolerance must be a number from 0 to 100.'
-  return null
-}
-
 /** Cycle time in minutes, or null (no cap). */
 export function capCycleTime({ cycleTimeMin, standardQtyPerHour }) {
   const ct = Number(cycleTimeMin)

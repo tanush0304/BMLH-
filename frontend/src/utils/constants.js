@@ -27,8 +27,6 @@ export const NAV_ITEMS = [
       { key: 'route-card', label: 'Route Card' },
       { key: 'wip', label: 'WIP Master' },
       { key: 'finished-goods', label: 'Finished Goods Master' },
-      // 051: hourly qty cap mode + tolerance -- admin only.
-      { key: 'app-settings', label: 'App Settings', roles: ['admin'] },
     ],
   },
   {

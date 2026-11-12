@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { capCycleTime, hourStandardQty, hourQtyCapProblems, normalizeHourCapSettings, tolerancePctProblem } from './hourQtyCap'
+import { capCycleTime, hourStandardQty, hourQtyCapProblems, normalizeHourCapSettings } from './hourQtyCap'
 import { logSettingMinutes } from './productionReport'
 import { prdProducedKpis } from './reportAggregates'
 
@@ -73,20 +73,13 @@ describe('hourQtyCapProblems', () => {
   })
 })
 
-describe('normalizeHourCapSettings / tolerancePctProblem', () => {
+describe('normalizeHourCapSettings', () => {
   it('missing / invalid -> strict, 0 (as 051)', () => {
     expect(normalizeHourCapSettings()).toEqual({ mode: 'strict', tolerancePct: 0 })
     expect(normalizeHourCapSettings({ mode: 'xyz', tolerancePct: 'abc' })).toEqual({ mode: 'strict', tolerancePct: 0 })
     expect(normalizeHourCapSettings({ mode: 'off', tolerancePct: '150' })).toEqual({ mode: 'off', tolerancePct: 0 })
     expect(normalizeHourCapSettings({ mode: 'supervisor_override', tolerancePct: '7.5' })).toEqual({ mode: 'supervisor_override', tolerancePct: 7.5 })
     expect(normalizeHourCapSettings({ tolerancePct: '-5' }).tolerancePct).toBe(0)
-  })
-  it('settings-screen check: number 0-100', () => {
-    expect(tolerancePctProblem('0')).toBeNull()
-    expect(tolerancePctProblem('100')).toBeNull()
-    expect(tolerancePctProblem('100.5')).toBe('Tolerance must be a number from 0 to 100.')
-    expect(tolerancePctProblem('')).toBe('Tolerance must be a number from 0 to 100.')
-    expect(tolerancePctProblem('-1')).toBe('Tolerance must be a number from 0 to 100.')
   })
 })
 

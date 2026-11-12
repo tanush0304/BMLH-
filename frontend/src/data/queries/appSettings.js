@@ -1,7 +1,7 @@
 // "app settings" (migration 051): key / value pairs, read by every app user,
-// changed by admins only (RLS). Before 051 the table is missing -> the
-// screens use the defaults (strict hourly cap, 0 % tolerance) and the
-// App Settings screen says 051 hasn't been run.
+// changed by the developer in the SQL editor only (no app screen). Before
+// 051 the table is missing -> the screens use the defaults (strict hourly
+// cap, 0 % tolerance).
 import { supabase } from '../../lib/supabaseClient'
 import { isMissingTableError } from './deliveryAddresses'
 
@@ -27,15 +27,4 @@ export async function getHourCapSettings() {
   } catch {
     return {}
   }
-}
-
-/** Admin only (RLS); the DB stamps updated_by / updated_at and checks the value. */
-export async function saveAppSetting(key, value) {
-  const { data, error } = await supabase
-    .from('app settings')
-    .upsert({ key, value: String(value) }, { onConflict: 'key' })
-    .select('key, value, updated_by, updated_at')
-    .single()
-  if (error) throw error
-  return data
 }

@@ -21,7 +21,6 @@ const EXPECTED_LABELS = [
   'Route Card',
   'WIP Master',
   'Finished Goods Master',
-  'App Settings', // admin only (051)
 ]
 
 describe('Masters landing entries', () => {
@@ -30,27 +29,18 @@ describe('Masters landing entries', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
       NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)
     )
-    expect(MASTER_ENTRIES).toHaveLength(17)
+    expect(MASTER_ENTRIES).toHaveLength(16)
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => entry.description?.startsWith('Manage '))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => /^#[0-9A-F]{6}$/.test(entry.color) && /^#[0-9A-F]{6}$/.test(entry.bg))).toBe(true)
   })
 
-  it('shows the 16 cards to a supervisor (App Settings is admin only) and 17 to an admin', () => {
-    const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn(), role: 'supervisor' }))
+  it('shows all 16 cards when Masters has no selected submenu', () => {
+    const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
     expect(html).toContain('Select a master module to view or manage its records.')
     expect(html.match(/aria-label="Open /g)).toHaveLength(16)
-    EXPECTED_LABELS.filter((l) => l !== 'App Settings').forEach((label) => expect(html).toContain('>' + label + '</span>'))
-    expect(html).not.toContain('App Settings')
-    const admin = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn(), role: 'admin' }))
-    expect(admin.match(/aria-label="Open /g)).toHaveLength(17)
-    expect(admin).toContain('>App Settings</span>')
-  })
-
-  it('App Settings opened by a supervisor shows the admin-only notice, not the screen', () => {
-    const el = MasterList({ activeTab: 'app-settings', role: 'supervisor' })
-    expect(el.props.children.props.subtitle).toBe('Admin access required.')
+    EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
   })
 
   it('renders PPT-style cards: description text, no tile pictures', () => {
@@ -62,7 +52,7 @@ describe('Masters landing entries', () => {
 
   it('resolves each submenu key to its registered screen', () => {
     MASTER_ENTRIES.forEach((item) => {
-      expect(MasterList({ activeTab: item.key, role: 'admin' }).props.children.type).toBe(item.component)
+      expect(MasterList({ activeTab: item.key }).props.children.type).toBe(item.component)
     })
   })
 

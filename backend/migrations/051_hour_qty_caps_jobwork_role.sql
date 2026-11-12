@@ -10,7 +10,8 @@
 --        hour_qty_cap_tolerance_pct = '0' (existing values are kept on a
 --        re-run). Values are checked on save: mode in strict /
 --        supervisor_override / off; tolerance a number 0-100.
---        Admin screen: Masters > App Settings.
+--        No app screen: the developer changes the settings in the SQL
+--        editor only (update statements in docs/handoff.md).
 --   A. Hourly qty cap ("production log hours", BEFORE INSERT / UPDATE):
 --        mode (setting hour_qty_cap_mode; missing / invalid -> strict):
 --          strict              -> everyone is blocked
