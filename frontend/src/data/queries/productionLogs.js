@@ -264,12 +264,14 @@ export function resetShiftHours046Cache() {
   shiftHours046Probe = null
 }
 
-/** Hour rows ({ id, log_id, hour_slot, lunch }) of OTHER logs on the same machine for
- * a date + shift -- for the shift-hours limit (046). [] without a machine. */
+/** Hour rows ({ id, log_id, prd_no, hour_slot, lunch }) of OTHER logs on the same machine
+ * for a date + shift -- for the shift-hours limit (046) and the machine / shift
+ * clash check + used slots (050). [] without a machine. */
 export async function listOtherMachineShiftHours({ machineId, logDate, shiftCode, excludeLogId }) {
   if (!machineId || !logDate || !shiftCode) return []
-  const { data: logs, error: logsError } = await supabase.from('production logs').select('id').eq('machine_id', machineId)
+  const { data: logs, error: logsError } = await supabase.from('production logs').select('id, prd_no').eq('machine_id', machineId)
   if (logsError) throw logsError
+  const prdByLog = new Map((logs ?? []).map((l) => [l.id, l.prd_no]))
   const ids = (logs ?? []).map((l) => l.id).filter((id) => id !== excludeLogId)
   if (ids.length === 0) return []
   const { data, error } = await supabase
@@ -279,5 +281,5 @@ export async function listOtherMachineShiftHours({ machineId, logDate, shiftCode
     .eq('log_date', logDate)
     .eq('shift_code', shiftCode)
   if (error) throw error
-  return data ?? []
+  return (data ?? []).map((h) => ({ ...h, prd_no: prdByLog.get(h.log_id) ?? null }))
 }

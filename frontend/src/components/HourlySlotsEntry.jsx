@@ -4,6 +4,7 @@ import { generateHourlySlots, splitHourHistory } from '../utils/hourlySlots'
 import { todayISO } from '../utils/dates'
 import { employeeLabelForId } from '../utils/employeeLabel'
 import { shiftHoursStatus, canAddSlot } from '../utils/shiftHoursLimit'
+import { otherLogSlots, slotBlockedByOtherLog } from '../utils/machineShiftClash'
 import {
   idleCategories,
   totalIdle,
@@ -74,6 +75,10 @@ import {
  * gross shift (Σ slot minutes) or the net hours (Σ slot - lunch) -- this log
  * + other logs on the machine -- and disables Add Hour at the limit;
  * supervisor / admin (canOvertime) may go over, shown as overtime.
+ * Same `otherRows` (with prd_no) close the slots other logs on the machine
+ * already used for the date + shift, and every slot before the last of them
+ * (2026-11-12: new hours go AFTER the last used slot -- grid rule; 050 only
+ * refuses the same slot twice). This log's own saved rows stay editable.
  *
  * `shiftStatuses` ({ "date|shift": { status, text } }) labels the history
  * table; a Rejected shift there gets a "Correct" button (`onCorrectShift`).
@@ -152,7 +157,9 @@ export default function HourlySlotsEntry({
   // utils/hourlySlots.js's splitHourHistory for why that's the right split.
   const { savedToday, historyList } = splitHourHistory({ logHours, today, shiftCode })
   const savedSlotNumbersToday = new Set(savedToday.map((h) => h.hour_slot))
-  const highestKnownSlotToday = Math.max(slots.length, ...savedToday.map((h) => h.hour_slot), 0)
+  const otherSlots = hoursLimit ? otherLogSlots(hoursLimit.otherRows ?? []) : null
+  const blockedNote = (slot) => slotBlockedByOtherLog(slot, otherSlots, savedSlotNumbersToday)
+  const highestKnownSlotToday = Math.max(slots.length, ...savedToday.map((h) => h.hour_slot), otherSlots?.lastSlot ?? 0, 0)
 
   const draftKeys = [
     'qty_produced',
@@ -207,7 +214,7 @@ export default function HourlySlotsEntry({
     return Object.fromEntries(Object.entries(merged).filter(([k, v]) => v !== before[k]))
   }
 
-  const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot))
+  const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot) && !blockedNote(s.slot))
   const changedSaved = readOnly ? [] : savedToday.filter((h) => Object.keys(changedFields(h)).length > 0)
   const anyEntered = pendingSlots.some((s) => isEntered(s.slot)) || changedSaved.length > 0
   const rowErrors = {}
@@ -416,6 +423,20 @@ export default function HourlySlotsEntry({
               {slots.map((s) => {
                 const saved = savedToday.find((h) => h.hour_slot === s.slot)
                 const rowError = rowErrors[s.slot]
+                const blocked = saved ? null : blockedNote(s.slot)
+                if (blocked) {
+                  return (
+                    <tr key={s.slot} className="border-t border-gray-100 bg-gray-50" data-testid={`slot-blocked-${s.slot}`}>
+                      <td className="px-2 py-1 text-gray-400">
+                        {s.slot}. {s.label}
+                        <span className="block text-[10px] text-amber-700">{blocked}</span>
+                      </td>
+                      <td colSpan={3 + (showIdle ? cats.length + 2 : 0)} className="px-2 py-1 text-[11px] text-gray-400">
+                        Not available on this machine for this shift
+                      </td>
+                    </tr>
+                  )
+                }
                 return (
                   <tr key={s.slot} className={`border-t border-gray-100 ${rowError ? 'bg-red-50' : ''}`} title={rowError}>
                     <td className="px-2 py-1 text-gray-700">

@@ -3,11 +3,12 @@
 // without a DOM.
 
 /** Same option shapes SelectInput accepts: plain values or { value, label }.
- * Values are stringified, as a native <select> would report them. */
+ * Values are stringified, as a native <select> would report them.
+ * `{ disabled: true }` keeps an option listed (greyed) but never pickable. */
 export function normalizeOptions(options = []) {
   return options.map((opt) =>
     typeof opt === 'object' && opt !== null
-      ? { value: String(opt.value), label: String(opt.label ?? opt.value) }
+      ? { value: String(opt.value), label: String(opt.label ?? opt.value), ...(opt.disabled ? { disabled: true } : {}) }
       : { value: String(opt), label: String(opt) }
   )
 }
@@ -41,7 +42,7 @@ export function keyAction(key, state, filtered) {
       return { open, highlight: count ? Math.max(highlight - 1, 0) : -1, preventDefault: true }
     case 'Enter':
       if (!open) return { open: true, highlight: count ? 0 : -1, preventDefault: true }
-      if (highlight >= 0 && highlight < count) return { open: false, highlight: -1, pick: filtered[highlight], preventDefault: true }
+      if (highlight >= 0 && highlight < count && !filtered[highlight].disabled) return { open: false, highlight: -1, pick: filtered[highlight], preventDefault: true }
       return { open, highlight, preventDefault: true }
     case 'Escape':
       return { open: false, highlight: -1, preventDefault: open }

@@ -45,12 +45,13 @@ const addBtn = () => screen.getByRole('button', { name: /^Add Hour/ })
 describe('HourlySlotsEntry -- shift-hours limit (046)', () => {
   it('banner counts this log + other logs on the machine; blocks Save past the limit', async () => {
     const { onSaveHours } = setup({
-      logHours: [saved(1)],
-      // another log on the machine already worked 1.5 h (slot 3 + half of slot 4 lunch)
-      hoursLimit: { shift: SHIFT, otherRows: [{ id: 90, hour_slot: 3, lunch: 0 }, { id: 91, hour_slot: 4, lunch: 30 }], canOvertime: false, machineLabel: 'MC-012' },
+      logHours: [saved(3)],
+      // another log on the machine already worked 1.5 h (slot 1 + half of slot 2 lunch);
+      // this log's new hours go after it (2026-11-12 grid rule)
+      hoursLimit: { shift: SHIFT, otherRows: [{ id: 90, hour_slot: 1, lunch: 0 }, { id: 91, hour_slot: 2, lunch: 30 }], canOvertime: false, machineLabel: 'MC-012' },
     })
     expect(banner()).toBe('SHIFT-A: 3 net hrs, worked 2.5, remaining 0.5')
-    fireEvent.change(screen.getByLabelText('Hour 2 produced'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('Hour 4 produced'), { target: { value: '4' } })
     await waitFor(() => expect(banner()).toContain('these rows add 1'))
     expect(screen.getByRole('alert').textContent).toBe(
       'SHIFT-A allows 3 net hrs on MC-012 for 12-11-2026 -- 2.5 worked (incl. other logs), 0.5 remaining; these rows add 1.',

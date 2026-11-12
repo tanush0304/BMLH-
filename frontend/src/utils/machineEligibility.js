@@ -79,7 +79,7 @@ export function machinesForStage({ mode = 'capable', stage, plannedMachine, mach
 
   const out = [...ids.entries()].map(([machine_id, source]) => {
     const busyLog = openLogs.find((l) => l.machine_id === machine_id)
-    const busy = busyLog ? { prd_no: busyLog.prd_no, stage_seq: busyLog.stage_seq } : null
+    const busy = busyLog ? { prd_no: busyLog.prd_no, stage_seq: busyLog.stage_seq, stage_id: busyLog.stage_id, log_id: busyLog.id } : null
     const isPlanned = machine_id === planned
     let label = nameOf(machines, machine_id)
     if (isPlanned) label += ' (planned)'

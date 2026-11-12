@@ -57,6 +57,7 @@ export default function SearchableSelect({
   }
 
   function pick(option) {
+    if (option.disabled) return // listed for information only (e.g. a busy machine)
     close()
     if (option.value !== String(value ?? '')) onChange?.({ target: { value: option.value, name } })
   }
@@ -168,8 +169,9 @@ export default function SearchableSelect({
               id={`${listId}-${i}`}
               role="option"
               aria-selected={o.value === selected?.value}
-              className={`cursor-pointer px-2.5 py-1.5 ${i === highlight ? 'bg-[#FFF0B3]' : ''} ${
-                o.value === selected?.value ? 'font-semibold text-slate-900' : 'text-slate-700'
+              aria-disabled={o.disabled || undefined}
+              className={`px-2.5 py-1.5 ${o.disabled ? 'cursor-not-allowed text-slate-400' : 'cursor-pointer'} ${i === highlight && !o.disabled ? 'bg-[#FFF0B3]' : ''} ${
+                o.disabled ? '' : o.value === selected?.value ? 'font-semibold text-slate-900' : 'text-slate-700'
               }`}
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setHighlight(i)}
