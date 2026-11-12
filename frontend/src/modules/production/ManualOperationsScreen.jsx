@@ -48,6 +48,7 @@ import { earlierIncompleteStage, canStartStage, runningBanner } from '../../util
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
+import { materialAvailableText } from '../../utils/stageReopen'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -426,6 +427,8 @@ export default function ManualOperationsScreen({ role }) {
         goodVsTarget: v046 ? { shifts, draftShiftCode: shiftCode, cycleTimeMin: activeLog.cycle_time_min } : null,
       })
     : null
+  // Display only: the same availability Start uses; with an open log, its own reservation.
+  const materialText = materialAvailableText({ target: stageTarget, available: plannedQty, reserved: activeLog?.planned_qty, logOpen: !!activeLog })
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -602,6 +605,9 @@ export default function ManualOperationsScreen({ role }) {
           <div className="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between gap-4">
             <p className="text-sm text-gray-600">
               Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
+              {materialText && (
+                <span className="ml-3 text-gray-500" data-testid="material-available">{materialText}</span>
+              )}
             </p>
             <div className="flex items-center gap-2">
             {activeLog && (

@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import Banner from './Banner'
 import { Printer, X } from 'lucide-react'
 import StatusPill from './StatusPill'
-import { getRouteCard, getStagesForPrd } from '../data/queries/routeCards'
+import { getRouteCard, getStagesForPrd, stageReopenSupported, getStageReopenBlockers, reopenStage } from '../data/queries/routeCards'
+import ConfirmDialog from './ConfirmDialog'
+import { listAppUsers } from '../data/queries/appUsers'
+import { userDisplayName } from '../utils/stockEdit'
+import { dbErrorMessage } from '../utils/dbErrors'
+import { stageLabel } from '../utils/stageLabel'
+import { canReopenStage, reopenBlockedMessage, reopenReasonProblem, reopenedNote } from '../utils/stageReopen'
 import { listOrdersByPrd } from '../data/queries/customerOrders'
 import { listProducts } from '../data/queries/products'
 import { listJobWorkTypes } from '../data/queries/jobWorkTypes'
@@ -49,7 +55,7 @@ function InfoCell({ label, value }) {
 /** The sheet itself (header block + stage table), shared by the on-screen
  * view and both print variants. blank: Date and Production Status cells are
  * left empty (headers and borders kept, taller rows) for the shop-floor copy. */
-export function JobRouteCardBody({ header, rows, blank = false }) {
+export function JobRouteCardBody({ header, rows, blank = false, statusExtra = null }) {
   return (
     <>
       <div className="flex items-center justify-between border border-b-0 border-slate-500 px-3 py-2">
@@ -100,7 +106,12 @@ export function JobRouteCardBody({ header, rows, blank = false }) {
                     key={c.key}
                     className={`border border-slate-400 px-2 py-1.5 text-slate-900 ${TEMPLATE_KEYS.has(c.key) ? 'bg-[#FFF8D6]' : ''} ${blank ? 'h-9' : ''}`}
                   >
-                    {blank && BLANK_COLUMN_KEYS.has(c.key) ? null : c.key === 'status' ? <StatusPill status={r.status} /> : routeCardCell(r, c.key, blank)}
+                    {blank && BLANK_COLUMN_KEYS.has(c.key) ? null : c.key === 'status' ? (
+                      <>
+                        <StatusPill status={r.status} />
+                        {statusExtra?.(r)}
+                      </>
+                    ) : routeCardCell(r, c.key, blank)}
                   </td>
                 ))}
               </tr>
@@ -118,13 +129,96 @@ export function JobRouteCardBody({ header, rows, blank = false }) {
  * Two variants (default Blank): "Blank – for shop floor" leaves Date and
  * Production Status empty; "With current status" fills them. The picker only
  * controls Print / PDF -- the on-screen sheet always shows dates + status. */
-export default function JobRouteCardSheet({ prdNo, onClose }) {
+export default function JobRouteCardSheet({ prdNo, onClose, role }) {
   const [variant, setVariant] = useState('blank')
   const blank = variant === 'blank'
   const [header, setHeader] = useState(null)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // 049: Reopen a Completed stage (supervisor / admin; hidden before 049).
+  const [reopenSupported, setReopenSupported] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [checkingId, setCheckingId] = useState(null)
+  const [blockedNotice, setBlockedNotice] = useState('')
+  const [reopenRow, setReopenRow] = useState(null)
+  const [reopenReason, setReopenReason] = useState('')
+  const [reopenTouched, setReopenTouched] = useState(false)
+  const [notice, setNotice] = useState('')
+  const supervisor = role === 'supervisor' || role === 'admin'
+  // Names for "Reopened by ..." -- loaded only when a stage was reopened.
+  const [appUsers, setAppUsers] = useState([])
+  const anyReopened = rows.some((r) => r.reopened_by)
+  useEffect(() => {
+    if (!anyReopened) return undefined
+    let active = true
+    listAppUsers().then((u) => active && setAppUsers(u ?? [])).catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [anyReopened])
+
+  useEffect(() => {
+    if (!supervisor) return undefined
+    let active = true
+    stageReopenSupported().then((ok) => active && setReopenSupported(!!ok)).catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [supervisor])
+
+  async function askReopen(row) {
+    setError(null)
+    setCheckingId(row.id)
+    try {
+      const blockers = await getStageReopenBlockers(row.id)
+      if (blockers.length) {
+        setBlockedNotice(reopenBlockedMessage({ position: row.stage_no, seq: row.seq, operation: row.operation_name }, blockers))
+        return
+      }
+      setReopenReason('')
+      setReopenTouched(false)
+      setReopenRow(row)
+    } catch (e) {
+      setError(dbErrorMessage(e))
+    } finally {
+      setCheckingId(null)
+    }
+  }
+
+  async function doReopen() {
+    const row = reopenRow
+    if (!row || reopenReasonProblem(reopenReason)) return
+    try {
+      await reopenStage(row.id, reopenReason)
+      setNotice(`${stageLabel({ position: row.stage_no, seq: row.seq, operation: row.operation_name })} reopened -- it is Pending again.`)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setError(dbErrorMessage(e))
+    }
+  }
+
+  function statusExtra(r) {
+    const note = reopenedNote(r, (id) => userDisplayName(id, appUsers))
+    const showButton = canReopenStage({ role, supported: reopenSupported, stageStatus: r.stage_status })
+    if (!note && !showButton) return null
+    return (
+      <>
+        {showButton && (
+          <button
+            type="button"
+            onClick={() => askReopen(r)}
+            disabled={checkingId != null}
+            className="ml-2 rounded border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            aria-label={`Reopen stage ${r.stage_no}`}
+          >
+            {checkingId === r.id ? 'Checking...' : 'Reopen'}
+          </button>
+        )}
+        {note && <span className="mt-0.5 block text-[10.5px] text-amber-700" data-testid={`reopened-note-${r.id}`}>{note}</span>}
+      </>
+    )
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -171,7 +265,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [prdNo])
+  }, [prdNo, reloadKey])
 
   return (
     <section className="rounded-xl border border-[#D5E3F4] bg-white shadow-sm">
@@ -212,15 +306,52 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
         </div>
       </div>
 
-      {error && <Banner tone="error" message={error} className="m-3" />}
+      {error && <Banner tone="error" message={error} className="m-3" onClose={() => setError(null)} />}
+      {notice && <Banner tone="success" message={notice} onClose={() => setNotice('')} />}
       {loading && <div className="px-4 py-3 text-sm text-slate-500">Loading route card...</div>}
 
       {!loading && header && (
         <div className="p-3">
           {/* On screen always with dates + status (progress check); the picker only sets the print copy. */}
-          <JobRouteCardBody header={header} rows={rows} />
+          <JobRouteCardBody header={header} rows={rows} statusExtra={statusExtra} />
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!blockedNotice}
+        tone="notice"
+        hideCancel
+        title="Can't reopen this stage"
+        body={blockedNotice}
+        confirmLabel="OK"
+        onConfirm={() => {}}
+        onClose={() => setBlockedNotice('')}
+      />
+      <ConfirmDialog
+        open={!!reopenRow}
+        tone="notice"
+        title="Reopen stage?"
+        body={reopenRow ? `${stageLabel({ position: reopenRow.stage_no, seq: reopenRow.seq, operation: reopenRow.operation_name })} of ${prdNo} goes back to Pending and its completion date is cleared. Production can then continue on it.` : ''}
+        confirmLabel="Reopen stage"
+        confirmDisabled={!!reopenReasonProblem(reopenReason)}
+        onConfirm={doReopen}
+        onClose={() => setReopenRow(null)}
+      >
+        <label className="block text-xs font-medium text-gray-700">
+          Reason <span className="text-red-600">*</span>
+          <textarea
+            aria-label="Reopen reason"
+            rows={2}
+            value={reopenReason}
+            onChange={(e) => setReopenReason(e.target.value)}
+            onBlur={() => setReopenTouched(true)}
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+          />
+        </label>
+        {reopenTouched && reopenReasonProblem(reopenReason) && (
+          <p className="mt-1 text-[11px] text-red-600">{reopenReasonProblem(reopenReason)}</p>
+        )}
+      </ConfirmDialog>
     </section>
   )
 }

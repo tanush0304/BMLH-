@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { withStagePositions } from '../../utils/stageLabel'
 import { todayISO } from '../../utils/dates'
 import { toNumberOrNull } from '../../utils/numericFields'
+import { isMissingColumnError } from './openPo'
 
 const CARDS_TABLE = 'production route cards'
 const STAGES_TABLE = 'production route card stages'
@@ -29,6 +30,49 @@ export async function updateStageStatus(stageId, status, actualDate) {
   const { data, error } = await supabase
     .from(STAGES_TABLE)
     .update({ status, actual_date: actualDate ?? todayISO() })
+    .eq('id', stageId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// ---------------------------------------------------------------- 049
+// Reopen a Completed stage. Until 049 is run the button stays hidden (probe
+// on reopened_at; one expected 400 in the console). Cached once known; a
+// network error is not cached.
+let reopen049 = null
+
+export async function stageReopenSupported() {
+  if (reopen049 !== null) return reopen049
+  let error
+  try {
+    ;({ error } = await supabase.from(STAGES_TABLE).select('reopened_at').limit(0))
+  } catch {
+    return false
+  }
+  if (!error) return (reopen049 = true)
+  if (isMissingColumnError(error)) return (reopen049 = false)
+  return false
+}
+
+export function resetStageReopenCache() {
+  reopen049 = null
+}
+
+/** What blocks reopening the stage ([] = nothing) -- the DB's own rule (049). */
+export async function getStageReopenBlockers(stageId) {
+  const { data, error } = await supabase.rpc('stage_reopen_blockers', { p_stage_id: stageId })
+  if (error) throw error
+  return data ?? []
+}
+
+/** Completed -> Pending with a reason; 049's trigger re-checks the blockers,
+ * clears actual_date and stamps reopened_by / reopened_at (+ history row). */
+export async function reopenStage(stageId, reason) {
+  const { data, error } = await supabase
+    .from(STAGES_TABLE)
+    .update({ status: 'Pending', reopen_reason: String(reason).trim() })
     .eq('id', stageId)
     .select()
     .single()

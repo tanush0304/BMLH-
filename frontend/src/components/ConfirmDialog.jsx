@@ -15,7 +15,7 @@ import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
  *   hideCancel   one button only (OK-style notice): the confirm button gets
  *                focus; Esc / backdrop still close
  */
-export default function ConfirmDialog({ open, recordType = 'record', label, title, body, confirmLabel = 'Delete', onConfirm, onClose, tone = 'danger', cancelLabel = 'Cancel', hideCancel = false }) {
+export default function ConfirmDialog({ open, recordType = 'record', label, title, body, confirmLabel = 'Delete', onConfirm, onClose, tone = 'danger', cancelLabel = 'Cancel', hideCancel = false, children, confirmDisabled = false }) {
   // tone 'confirm' (green) for non-destructive confirmations, e.g. Mark Stage Complete
   const confirmTone = tone === 'confirm'
   const noticeTone = tone === 'notice'
@@ -73,13 +73,14 @@ export default function ConfirmDialog({ open, recordType = 'record', label, titl
             </>
           )}
         </p>
+        {children /* optional extra input, e.g. a reason */}
         <div className="mt-4 flex justify-end gap-2">
           {!hideCancel && (
             <button ref={cancelRef} type="button" onClick={onClose} disabled={busy} className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-40">
               {cancelLabel}
             </button>
           )}
-          <button ref={confirmRef} type="button" onClick={handleConfirm} disabled={busy} className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 ${confirmTone ? 'bg-green-600' : noticeTone ? 'bg-bmlhblue' : 'bg-red-600'}`}>
+          <button ref={confirmRef} type="button" onClick={handleConfirm} disabled={busy || confirmDisabled}className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60 ${confirmTone ? 'bg-green-600' : noticeTone ? 'bg-bmlhblue' : 'bg-red-600'}`}>
             {busy && <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
             {confirmLabel}
           </button>

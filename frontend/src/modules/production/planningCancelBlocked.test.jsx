@@ -32,6 +32,9 @@ vi.mock('../../data/queries/routeCards', () => ({
   listAllStages: vi.fn(async () => STAGES),
   planProductionOrders: vi.fn(),
   cancelProductionOrder: vi.fn(),
+  stageReopenSupported: vi.fn(async () => false), // 049 (route card Reopen) -- not under test here
+  getStageReopenBlockers: vi.fn(async () => []),
+  reopenStage: vi.fn(),
 }))
 vi.mock('../../data/queries/customerOrders', () => ({
   listCustomerOrders: vi.fn(async () => [{ order_line_id: 1, customer_id: 'C1', po_number: 'PO-1', part_serial_number: 'P1', order_qty: 300 }]),

@@ -65,6 +65,7 @@ import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { machineShiftClash, clashAllowsStart } from '../../utils/machineShiftClash'
+import { materialAvailableText } from '../../utils/stageReopen'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -761,6 +762,8 @@ export default function ProductionDataEntryScreen({ role }) {
   // stages don't. Only items tagged Daily count (gateStatus 'no-items' otherwise).
   const checklistGated = gateApplies({ stage: resolvedStage, activeLog, machineId, shiftCode })
   const checklistBlocksStart = checklistGated && !gateAllowsStart(checklistStatus)
+  // Display only: the same availability Start uses; with an open log, its own reservation.
+  const materialText = materialAvailableText({ target: stageTarget, available: plannedQty, reserved: activeLog?.planned_qty, logOpen: !!activeLog })
 
   return (
     <FieldErrorProvider value={fieldError}>
@@ -1046,6 +1049,9 @@ export default function ProductionDataEntryScreen({ role }) {
           <div className="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between gap-4">
             <p className="text-sm text-gray-600">
               Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
+              {materialText && (
+                <span className="ml-3 text-gray-500" data-testid="material-available">{materialText}</span>
+              )}
             </p>
             <div className="flex items-center gap-2">
             {activeLog && (

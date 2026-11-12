@@ -108,6 +108,12 @@ export function buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, 
         status: s.type === 'Outsourced' ? outsourcedStageStatus(s, stageDcs) : s.status ?? '',
         // Status copy only: "CNC 2 (MC-005) (planned MC-004)" when a log ran on a substitute.
         machine_actual: machineActualText(s, logs.filter((l) => l.stage_id === s.id), machines),
+        // On screen only (049): stored status for Reopen + the latest reopen.
+        stage_status: s.status ?? '',
+        operation_name: s.operation ?? '',
+        reopened_by: s.reopened_by ?? null,
+        reopened_at: s.reopened_at ?? null,
+        reopen_reason: s.reopen_reason ?? null,
       }
     })
 }

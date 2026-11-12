@@ -188,6 +188,11 @@ describe('Production Data Entry -- machine / shift clash before Start', () => {
     expect(q.listOtherMachineShiftHours).toHaveBeenCalledWith(expect.objectContaining({ machineId: 'MC01', shiftCode: 'SHIFT-A' }))
   })
 
+  it('stage bar shows "Material available" (same number Start uses); "can make" only when below target', async () => {
+    await openOn('MC01')
+    await waitFor(() => expect(screen.getByTestId('material-available').textContent).toBe('Material available: 10'))
+  })
+
   it('lookup fails: toast, Start not blocked', async () => {
     q.listOtherMachineShiftHours.mockRejectedValue(new Error('boom'))
     await openOn('MC01')

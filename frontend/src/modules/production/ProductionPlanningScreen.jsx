@@ -67,7 +67,7 @@ export const CANCEL_BLOCKED = "Production has started -- can't cancel"
  * batch (plan_production_orders). The rest stays on the line for later.
  * Supervisor/admin can Cancel a PRD that has not started (reason required).
  */
-export default function ProductionPlanningScreen() {
+export default function ProductionPlanningScreen({ role }) {
   const [lines, setLines] = useState([])
   const [poHeaders, setPoHeaders] = useState([])
   const [plans, setPlans] = useState([])
@@ -483,7 +483,7 @@ export default function ProductionPlanningScreen() {
 
         {/* Below the list, scrolled into view when opened (detailRef). */}
         <div ref={detailRef} className="scroll-mt-4 space-y-3">
-          {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} onClose={() => setRouteCardPrd(null)} />}
+          {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} role={role} onClose={() => setRouteCardPrd(null)} />}
           {viewedPrd && (
             <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} card={plans.find((p) => p.prd_no === viewedPrd)} />
           )}

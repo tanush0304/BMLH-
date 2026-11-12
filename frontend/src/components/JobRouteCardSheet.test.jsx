@@ -23,7 +23,7 @@ describe('JobRouteCardBody (shared by both print variants)', () => {
   })
   it('the on-screen sheet always renders with status; the picker only feeds Print / PDF', () => {
     const src = readFileSync(new URL('./JobRouteCardSheet.jsx', import.meta.url), 'utf8')
-    expect(src).toContain('<JobRouteCardBody header={header} rows={rows} />')
+    expect(src).toContain('<JobRouteCardBody header={header} rows={rows} statusExtra={statusExtra} />')
     expect(src).not.toMatch(/<JobRouteCardBody[^>]*blank=/)
     expect(src).toContain('printJobRouteCard({ header, rows, blank })')
     expect(src).toContain("useState('blank')")

@@ -16,7 +16,7 @@ const LIST_COLUMNS = [
 
 /** Generated Job Route Cards (one per PRD, created on Production Planning
  * submit). Read-only -- clicking a card opens the full sheet. */
-export default function ProductionRouteCardScreen() {
+export default function ProductionRouteCardScreen({ role }) {
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -44,7 +44,7 @@ export default function ProductionRouteCardScreen() {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
         {error && <Banner tone="error" message={error} />}
 
-        {viewedPrd && <JobRouteCardSheet prdNo={viewedPrd} onClose={() => setViewedPrd(null)} />}
+        {viewedPrd && <JobRouteCardSheet prdNo={viewedPrd} role={role} onClose={() => setViewedPrd(null)} />}
 
         <RecordsList
           title="Job Route Cards"
