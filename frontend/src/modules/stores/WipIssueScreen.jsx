@@ -249,17 +249,27 @@ export default function WipIssueScreen({ role }) {
           <Field label="Issue No">
             <TextInput value={savedDocNo || '(auto-generated on save)'} readOnly />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field label="Shift" required>
+            <SelectInput
+              value={form.shift_code}
+              onChange={handleField('shift_code')}
+              options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name }))}
+            />
+          </Field>
+          <Field label="Employee ID" required>
+            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
+          </Field>
+          <Field label="PRD No" required>
             <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
           <OrderLineFields part={part} />
-          <Field label="Part Drawing Number">
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field label="WIP Pool (Completion Point)" required>
@@ -293,16 +303,6 @@ export default function WipIssueScreen({ role }) {
           </Field>
           <Field label="Qty" required>
             <TextInput type="number" min="0" step="any" value={form.qty} onChange={handleField('qty')} />
-          </Field>
-          <Field label="Employee" required>
-            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
-          </Field>
-          <Field label="Shift" required>
-            <SelectInput
-              value={form.shift_code}
-              onChange={handleField('shift_code')}
-              options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name }))}
-            />
           </Field>
           <Field label="Remarks">
             <TextInput value={form.remarks} onChange={handleField('remarks')} />

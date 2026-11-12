@@ -284,6 +284,9 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           <Field label="Receipt No">
             <TextInput value={savedReceiptNo || '(auto-generated on save)'} readOnly />
           </Field>
+          <Field label="Receipt Date" required>
+            <TextInput type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} disabled={!selectedDc} />
+          </Field>
           <Field label="Despatch (DC No)" required>
             <SearchableSelect
               value={dcNo}
@@ -294,24 +297,23 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           <Field label="DC Status">
             <div className="flex h-[34px] items-center">{selectedDc ? <StatusPill status={selectedDc.status} /> : <AutoFillBox value="" />}</div>
           </Field>
-          <Field label="Production Order (PRD No)">
+          <Field label="PRD No">
             <AutoFillBox value={selectedDc?.prd_no ?? ''} />
+          </Field>
+          <Field label="Part Serial No">
+            <AutoFillBox value={part.part_serial_number} />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={part.part_name} />
+          </Field>
+          <Field label="Part Drawing No">
+            <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field label="Type of Job Order">
             <AutoFillBox value={jobWorkType?.type_of_job_work ?? selectedDc?.job_work_code ?? ''} />
           </Field>
           <Field label="Job Work Vendor Name">
             <AutoFillBox value={vendorName.get(selectedDc?.vendor_id) ?? selectedDc?.vendor_id ?? ''} />
-          </Field>
-          <Field label="Part Serial Number">
-            <AutoFillBox value={part.part_serial_number} />
-          </Field>
-          <Field label="Part Name">
-            <AutoFillBox value={part.part_name} />
-          </Field>
-          <OrderLineFields part={part} />
-          <Field label="Part Drawing Number">
-            <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field label="Despatched Qty">
             <AutoFillBox value={selectedDc?.qty ?? ''} unit={selectedDc ? 'Nos' : undefined} />
@@ -325,11 +327,9 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           <Field label="Expected Date of Delivery">
             <AutoFillBox value={selectedDc?.expected_receipt_date ?? ''} />
           </Field>
+          <OrderLineFields part={part} />
           <Field label={`Qty Received${balance !== null ? ` (max ${balance})` : ''}`} required>
             <TextInput type="number" value={qtyReceived} onChange={(e) => setQtyReceived(e.target.value)} disabled={!selectedDc} />
-          </Field>
-          <Field label="Receipt Date" required>
-            <TextInput type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} disabled={!selectedDc} />
           </Field>
           {openDcs.length === 0 && !loading && <p className="text-sm text-gray-400 sm:col-span-3">No DCs are waiting for receipt.</p>}
         </FormSection>

@@ -281,3 +281,18 @@ export function trendBuckets(daily, { sum = [], last = [], dayLabel = (d) => d, 
   }
   return out
 }
+
+/** PRD-009: Production Status KPI row for one PRD -- PRD qty (+ its PO line's
+ * order qty) and produced = good (accepted) qty of the LAST stage to date
+ * (jobwork receipts count when the last stage is outsourced). */
+export function prdProducedKpis({ order, stages, aggregates }) {
+  const sorted = [...(stages ?? [])].sort((a, b) => num(a.seq) - num(b.seq))
+  const last = sorted[sorted.length - 1]
+  const a = last ? aggregates?.[last.id] : null
+  return {
+    prd_qty: order?.prd_qty == null ? null : num(order.prd_qty),
+    order_qty: order?.order_qty == null ? null : num(order.order_qty),
+    produced: a ? num(a.accepted ?? a.output) : 0,
+    last_stage: last ?? null,
+  }
+}

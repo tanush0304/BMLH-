@@ -244,14 +244,14 @@ export default function ChecklistEntryScreen({ role }) {
           <Field label="Machine" required>
             <SearchableSelect value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
           </Field>
-          <Field label="Maintenance Engineer" required>
-            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
+          <Field label="Date" required>
+            <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Shift" required>
             <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} disabled={!!activeLog} options={shifts.map((s) => s.shift_code)} />
           </Field>
-          <Field label="Date" required>
-            <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
+          <Field label="Maintenance Engineer" required>
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Type of Maintenance">
             <SelectWithAddNew
@@ -397,11 +397,11 @@ function VisitEditPanel({ log, machines, employees, shifts, typeOptions, onSave,
       <Field label="Date">
         <TextInput value={log.log_date ?? ''} disabled />
       </Field>
-      <Field label="Maintenance Engineer" required>
-        <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
-      </Field>
       <Field label="Shift" required>
         <SelectInput value={header.shift_code} onChange={(e) => setHeader((h) => ({ ...h, shift_code: e.target.value }))} options={shifts.map((s) => s.shift_code)} />
+      </Field>
+      <Field label="Maintenance Engineer" required>
+        <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
       </Field>
       <Field label="Type of Maintenance">
         <SelectWithAddNew value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={typeOptions} />

@@ -57,8 +57,8 @@ async function pick({ type }) {
   const selects = screen.getAllByRole('combobox')
   fireEvent.change(selects[0], { target: { value: 'MC-1' } }) // machine
   await waitFor(() => expect(q.listChecklistItemsForMachine).toHaveBeenCalledWith('MC-1'))
-  fireEvent.change(selects[1], { target: { value: 'EMP-1' } }) // engineer
-  fireEvent.change(selects[2], { target: { value: 'A' } }) // shift
+  fireEvent.change(selects[2], { target: { value: 'EMP-1' } }) // engineer (after Date + Shift)
+  fireEvent.change(selects[1], { target: { value: 'A' } }) // shift
   fireEvent.change(document.querySelector('input[type="date"]'), { target: { value: '2026-10-28' } })
   fireEvent.change(selects[3], { target: { value: type } }) // type of maintenance
 }

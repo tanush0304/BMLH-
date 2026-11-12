@@ -94,9 +94,9 @@ const control = (label) => within(screen.getAllByText(label, { selector: 'span' 
 
 async function openOn(machine, role = 'operator') {
   render(<ProductionDataEntryScreen role={role} />)
-  await waitFor(() => expect(within(control('Production Order (PRD No)')).queryByRole('option', { name: /PRD-001/ })).toBeTruthy())
-  fireEvent.change(control('Employee'), { target: { value: 'E1' } })
-  fireEvent.change(control('Production Order (PRD No)'), { target: { value: 'PRD-001' } })
+  await waitFor(() => expect(within(control('PRD No')).queryByRole('option', { name: /PRD-001/ })).toBeTruthy())
+  fireEvent.change(control('Employee ID'), { target: { value: 'E1' } })
+  fireEvent.change(control('PRD No'), { target: { value: 'PRD-001' } })
   await waitFor(() => expect(screen.getByTestId('planned-machine-hint')).toBeTruthy())
   if (!machine) return
   fireEvent.change(control('Machine'), { target: { value: machine } })

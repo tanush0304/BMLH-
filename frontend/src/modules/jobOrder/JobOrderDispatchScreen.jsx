@@ -420,17 +420,27 @@ export default function JobOrderDispatchScreen({ role }) {
         )}
 
         <FormSection icon={Truck} title="1. Despatch Details" subtitle="Batch sent out to a vendor" columns={3}>
-          <Field label="Production Order (PRD No)" required>
+          <Field label="DC No">
+            {/* Auto-generated on save (DC-001, DC-002, ...) -- never
+                user-entered. None of the existing dispatches followed a
+                consistent format, so this starts a fresh sequence rather
+                than continuing one; they're left exactly as they are. */}
+            <AutoFillBox value="(auto-generated on save)" />
+          </Field>
+          <Field label="Despatch Date" required>
+            <TextInput type="date" value={form.dispatch_date} onChange={handleField('dispatch_date')} />
+          </Field>
+          <Field label="PRD No" required>
             <SearchableSelect value={prdNo} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
           <OrderLineFields part={part} />
-          <Field label="Part Drawing Number">
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field label="Outsourced Stage" required>
@@ -460,21 +470,11 @@ export default function JobOrderDispatchScreen({ role }) {
               options={vendorOptions.map((id) => ({ value: id, label: vendorLabel(id, vendors) }))}
             />
           </Field>
-          <Field label={`Qty${availableQty !== null ? ` (Available: ${availableQty})` : ''}`} required>
-            <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
-          </Field>
-          <Field label="DC No">
-            {/* Auto-generated on save (DC-001, DC-002, ...) -- never
-                user-entered. None of the existing dispatches followed a
-                consistent format, so this starts a fresh sequence rather
-                than continuing one; they're left exactly as they are. */}
-            <AutoFillBox value="(auto-generated on save)" />
-          </Field>
-          <Field label="Despatch Date" required>
-            <TextInput type="date" value={form.dispatch_date} onChange={handleField('dispatch_date')} />
-          </Field>
           <Field label="Expected Receipt Date">
             <TextInput value={expectedReceiptDate()} disabled />
+          </Field>
+          <Field label={`Qty${availableQty !== null ? ` (Available: ${availableQty})` : ''}`} required>
+            <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
           </Field>
           {selectedStage && (
             <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">

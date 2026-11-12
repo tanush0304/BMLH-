@@ -77,8 +77,8 @@ const control = (label) => within(screen.getAllByText(label, { selector: 'span' 
 
 async function pickPrd() {
   render(<ProductionDataEntryScreen role="operator" />)
-  await waitFor(() => expect(within(control('Production Order (PRD No)')).queryByRole('option', { name: /PRD-001/ })).toBeTruthy())
-  fireEvent.change(control('Production Order (PRD No)'), { target: { value: 'PRD-001' } })
+  await waitFor(() => expect(within(control('PRD No')).queryByRole('option', { name: /PRD-001/ })).toBeTruthy())
+  fireEvent.change(control('PRD No'), { target: { value: 'PRD-001' } })
   await waitFor(() => expect(screen.getByTestId('planned-machine-hint')).toBeTruthy())
 }
 

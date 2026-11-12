@@ -97,19 +97,19 @@ describe('contextual sidebar navigation', () => {
         role: 'operator',
       })
     )
-    expect(html).toContain('Supervisor or admin access required')
+    expect(html).not.toContain('Supervisor or admin access required')
     expect(html).not.toContain('Product Master')
     expect(html).toContain('Production Data Entry')
   })
 
-  it('locks Masters, Customer Orders, Jobwork and Reports & Dashboard for an operator', () => {
+  it('hides Masters, Customer Orders, Jobwork and Reports & Dashboard from an operator', () => {
     const html = renderToStaticMarkup(
       createElement(Sidebar, { activeKey: 'production', activeSubKey: null, onSelect: () => {}, onSelectSub: () => {}, onSignOut: () => {}, role: 'operator' })
     )
-    expect(html).toContain('aria-label="Masters. Supervisor or admin access required."')
-    expect(html).toContain('aria-label="Reports &amp; Dashboard. Supervisor or admin access required."')
-    expect(html).toContain('aria-label="Customer Orders. Supervisor or admin access required."')
-    expect(html).toContain('aria-label="Jobwork. Supervisor or admin access required."')
+    expect(html).not.toContain('Masters')
+    expect(html).not.toContain('Reports &amp; Dashboard')
+    expect(html).not.toContain('Customer Orders')
+    expect(html).not.toContain('Jobwork')
     expect(html).toContain('aria-label="Open Production"')
     expect(html).toContain('aria-label="Open Stores"')
     expect(html).toContain('aria-label="Open Quality"')

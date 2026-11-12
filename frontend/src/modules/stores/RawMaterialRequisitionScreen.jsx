@@ -218,8 +218,20 @@ export default function RawMaterialRequisitionScreen({ role }) {
             {/* Auto-generated on save (REQ-2026-001, ...), never user-entered. */}
             <AutoFillBox value="(auto-generated on save)" />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field label="Requested By">
+            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
+          </Field>
+          <Field label="PRD No" required>
             <SearchableSelect value={form.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
+          </Field>
+          <Field label="Part Serial No">
+            <AutoFillBox value={form.part_serial_number} />
+          </Field>
+          <Field label="Part Name">
+            <AutoFillBox value={form.part_name} />
+          </Field>
+          <Field label="Part Drawing No">
+            <AutoFillBox value={form.part_drawing_reference_number} />
           </Field>
           <Field label="Raw Material" required>
             {/* Filtered to this order's own product BOM, not every raw material
@@ -235,29 +247,17 @@ export default function RawMaterialRequisitionScreen({ role }) {
               })}
             />
           </Field>
-          {form.prd_no && bomForProduct.length === 0 && (
-            <p className="text-sm text-amber-600 sm:col-span-3">
-              Product "{selectedOrder?.part_serial_number}" has no Bill of Materials defined yet in Product Master.
-            </p>
-          )}
           <Field label="Qty Required" required>
             {/* Pre-filled from "order material requirement" once a material is
                 picked, but left editable -- a requisition can legitimately ask
                 for more or less than the order's raw computed need. */}
             <TextInput type="number" value={form.qty_required} onChange={handleField('qty_required')} />
           </Field>
-          <Field label="Part Name">
-            <AutoFillBox value={form.part_name} />
-          </Field>
-          <Field label="Part Serial Number">
-            <AutoFillBox value={form.part_serial_number} />
-          </Field>
-          <Field label="Part Drawing Reference Number">
-            <AutoFillBox value={form.part_drawing_reference_number} />
-          </Field>
-          <Field label="Requested By">
-            <EmployeeSelect employees={employees} value={form.employee_id} onChange={handleField('employee_id')} />
-          </Field>
+          {form.prd_no && bomForProduct.length === 0 && (
+            <p className="text-sm text-amber-600 sm:col-span-3">
+              Product "{selectedOrder?.part_serial_number}" has no Bill of Materials defined yet in Product Master.
+            </p>
+          )}
         </FormSection>
 
         {editingRow && (

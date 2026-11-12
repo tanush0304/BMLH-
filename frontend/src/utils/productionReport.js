@@ -168,3 +168,15 @@ export function computeLiveLogTotals({ savedHours = [], draftRows = [], standard
     no_cycle_time: !ct,
   }
 }
+
+/** PRD-009: whole-log setting minutes for the Data Entry totals line --
+ * saved hours (edited ones replaced by their draft) + new draft rows; Σ row
+ * setup when any row has setup (046), else the log's Start setting time
+ * (old logs). Same no-double-count rule as computeReportTotals. */
+export function logSettingMinutes({ savedHours = [], draftRows = [], settingTimeMin }) {
+  const editedIds = new Set(draftRows.filter((r) => r.id != null).map((r) => r.id))
+  const rows = [...savedHours.filter((h) => !editedIds.has(h.id)), ...draftRows]
+  return rows.some((r) => r.setup_min != null && r.setup_min !== '')
+    ? rows.reduce((sum, r) => sum + (num(r.setup_min) || 0), 0)
+    : num(settingTimeMin) || 0
+}

@@ -57,8 +57,8 @@ const control = (label) => within(screen.getAllByText(label, { selector: 'span' 
 describe('WIP Receipt -- Stage options (option B)', () => {
   it('offers in-progress stages with something to receive, plus completed ones', async () => {
     render(<WipReceiptScreen role="supervisor" />)
-    await waitFor(() => expect(within(control('Production Order (PRD No)')).queryByRole('option', { name: 'PRD-014' })).toBeTruthy())
-    fireEvent.change(control('Production Order (PRD No)'), { target: { value: 'PRD-014' } })
+    await waitFor(() => expect(within(control('PRD No')).queryByRole('option', { name: 'PRD-014' })).toBeTruthy())
+    fireEvent.change(control('PRD No'), { target: { value: 'PRD-014' } })
     await waitFor(() => expect(within(control('Stage')).getAllByRole('option').length).toBeGreaterThan(1))
     const labels = within(control('Stage')).getAllByRole('option').map((o) => o.textContent).filter(Boolean)
     expect(labels).toEqual(['Stage 1 – Cutting · in progress · 120 available', 'Stage 3 – Facing'])

@@ -128,7 +128,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
       </section>
 
       <section aria-label="System modules" className="mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-2 sm:gap-4 sm:px-5 lg:grid-cols-4 lg:grid-rows-2 lg:gap-4 lg:px-5 lg:py-4">
-        {MODULES.map((module) => {
+        {MODULES.filter((module) => !isLocked(module.key)).map((module) => {
           const Icon = module.icon
           const colors = CARD_COLORS[module.color]
           const locked = isLocked(module.key)

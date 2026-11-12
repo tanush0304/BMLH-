@@ -10,6 +10,7 @@ import {
   Hammer,
   Handshake,
   Route,
+  Settings2,
   Timer,
   Truck,
   Users,
@@ -18,7 +19,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import PageHeader, { PageHeaderBandProvider } from '../../components/PageHeader'
-import { NAV_ITEMS } from '../../utils/constants'
+import { NAV_ITEMS, canSeeSubItem } from '../../utils/constants'
 import CustomerMaster from './CustomerMaster'
 import ProductMaster from './ProductMaster'
 import MachineMaster from './MachineMaster'
@@ -35,6 +36,8 @@ import ProductionBatchMaster from './ProductionBatchMaster'
 import RouteCardScreen from '../customerOrder/RouteCardScreen'
 import FinishedGoodsMaster from './FinishedGoodsMaster'
 import WipMaster from './WipMaster'
+import AppSettingsScreen from './AppSettingsScreen'
+import ComingSoon from '../../components/ComingSoon'
 
 const MASTER_COMPONENTS = {
   product: ProductMaster,
@@ -53,6 +56,7 @@ const MASTER_COMPONENTS = {
   'route-card': RouteCardScreen,
   'finished-goods': FinishedGoodsMaster,
   wip: WipMaster,
+  'app-settings': AppSettingsScreen,
 }
 
 // PPT card style: pastel circle + coloured icon, title, two-line description.
@@ -75,6 +79,7 @@ const MASTER_PRESENTATION = {
   'finished-goods': { icon: Warehouse, color: '#16A34A', bg: '#DCFCE7', description: 'Manage finished goods store details and parameters' },
   wip: { icon: Warehouse, color: '#7C3AED', bg: '#EDE9FE', description: 'Manage work in progress store details and parameters' },
   'route-card': { icon: Route, color: '#D97706', bg: '#FEF3C7', description: 'Manage operation sequences and routing details' },
+  'app-settings': { icon: Settings2, color: '#475569', bg: '#E2E8F0', description: 'Manage the hourly quantity cap mode and tolerance (admin only)' },
 }
 
 const MASTER_NAV = NAV_ITEMS.find((item) => item.key === 'masters')?.subItems ?? []
@@ -127,7 +132,8 @@ export function MasterCard({ item, onSelect }) {
   )
 }
 
-function MastersLanding({ onSelect }) {
+function MastersLanding({ onSelect, role }) {
+  const entries = MASTER_ENTRIES.filter((item) => canSeeSubItem(item, role))
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
@@ -140,8 +146,8 @@ function MastersLanding({ onSelect }) {
           screens fall back to 2 columns of cards with normal scrolling. */}
       <main className="flex-1 overflow-y-auto bg-[#F5F7FA] px-4 py-4 sm:px-6">
         <div className="mx-auto h-full w-full max-w-[1480px]">
-          <div className="grid grid-cols-2 gap-3 md:h-full md:min-h-[520px] md:grid-cols-4 md:grid-rows-4">
-            {MASTER_ENTRIES.map((item) => (
+          <div className={`grid grid-cols-2 gap-3 md:h-full md:min-h-[520px] md:grid-cols-4 ${entries.length > 16 ? 'md:grid-rows-5' : 'md:grid-rows-4'}`}>
+            {entries.map((item) => (
               <MasterCard key={item.key} item={item} onSelect={onSelect} />
             ))}
           </div>
@@ -153,12 +159,12 @@ function MastersLanding({ onSelect }) {
 
 // With no selected submenu, show the selector. Sidebar submenu clicks open
 // the same screen component as selecting its card.
-export default function MasterList({ activeTab, onSelect }) {
+export default function MasterList({ activeTab, onSelect, role }) {
   const entity = MASTER_ENTRIES.find((item) => item.key === activeTab)
   if (!entity) {
     return (
       <PageHeaderBandProvider breadcrumb={[{ label: 'Masters' }]}>
-        <MastersLanding onSelect={onSelect} />
+        <MastersLanding onSelect={onSelect} role={role} />
       </PageHeaderBandProvider>
     )
   }
@@ -166,7 +172,7 @@ export default function MasterList({ activeTab, onSelect }) {
   const Screen = entity.component
   return (
     <PageHeaderBandProvider breadcrumb={[{ label: 'Masters', onClick: () => onSelect(null) }, { label: entity.label }]}>
-      <Screen />
+      {canSeeSubItem(entity, role) ? <Screen role={role} /> : <ComingSoon title={entity.label} subtitle="Admin access required." />}
     </PageHeaderBandProvider>
   )
 }

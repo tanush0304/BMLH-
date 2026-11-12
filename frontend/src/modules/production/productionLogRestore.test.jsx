@@ -58,12 +58,12 @@ describe.each([
     render(createElement(Screen, { role: 'operator' }))
     // The restore is waiting on the open-log lookup.
     await waitFor(() => expect(releaseOpenLogs).toBeTypeOf('function'))
-    const [employee, prd] = screen.getAllByRole('combobox')
+    const [, employee, prd] = screen.getAllByRole('combobox') // Shift is first (standard field order)
     expect(employee.disabled).toBe(true)
     expect(prd.disabled).toBe(true)
 
     releaseOpenLogs([]) // no open log -> the screen unlocks
-    await waitFor(() => expect(screen.getAllByRole('combobox')[1].disabled).toBe(false))
-    expect(screen.getAllByRole('combobox')[0].disabled).toBe(false)
+    await waitFor(() => expect(screen.getAllByRole('combobox')[2].disabled).toBe(false))
+    expect(screen.getAllByRole('combobox')[1].disabled).toBe(false)
   })
 })

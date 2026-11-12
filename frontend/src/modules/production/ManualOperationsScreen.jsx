@@ -49,6 +49,9 @@ import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
 import { materialAvailableText } from '../../utils/stageReopen'
+import { hourQtyCapProblems } from '../../utils/hourQtyCap'
+import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { getHourCapSettings } from '../../data/queries/appSettings'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -308,12 +311,39 @@ export default function ManualOperationsScreen({ role }) {
     return true
   }
 
+  // PRD-009: per-hour standard cap + planned-qty cap (same rules as 051).
+  // 051 "app settings": hourly cap mode + tolerance (strict, 0 % until read / before 051).
+  const [capSettings, setCapSettings] = useState({})
+  useEffect(() => {
+    let live = true
+    getHourCapSettings().then((s) => live && setCapSettings(s))
+    return () => {
+      live = false
+    }
+  }, [])
+  const capDialog = useQtyCapDialog()
+  function capProblems(newRows, changes = []) {
+    return hourQtyCapProblems({
+      newRows,
+      changes,
+      logHours,
+      shiftFor: (code) => shifts.find((s) => s.shift_code === code),
+      draftShiftCode: shiftCode,
+      cycleTimeMin: activeLog.cycle_time_min,
+      standardQtyPerHour: activeLog.standard_qty_per_hour,
+      plannedQty: activeLog.planned_qty,
+      settings: capSettings,
+      role,
+    })
+  }
+
   async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
     if (logOutOfSync()) return
     setSavingHour(true)
     setError(null)
     try {
+      if (!(await passQtyCap(capProblems(rows, changes), capDialog))) return false
       const stamped = rows.map((r) => ({
         ...r,
         log_id: activeLog.id,
@@ -327,6 +357,7 @@ export default function ManualOperationsScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -338,6 +369,7 @@ export default function ManualOperationsScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
+      if (!(await passQtyCap(capProblems([row]), capDialog))) return false
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
@@ -349,6 +381,7 @@ export default function ManualOperationsScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -445,10 +478,17 @@ export default function ManualOperationsScreen({ role }) {
         )}
 
         <FormSection icon={ClipboardCheck} title="1. Select Employee & Order" subtitle="Pick who, then order" columns={3}>
-          <Field label="Employee" required>
+            <Field label="Shift" required>
+              <SelectInput
+                value={shiftCode}
+                onChange={(e) => setShiftCode(e.target.value)}
+                options={shifts.map((s) => s.shift_code)}
+              />
+            </Field>
+          <Field label="Employee ID" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field label="PRD No" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -456,18 +496,18 @@ export default function ManualOperationsScreen({ role }) {
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
           <OrderLineFields part={part} />
-          <Field label="Part Drawing Number">
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           {stageChoicesForPrd.length > 1 && (
-            <Field label="Which Stage?" required>
+            <Field label="Stage" required>
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
@@ -519,13 +559,6 @@ export default function ManualOperationsScreen({ role }) {
                 remaining availability reads 0 -- show the log's own planned qty. */}
             <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
               <TextInput value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} disabled />
-            </Field>
-            <Field label="Shift" required>
-              <SelectInput
-                value={shiftCode}
-                onChange={(e) => setShiftCode(e.target.value)}
-                options={shifts.map((s) => s.shift_code)}
-              />
             </Field>
             {activeLog && (
               <p className="text-xs text-gray-500 sm:col-span-3">
@@ -634,6 +667,7 @@ export default function ManualOperationsScreen({ role }) {
           </div>
         )}
       </div>
+      {capDialog.dialog}
     </div>
   )
 }

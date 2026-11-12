@@ -387,12 +387,8 @@ export default function QualityInspectionScreen({ role }) {
 
         {step === 'header' && (
           <FormSection icon={ClipboardCheck} title="1. Inspection Header" subtitle="Who, what and where inspected" columns={3}>
-            <Field label="Employee" required>
-              <EmployeeSelect
-                employees={employees}
-                value={header.employee_id}
-                onChange={(e) => setHeader((f) => ({ ...f, employee_id: e.target.value }))}
-              />
+            <Field label="Date & Time">
+              <AutoFillBox value={new Date().toLocaleString()} />
             </Field>
             <Field label="Shift" required>
               <SelectInput
@@ -401,20 +397,24 @@ export default function QualityInspectionScreen({ role }) {
                 options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name }))}
               />
             </Field>
-            <Field label="Date & Time">
-              <AutoFillBox value={new Date().toLocaleString()} />
+            <Field label="Employee ID" required>
+              <EmployeeSelect
+                employees={employees}
+                value={header.employee_id}
+                onChange={(e) => setHeader((f) => ({ ...f, employee_id: e.target.value }))}
+              />
             </Field>
-            <Field label="Production Order (PRD No)" required>
+            <Field label="PRD No" required>
               <SearchableSelect value={header.prd_no} onChange={handlePrdChange} options={orders.map((o) => o.prd_no)} />
             </Field>
-            <Field label="Part Serial Number">
+            <Field label="Part Serial No">
               <AutoFillBox value={selectedOrder?.part_serial_number ?? ''} />
             </Field>
             <Field label="Part Name">
               <AutoFillBox value={part.part_name} />
             </Field>
             <OrderLineFields part={part} />
-            <Field label="Part Drawing Number">
+            <Field label="Part Drawing No">
               <AutoFillBox value={part.part_drawing_reference_number} />
             </Field>
             <Field label="Machine" required>
@@ -596,7 +596,7 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
   return (
     <FormSection icon={Pencil} title="Edit Inspection" subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
       {error && <Banner tone="error" message={error} />}
-      <Field label="Production Order (PRD No)">
+      <Field label="PRD No">
         <AutoFillBox value={first.prd_no} />
       </Field>
       <Field label="Machine">
@@ -608,7 +608,7 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
       <Field label="Date">
         <AutoFillBox value={first.log_date} />
       </Field>
-      <Field label="Employee" required>
+      <Field label="Employee ID" required>
         <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
       </Field>
       <Field label="Shift" required>

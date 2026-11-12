@@ -96,7 +96,7 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
 
       <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`} aria-label="Application modules">
         <div className="space-y-1.5">
-          {NAV_ITEMS.map((module) => {
+          {NAV_ITEMS.filter((module) => !isRestricted(module)).map((module) => {
             const presentation = MODULE_PRESENTATION[module.key] ?? { label: module.label, icon: Database }
             const Icon = presentation.icon
             const selected = activeKey === module.key

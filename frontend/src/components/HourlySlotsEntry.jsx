@@ -284,7 +284,8 @@ export default function HourlySlotsEntry({
       })
     const changes = changedSaved.map((h) => ({ id: h.id, ...changedFields(h) }))
     if (rows.length === 0 && changes.length === 0) return
-    await onSaveHours(rows, changes)
+    // false = the screen refused the save (e.g. qty cap popup) -- keep the drafts
+    if ((await onSaveHours(rows, changes)) === false) return
     setDrafts((d) => {
       const next = { ...d }
       for (const row of rows) delete next[row.hour_slot]
@@ -309,12 +310,13 @@ export default function HourlySlotsEntry({
 
   async function handleAddExtra() {
     if (nextExtraSlot > 12 || extraBlockedByLimit) return
-    await onAddExtraHour({
+    const result = await onAddExtraHour({
       hour_slot: nextExtraSlot,
       qty_produced: extraForm.qty_produced === '' ? 0 : Number(extraForm.qty_produced),
       qty_rejected: extraForm.qty_rejected === '' ? 0 : Number(extraForm.qty_rejected),
       qty_rework: extraForm.qty_rework === '' ? 0 : Number(extraForm.qty_rework),
     })
+    if (result === false) return // refused (qty cap popup / save error) -- keep what was typed
     setExtraForm({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   }
 

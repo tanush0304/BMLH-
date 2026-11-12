@@ -42,7 +42,7 @@ import {
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
-import { computeLiveLogTotals } from '../../utils/productionReport'
+import { computeLiveLogTotals, logSettingMinutes } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 import ShiftDateLine from '../../components/ShiftDateLine'
 import { stageLabel } from '../../utils/stageLabel'
@@ -66,6 +66,9 @@ import { orderLineSuffix } from '../../utils/deliveryAddress'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { machineShiftClash, clashAllowsStart } from '../../utils/machineShiftClash'
 import { materialAvailableText } from '../../utils/stageReopen'
+import { hourQtyCapProblems } from '../../utils/hourQtyCap'
+import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { getHourCapSettings } from '../../data/queries/appSettings'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -525,6 +528,32 @@ export default function ProductionDataEntryScreen({ role }) {
     return true
   }
 
+  // PRD-009: per-hour standard cap + planned-qty cap (same rules as 051).
+  // 051 "app settings": hourly cap mode + tolerance (strict, 0 % until read / before 051).
+  const [capSettings, setCapSettings] = useState({})
+  useEffect(() => {
+    let live = true
+    getHourCapSettings().then((s) => live && setCapSettings(s))
+    return () => {
+      live = false
+    }
+  }, [])
+  const capDialog = useQtyCapDialog()
+  function capProblems(newRows, changes = []) {
+    return hourQtyCapProblems({
+      newRows,
+      changes,
+      logHours,
+      shiftFor: (code) => shifts.find((s) => s.shift_code === code),
+      draftShiftCode: shiftCode,
+      cycleTimeMin: activeLog.cycle_time_min,
+      standardQtyPerHour: activeLog.standard_qty_per_hour,
+      plannedQty: activeLog.planned_qty,
+      settings: capSettings,
+      role,
+    })
+  }
+
   async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
     if (logOutOfSync()) return
@@ -541,6 +570,7 @@ export default function ProductionDataEntryScreen({ role }) {
             otherIdle: (r) => totalIdle({ ...r, setup_min: null }) || 0,
           })
         : rows
+      if (!(await passQtyCap(capProblems(withSetup, changes), capDialog))) return false
       const stamped = withSetup.map((r) => ({
         ...r,
         log_id: activeLog.id,
@@ -554,6 +584,7 @@ export default function ProductionDataEntryScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -565,6 +596,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
+      if (!(await passQtyCap(capProblems([row]), capDialog))) return false
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
@@ -576,6 +608,7 @@ export default function ProductionDataEntryScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -781,10 +814,17 @@ export default function ProductionDataEntryScreen({ role }) {
         )}
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
-          <Field name="employee" label="Employee" required>
+            <Field name="shift" label="Shift" required>
+              <SelectInput
+                value={shiftCode}
+                onChange={(e) => setShiftCode(e.target.value)}
+                options={shifts.map((s) => s.shift_code)}
+              />
+            </Field>
+          <Field name="employee" label="Employee ID" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field name="prd" label="Production Order (PRD No)" required>
+          <Field name="prd" label="PRD No" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -792,14 +832,14 @@ export default function ProductionDataEntryScreen({ role }) {
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
           <OrderLineFields part={part} />
-          <Field label="Part Drawing Number">
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field name="machine" label="Machine" required>
@@ -826,7 +866,7 @@ export default function ProductionDataEntryScreen({ role }) {
             )}
           </Field>
           {stageChoicesForPrd.length > 1 && (
-            <Field label="Which Stage?" required>
+            <Field label="Stage" required>
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
@@ -905,13 +945,6 @@ export default function ProductionDataEntryScreen({ role }) {
                 No Cycle Time Master entry for this part + process -- cycle time will be left blank on the report.
               </p>
             )}
-            <Field name="shift" label="Shift" required>
-              <SelectInput
-                value={shiftCode}
-                onChange={(e) => setShiftCode(e.target.value)}
-                options={shifts.map((s) => s.shift_code)}
-              />
-            </Field>
             {activeLog && (
               <p className="text-xs text-gray-500 sm:col-span-3">
                 This log started under Shift {activeLog.shift_code} -- the dropdown stays live and decides which
@@ -1038,6 +1071,7 @@ export default function ProductionDataEntryScreen({ role }) {
                   <span>Efficiency: <strong className="num-highlight">{v046 && liveTotals.no_cycle_time ? 'No cycle time' : `${liveTotals.efficiency_pct ?? '—'}%`}</strong></span>
                   <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
+                  <span data-testid="log-setting-time">Setting Time: <strong className="num-highlight">{logSettingMinutes({ savedHours: logHours, draftRows: draftHourRows, settingTimeMin: activeLog.setting_time_min })} min</strong></span>
                 </div>
               )}
               <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="bottom" />
@@ -1078,6 +1112,7 @@ export default function ProductionDataEntryScreen({ role }) {
           </div>
         )}
       </div>
+      {capDialog.dialog}
       <ConfirmDialog
         open={clashPopupOpen}
         tone="notice"
