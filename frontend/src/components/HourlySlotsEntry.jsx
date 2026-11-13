@@ -103,8 +103,11 @@ export default function HourlySlotsEntry({
   onCorrectShift,
   withSetup = false,
   hoursLimit = null,
+  hideIdleKeys = [],
 }) {
-  const cats = idleCategories(showIdle && withSetup)
+  // hideIdleKeys: columns a screen leaves out (Manual Operations, 2026-11-13);
+  // hidden ones are never sent, so the DB keeps its default for them.
+  const cats = idleCategories(showIdle && withSetup).filter((c) => !hideIdleKeys.includes(c.key))
   const [drafts, setDrafts] = useState({}) // slot -> { qty_produced, qty_rejected, qty_rework }
   const [committedTimes, setCommittedTimes] = useState({ startTime, endTime })
   const prevResetKeyRef = useRef(resetKey)

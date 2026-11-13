@@ -43,6 +43,9 @@ import { decisionText } from '../../utils/shiftVerification'
 import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components/ShiftVerificationStatus'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import StageCompleteControl from '../../components/StageCompleteControl'
+
+// Manual grid leaves these out (user, 2026-11-13): Setup, Opr Issue, Program Issue, Breakdown.
+const MANUAL_HIDDEN_IDLE = ['setup_min', 'opr_issue', 'program_issue', 'breakdown']
 import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
@@ -613,6 +616,7 @@ export default function ManualOperationsScreen({ role }) {
                 onDraftRowsChange={setDraftHourRows}
                 showIdle
                 withSetup={v046}
+                hideIdleKeys={MANUAL_HIDDEN_IDLE}
                 hoursLimit={{ shift: entryShiftRow, otherRows: [], canOvertime, machineLabel: '' }}
               />
               {liveTotals && (

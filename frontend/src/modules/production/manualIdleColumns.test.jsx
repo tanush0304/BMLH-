@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-// Manual Operations idle + Setup columns (2026-11-13): the hourly grid gets
-// the same 8 idle columns (incl. Lunch) + Setup (046) as Data Entry. Same
-// rules: idle + setup <= 60 per hour, lunch lowers net worked hours (per log,
-// no machine), saved rows carry the idle fields + setup_min, and the hourly
-// qty cap (051) deducts them.
+// Manual Operations idle columns (2026-11-13): the hourly grid shows Tool
+// Issue, Power Issue, Inspection, M/C Clean, Lunch + Remarks; Setup, Opr Issue,
+// Program Issue and Breakdown are hidden on Manual only (Data Entry unchanged).
+// Same rules: idle <= 60 per hour, Lunch lowers net worked hours (per log, no
+// machine), hidden columns are never sent, and the hourly qty cap (051)
+// deducts the idle minutes.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -31,6 +32,7 @@ function setup(props = {}) {
       showIdle
       withSetup
       hoursLimit={{ shift: SHIFT, otherRows: [], canOvertime: false, machineLabel: '' }}
+      hideIdleKeys={['setup_min', 'opr_issue', 'program_issue', 'breakdown']}
       {...props}
     />,
   )
@@ -44,43 +46,49 @@ describe('Manual Operations -- idle + Setup columns', () => {
     const grid = src.slice(src.indexOf('<HourlySlotsEntry'), src.indexOf('/>', src.indexOf('<HourlySlotsEntry')))
     expect(grid).toMatch(/\n\s*showIdle\n/)
     expect(grid).toContain('withSetup={v046}')
+    expect(grid).toContain('hideIdleKeys={MANUAL_HIDDEN_IDLE}')
+    expect(src).toContain("const MANUAL_HIDDEN_IDLE = ['setup_min', 'opr_issue', 'program_issue', 'breakdown']")
   })
 
-  it('shows Setup, the 8 idle columns incl. Lunch, and Remarks', () => {
+  it('shows Tool Issue, Power Issue, Inspection, M/C Clean, Lunch, Remarks; hides Setup, Opr Issue, Program Issue, Breakdown', () => {
     setup()
-    for (const label of ['Setup', 'Lunch', 'remarks']) {
-      expect(screen.getByLabelText(new RegExp(`^Hour 1 ${label}$`, 'i'))).toBeTruthy()
+    for (const label of ['Tool Issue', 'Power Issue', 'Inspection', 'M/C Clean', 'Lunch', 'remarks']) {
+      expect(screen.getByLabelText(`Hour 1 ${label}`)).toBeTruthy()
+    }
+    for (const label of ['Setup', 'Opr Issue', 'Program Issue', 'Breakdown']) {
+      expect(screen.queryByLabelText(`Hour 1 ${label}`)).toBeNull()
     }
   })
 
-  it('idle + setup over 60 in an hour blocks Save', async () => {
+  it('idle over 60 in an hour blocks Save', async () => {
     const { onSaveHours } = setup()
     fireEvent.change(screen.getByLabelText('Hour 1 produced'), { target: { value: '5' } })
-    fireEvent.change(screen.getByLabelText('Hour 1 Setup'), { target: { value: '40' } })
+    fireEvent.change(screen.getByLabelText('Hour 1 Tool Issue'), { target: { value: '40' } })
     fireEvent.change(screen.getByLabelText('Hour 1 Lunch'), { target: { value: '30' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Hours' }))
     await new Promise((r) => setTimeout(r, 20))
     expect(onSaveHours).not.toHaveBeenCalled()
   })
 
-  it('saves idle fields + setup_min; Lunch lowers the net worked hours', async () => {
+  it('saves only the shown idle fields; Lunch lowers the net worked hours', async () => {
     const { onSaveHours } = setup()
     fireEvent.change(screen.getByLabelText('Hour 1 produced'), { target: { value: '5' } })
-    fireEvent.change(screen.getByLabelText('Hour 1 Setup'), { target: { value: '15' } })
+    fireEvent.change(screen.getByLabelText('Hour 1 Tool Issue'), { target: { value: '15' } })
     fireEvent.change(screen.getByLabelText('Hour 1 Lunch'), { target: { value: '30' } })
     await waitFor(() => expect(screen.getByTestId('shift-hours-banner').textContent).toContain('these rows add 0.5'))
     fireEvent.click(screen.getByRole('button', { name: 'Save Hours' }))
     await waitFor(() => expect(onSaveHours).toHaveBeenCalledTimes(1))
     const [rows] = onSaveHours.mock.calls[0]
-    expect(rows[0]).toMatchObject({ hour_slot: 1, qty_produced: 5, setup_min: 15, lunch: 30 })
+    expect(rows[0]).toMatchObject({ hour_slot: 1, qty_produced: 5, tool_issue: 15, lunch: 30 })
+    for (const k of ['setup_min', 'opr_issue', 'program_issue', 'breakdown']) expect(rows[0]).not.toHaveProperty(k)
   })
 
-  it('hourly cap deducts idle + setup (ct 1 min: 60 - 15 - 30 = 15 allowed)', () => {
+  it('hourly cap deducts idle (ct 1 min: 60 - 15 - 30 = 15 allowed)', () => {
     const base = {
       changes: [], logHours: [], shiftFor: () => SHIFT, draftShiftCode: 'SHIFT-A',
       cycleTimeMin: 1, standardQtyPerHour: 60, plannedQty: 10000, settings: {}, role: 'operator',
     }
-    const row = (qty) => ({ hour_slot: 1, log_date: '2026-11-13', shift_code: 'SHIFT-A', qty_produced: qty, qty_rejected: 0, qty_rework: 0, setup_min: 15, lunch: 30 })
+    const row = (qty) => ({ hour_slot: 1, log_date: '2026-11-13', shift_code: 'SHIFT-A', qty_produced: qty, qty_rejected: 0, qty_rework: 0, tool_issue: 15, lunch: 30 })
     expect(hourQtyCapProblems({ ...base, newRows: [row(15)] }).blocks).toHaveLength(0)
     expect(hourQtyCapProblems({ ...base, newRows: [row(16)] }).blocks.length).toBeGreaterThan(0)
   })
