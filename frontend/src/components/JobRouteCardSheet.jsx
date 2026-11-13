@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import Banner from './Banner'
 import { Printer, X } from 'lucide-react'
 import StatusPill from './StatusPill'
-import { getRouteCard, getStagesForPrd, stageReopenSupported, getStageReopenBlockers, reopenStage } from '../data/queries/routeCards'
+import { getRouteCard, getStagesForPrd, stageReopenSupported, getStageReopenBlockers, reopenStage, updateStageStatus } from '../data/queries/routeCards'
+import { getStageAggregatesForPrd } from '../data/queries/productionLogs'
+import { computeStageUpstreamTargets } from '../utils/calculations'
+import { completePromptText, routeCardCompleteState } from '../utils/stageStartGuard'
 import ConfirmDialog from './ConfirmDialog'
 import { listAppUsers } from '../data/queries/appUsers'
 import { userDisplayName } from '../utils/stockEdit'
@@ -146,6 +149,10 @@ export default function JobRouteCardSheet({ prdNo, onClose, role }) {
   const [reopenTouched, setReopenTouched] = useState(false)
   const [notice, setNotice] = useState('')
   const supervisor = role === 'supervisor' || role === 'admin'
+  // Mark complete (supervisor / admin): per stage id { type, output, accepted, target, hasOpenLog }.
+  const [completeInfo, setCompleteInfo] = useState({})
+  const [completeRow, setCompleteRow] = useState(null)
+  const [completing, setCompleting] = useState(false)
   // Names for "Reopened by ..." -- loaded only when a stage was reopened.
   const [appUsers, setAppUsers] = useState([])
   const anyReopened = rows.some((r) => r.reopened_by)
@@ -198,12 +205,47 @@ export default function JobRouteCardSheet({ prdNo, onClose, role }) {
     }
   }
 
+  async function doComplete() {
+    const row = completeRow
+    if (!row) return
+    setCompleting(true)
+    try {
+      await updateStageStatus(row.id, 'Completed')
+      setNotice(`${stageLabel({ position: row.stage_no, seq: row.seq, operation: row.operation_name })} marked complete.`)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setError(dbErrorMessage(e))
+    } finally {
+      setCompleting(false)
+    }
+  }
+
   function statusExtra(r) {
     const note = reopenedNote(r, (id) => userDisplayName(id, appUsers))
     const showButton = canReopenStage({ role, supported: reopenSupported, stageStatus: r.stage_status })
-    if (!note && !showButton) return null
+    const info = completeInfo[r.id]
+    const completeState = info
+      ? routeCardCompleteState({ role, stageType: info.type, stageStatus: r.stage_status, output: info.output, target: info.target, hasOpenLog: info.hasOpenLog })
+      : null
+    if (!note && !showButton && !completeState) return null
     return (
       <>
+        {completeState === 'button' && (
+          <button
+            type="button"
+            onClick={() => setCompleteRow(r)}
+            disabled={completing}
+            className="ml-2 rounded border border-green-500 bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-800 hover:bg-green-100 disabled:opacity-50"
+            aria-label={`Mark stage ${r.stage_no} complete`}
+          >
+            {completing && completeRow?.id === r.id ? 'Marking...' : 'Mark complete'}
+          </button>
+        )}
+        {completeState === 'end-log-first' && (
+          <span className="mt-0.5 block text-[10.5px] text-amber-700" data-testid={`complete-open-log-${r.id}`}>
+            Target reached -- end the open log first (Data Entry).
+          </span>
+        )}
         {showButton && (
           <button
             type="button"
@@ -255,6 +297,28 @@ export default function JobRouteCardSheet({ prdNo, onClose, role }) {
           ...(await deliveryHeader(order)),
         })
         setRows(buildJobRouteCardRows({ card, stages, jobWorkTypes, dispatches, machines, logs }))
+        // Mark complete numbers -- supervisor / admin only; a lookup failure just hides the button.
+        let info = {}
+        if (supervisor) {
+          try {
+            const aggregates = await getStageAggregatesForPrd(prdNo)
+            const targets = computeStageUpstreamTargets(stages, order?.prd_qty ?? 0, aggregates)
+            for (const s of stages) {
+              info[s.id] = {
+                type: s.type,
+                output: aggregates[s.id]?.output ?? 0,
+                accepted: aggregates[s.id]?.accepted ?? 0,
+                target: targets[s.id] ?? 0,
+                hasOpenLog: (logs ?? []).some((l) => l.stage_id === s.id && l.is_open),
+              }
+            }
+          } catch (e) {
+            console.warn('Route card: could not load stage output', e)
+            info = {}
+          }
+        }
+        if (cancelled) return
+        setCompleteInfo(info)
       } catch (e) {
         if (!cancelled) setError(e.message)
       } finally {
@@ -265,7 +329,7 @@ export default function JobRouteCardSheet({ prdNo, onClose, role }) {
     return () => {
       cancelled = true
     }
-  }, [prdNo, reloadKey])
+  }, [prdNo, reloadKey, supervisor])
 
   return (
     <section className="rounded-xl border border-[#D5E3F4] bg-white shadow-sm">
@@ -317,6 +381,25 @@ export default function JobRouteCardSheet({ prdNo, onClose, role }) {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!completeRow}
+        tone="confirm"
+        title="Mark stage complete?"
+        body={
+          completeRow
+            ? completePromptText({
+                label: stageLabel({ position: completeRow.stage_no, seq: completeRow.seq, operation: completeRow.operation_name }),
+                output: completeInfo[completeRow.id]?.output ?? 0,
+                target: completeInfo[completeRow.id]?.target ?? 0,
+                accepted: completeInfo[completeRow.id]?.accepted ?? 0,
+              })
+            : ''
+        }
+        confirmLabel="Mark Complete"
+        cancelLabel="Not now"
+        onConfirm={doComplete}
+        onClose={() => setCompleteRow(null)}
+      />
       <ConfirmDialog
         open={!!blockedNotice}
         tone="notice"

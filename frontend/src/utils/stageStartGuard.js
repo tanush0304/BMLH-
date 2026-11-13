@@ -98,6 +98,20 @@ export function completePromptText({ label, output, target, accepted }) {
   return `${label} reached ${Number(output)} of ${Number(target)} (accepted ${Number(accepted)}) -- mark it complete?`
 }
 
+/**
+ * Route Card "Mark complete" (2026-11-13, supervisor / admin, 047 guards the DB).
+ * Returns 'button' | 'end-log-first' | null for one stage:
+ * Internal + Pending + output >= target; an open log on it -> 'end-log-first'
+ * (Data Entry completes those). Same target rule as Data Entry
+ * (computeStageUpstreamTargets).
+ */
+export function routeCardCompleteState({ role, stageType, stageStatus, output, target, hasOpenLog }) {
+  if (!canCompleteStageRole(role)) return null
+  if (stageType !== 'Internal' || stageStatus !== 'Pending') return null
+  if (!stageReachedTarget(output, target)) return null
+  return hasOpenLog ? 'end-log-first' : 'button'
+}
+
 /** Operator note instead of the button. */
 export function askSupervisorText({ label, output, target }) {
   return `${label} reached ${Number(output)} of ${Number(target)} -- ask a supervisor to mark it complete.`

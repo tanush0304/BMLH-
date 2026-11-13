@@ -30,7 +30,7 @@ vi.mock('../data/queries/products', () => ({ listProducts: vi.fn(async () => [])
 vi.mock('../data/queries/jobWorkTypes', () => ({ listJobWorkTypes: vi.fn(async () => []) }))
 vi.mock('../data/queries/jobOrders', () => ({ listJobOrderStatus: vi.fn(async () => []) }))
 vi.mock('../data/queries/machines', () => ({ listMachines: vi.fn(async () => []) }))
-vi.mock('../data/queries/productionLogs', () => ({ listLogsForPrd: vi.fn(async () => []) }))
+vi.mock('../data/queries/productionLogs', () => ({ listLogsForPrd: vi.fn(async () => []), getStageAggregatesForPrd: vi.fn(async () => ({})) }))
 vi.mock('../data/queries/deliveryAddresses', () => ({ deliveryAddressesSupported: vi.fn(async () => false), listDeliveryAddresses: vi.fn(async () => []) }))
 vi.mock('../data/queries/appUsers', () => ({ listAppUsers: vi.fn(async () => [{ user_id: 'u-1', email: 'sup@x.test' }]) }))
 
