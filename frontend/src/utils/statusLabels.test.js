@@ -73,6 +73,7 @@ describe('each screen uses the shared label', () => {
   })
 
   it('"Close Short" action button text unchanged', () => {
-    expect(src('modules/jobOrder/JobOrderReceiptScreen.jsx')).toContain("'Close Short'")
+    // 2026-11-13: the action moved into a confirm dialog (confirmLabel="Close Short").
+    expect(src('modules/jobOrder/JobOrderReceiptScreen.jsx')).toMatch(/['"]Close Short['"]/)
   })
 })

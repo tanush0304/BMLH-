@@ -96,7 +96,9 @@ describe('DailyChecklistGate', () => {
     q.listChecklistItemsForMachine.mockResolvedValue([ITEMS[2]])
     const status = renderGate()
     expect(await screen.findByText('No Daily checklist items set for Sub Lathe (MC-SUB) -- ask maintenance to add them')).toBeTruthy()
-    expect(status).toHaveBeenLastCalledWith('no-items')
+    // onStatusChange runs in a useEffect AFTER the message renders; under
+    // full-suite load findByText can resolve before it fires -> wait for it.
+    await waitFor(() => expect(status).toHaveBeenLastCalledWith('no-items'))
   })
 })
 

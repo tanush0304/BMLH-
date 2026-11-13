@@ -28,6 +28,20 @@ export function closeShortReasonError(reason) {
   return reason?.trim() ? null : 'Enter a reason to close this DC short.'
 }
 
+/**
+ * "Close DC Short..." button (2026-11-13): a deliberate supervisor / admin
+ * action, never part of recording a normal partial receipt. Shown only with
+ * an open DC picked, a balance still to come, and no receipt qty typed.
+ */
+export function canShowCloseShort({ canClose, dc, balance, qtyTyped }) {
+  return !!canClose && !!dc?.is_open && Number(balance) > 0 && !String(qtyTyped ?? '').trim()
+}
+
+/** Confirm body: "200 of 300 received. The remaining 100 will be recorded as ..." */
+export function closeShortPromptText(dc, balance) {
+  return `${Number(dc?.qty_received ?? 0)} of ${Number(dc?.qty ?? 0)} received. The remaining ${Number(balance)} will be recorded as not coming back and ${dc?.dc_no} will be closed. This can't be undone.`
+}
+
 /** Picker label for an open DC: "DC-004 · Vendor A · 200 of 300 to come". */
 export function openDcLabel(row, vendorName) {
   const parts = [row.dc_no]

@@ -17,6 +17,8 @@ import {
   dcBalance,
   receiptQtyError,
   closeShortReasonError,
+  canShowCloseShort,
+  closeShortPromptText,
   openDcLabel,
   receiptEditBlockReason,
   receiptEditMax,
@@ -27,6 +29,7 @@ import {
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 // One row per receipt (JR number); a DC can have several since migration 031.
 const LIST_COLUMNS = [
@@ -45,7 +48,9 @@ const LIST_COLUMNS = [
  * Job Order Receipt. Pick an OPEN DC (Sent or Partially Received), see what
  * was sent, what has come back and the balance, and record a receipt of up
  * to that balance -- as many receipts per DC as needed. A supervisor/admin
- * can Close Short an open DC with a reason (even with nothing received).
+ * can Close Short an open DC with a reason (even with nothing received) --
+ * a separate "Close DC Short..." button + confirm (2026-11-13), hidden while a
+ * receipt qty is typed, never part of recording a partial receipt.
  * The database enforces the same rules (migration 031).
  */
 export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
@@ -64,6 +69,7 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
   const [savedReceiptNo, setSavedReceiptNo] = useState('')
   const [shortReason, setShortReason] = useState('')
   const [closing, setClosing] = useState(false)
+  const [closeShortOpen, setCloseShortOpen] = useState(false)
   const [search, setSearch] = useState('')
 
   const canCloseShort = canEditStock(role)
@@ -155,28 +161,34 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
     }
   }
 
-  async function handleCloseShort() {
+  // Close DC Short (031): separate supervisor action -> ConfirmDialog with a
+  // required reason. The dialog closes itself after onConfirm resolves.
+  function openCloseShort() {
+    setShortReason('')
     setNotice('')
-    const reasonError = closeShortReasonError(shortReason)
-    if (reasonError) {
-      setError(reasonError)
-      return
-    }
-    if (!confirm(`Close ${dcNo} short? ${balance} of ${selectedDc.qty} will be recorded as not coming back. This cannot be undone.`)) return
+    setError(null)
+    setCloseShortOpen(true)
+  }
+
+  async function handleCloseShort() {
+    if (closeShortReasonError(shortReason)) return
+    const dc = dcNo
+    const short = balance
     setClosing(true)
     setError(null)
     try {
-      await closeDispatchShort(dcNo, shortReason.trim())
-      const message = `${dcNo} closed short (${balance} short).`
+      await closeDispatchShort(dc, shortReason.trim())
       selectDc('') // resets the form (and the notice) first
-      setNotice(message)
+      setNotice(`${dc} closed short (${short} short).`)
       await refresh()
     } catch (e) {
-      setError(e.message)
+      setError(jobworkDbErrorMessage(e))
     } finally {
       setClosing(false)
     }
   }
+
+  const showCloseShort = canShowCloseShort({ canClose: canCloseShort, dc: selectedDc, balance, qtyTyped: qtyReceived })
 
   const dcByNo = useMemo(() => new Map(dcRows.map((d) => [d.dc_no, d])), [dcRows])
   const selectedBlockReason = selectedRow ? receiptEditBlockReason(selectedRow, dcByNo.get(selectedRow.dc_no)) : null
@@ -295,7 +307,21 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
             />
           </Field>
           <Field label="DC Status">
-            <div className="flex h-[34px] items-center">{selectedDc ? <StatusPill status={selectedDc.status} /> : <AutoFillBox value="" />}</div>
+            <div className="flex h-[34px] items-center gap-2">
+              {selectedDc ? <StatusPill status={selectedDc.status} /> : <AutoFillBox value="" />}
+              {showCloseShort && (
+                <button
+                  type="button"
+                  onClick={openCloseShort}
+                  disabled={closing || saving}
+                  title="Supervisor / admin: nothing more is coming back on this DC"
+                  className="inline-flex items-center gap-1 rounded border border-slate-400 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                >
+                  <Ban size={12} />
+                  Close DC Short...
+                </button>
+              )}
+            </div>
           </Field>
           <Field label="PRD No">
             <AutoFillBox value={selectedDc?.prd_no ?? ''} />
@@ -334,25 +360,27 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           {openDcs.length === 0 && !loading && <p className="text-sm text-gray-400 sm:col-span-3">No DCs are waiting for receipt.</p>}
         </FormSection>
 
-        {canCloseShort && selectedDc && (
-          <FormSection icon={Ban} title="2. Close DC Short" subtitle="Nothing more is coming back on this DC (supervisor / admin)" columns={3}>
-            <Field label="Short Qty">
-              <AutoFillBox value={balance} unit="Nos" />
-            </Field>
-            <Field label="Reason" required width="long">
-              <TextInput value={shortReason} onChange={(e) => setShortReason(e.target.value)} placeholder="e.g. 10 pcs scrapped at vendor" />
-            </Field>
-            <div className="flex items-end">
-              <button
-                onClick={handleCloseShort}
-                disabled={closing}
-                className="rounded border border-slate-400 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-              >
-                {closing ? 'Closing...' : 'Close Short'}
-              </button>
-            </div>
-          </FormSection>
-        )}
+        <ConfirmDialog
+          open={closeShortOpen && !!selectedDc}
+          title={`Close ${dcNo} short?`}
+          body={selectedDc ? closeShortPromptText(selectedDc, balance) : ''}
+          confirmLabel="Close Short"
+          confirmDisabled={!!closeShortReasonError(shortReason)}
+          onConfirm={handleCloseShort}
+          onClose={() => setCloseShortOpen(false)}
+        >
+          <label className="block text-xs font-medium text-gray-700">
+            Reason <span className="text-red-600">*</span>
+            <textarea
+              aria-label="Close short reason"
+              rows={2}
+              value={shortReason}
+              onChange={(e) => setShortReason(e.target.value)}
+              placeholder="e.g. 10 pcs scrapped at vendor"
+              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-bmlhblue/30"
+            />
+          </label>
+        </ConfirmDialog>
 
         <RecordsList
           title="Jobwork Receipts"

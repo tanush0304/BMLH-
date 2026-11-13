@@ -611,6 +611,8 @@ export default function ManualOperationsScreen({ role }) {
                   setShiftCode(shift)
                 }}
                 onDraftRowsChange={setDraftHourRows}
+                showIdle
+                withSetup={v046}
                 hoursLimit={{ shift: entryShiftRow, otherRows: [], canOvertime, machineLabel: '' }}
               />
               {liveTotals && (
