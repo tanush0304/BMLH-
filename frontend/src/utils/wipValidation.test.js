@@ -81,7 +81,7 @@ describe('validateWipIssueQuantity', () => {
   })
 
   it('rejects quantities greater than that source-stage balance', () => {
-    expect(validateWipIssueQuantity('5.1', 5).error).toMatch(/source stage/i)
+    expect(validateWipIssueQuantity('6', 5).error).toMatch(/source stage/i)
   })
 
   it('rejects missing or invalid balances', () => {

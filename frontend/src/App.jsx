@@ -14,7 +14,7 @@ import StoresModule from './modules/stores/StoresModule'
 import { ModuleThemeProvider } from './components/ModuleTheme'
 import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
-import { NAV_ITEMS, isModuleRestricted } from './utils/constants'
+import { NAV_ITEMS, isModuleRestricted, isHiddenSubItem } from './utils/constants'
 import { authTransition } from './utils/authTransition'
 import { headerBreadcrumb } from './utils/breadcrumb'
 import { AlertsProvider, useAlertsState } from './components/alerts/AlertsContext'
@@ -93,10 +93,11 @@ function App() {
   }
 
   function handleSelectSub(topKey, subKey, mode = null) {
+    const hidden = isHiddenSubItem(topKey, subKey) // hidden master -> module home
     setShowMainMenu(false)
     setActiveKey(topKey)
-    setActiveSubKey(subKey)
-    setActiveMode(mode)
+    setActiveSubKey(hidden ? null : subKey)
+    setActiveMode(hidden ? null : mode)
   }
 
   function handleHome() {

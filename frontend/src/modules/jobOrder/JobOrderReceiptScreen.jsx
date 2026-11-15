@@ -276,7 +276,7 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
               <div className="flex h-[34px] items-center">{editingDc ? <StatusPill status={editingDc.status} /> : <AutoFillBox value="" />}</div>
             </Field>
             <Field label={`Qty Received (max ${receiptEditMax(editingRow, editingDc)} (DC balance))`} required>
-              <TextInput type="number" value={editDraft.qty_received} onChange={(e) => setEditDraft((d) => ({ ...d, qty_received: e.target.value }))} />
+              <TextInput type="number" min="0" step="1" value={editDraft.qty_received} onChange={(e) => setEditDraft((d) => ({ ...d, qty_received: e.target.value }))} />
             </Field>
             <Field label="Receipt Date" required>
               <TextInput type="date" value={editDraft.receipt_date} onChange={(e) => setEditDraft((d) => ({ ...d, receipt_date: e.target.value }))} />
@@ -355,7 +355,7 @@ export default function JobOrderReceiptScreen({ role, initialDcNo = null }) {
           </Field>
           <OrderLineFields part={part} />
           <Field label={`Qty Received${balance !== null ? ` (max ${balance})` : ''}`} required>
-            <TextInput type="number" value={qtyReceived} onChange={(e) => setQtyReceived(e.target.value)} disabled={!selectedDc} />
+            <TextInput type="number" min="0" step="1" value={qtyReceived} onChange={(e) => setQtyReceived(e.target.value)} disabled={!selectedDc} />
           </Field>
           {openDcs.length === 0 && !loading && <p className="text-sm text-gray-400 sm:col-span-3">No DCs are waiting for receipt.</p>}
         </FormSection>

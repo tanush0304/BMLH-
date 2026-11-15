@@ -27,6 +27,7 @@ import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
 const fmtPct = (v) => (v == null ? '—' : `${v.toFixed(1)}%`)
+const fmtPct2 = (v) => (v == null ? '—' : `${v.toFixed(2)}%`) // Reject % / Rework %
 
 // Cell colours (green / amber / red). Thresholds are display-only -- confirm with senior.
 const effClass = (v) => (v == null ? '' : v >= 90 ? 'bg-green-100' : v >= 80 ? 'bg-amber-100' : 'bg-red-100')
@@ -43,9 +44,9 @@ const COLUMNS = [
   { key: 'produced', label: 'Qty Produced (Nos)', align: 'right', format: formatQty },
   { key: 'efficiency_pct', label: 'Production Eff %', align: 'right', format: fmtPct, cellClass: effClass },
   { key: 'rejected', label: 'Reject Qty (Nos)', align: 'right', format: formatQty },
-  { key: 'reject_pct', label: 'Reject %', align: 'right', format: fmtPct, cellClass: lossClass },
+  { key: 'reject_pct', label: 'Reject %', align: 'right', format: fmtPct2, cellClass: lossClass },
   { key: 'rework', label: 'Rework Qty (Nos)', align: 'right', format: formatQty },
-  { key: 'rework_pct', label: 'Rework %', align: 'right', format: fmtPct, cellClass: lossClass },
+  { key: 'rework_pct', label: 'Rework %', align: 'right', format: fmtPct2, cellClass: lossClass },
 ]
 
 const SEARCH_KEYS = ['prd_no', 'operation', 'machine_name', 'machine_id']
@@ -151,8 +152,8 @@ export default function ProductionStatusScreen() {
             <KpiCard label="PRD Qty" value={formatQty(prdKpi?.prd_qty)} unit="Nos" sub={prdKpi?.order_qty != null ? `(PO line ${formatQty(prdKpi.order_qty)})` : undefined} icon={Package} tone="green" loading={!prdKpi} />
             <KpiCard label="Qty Produced (last stage good)" value={formatQty(prdKpi?.produced)} unit="Nos" sub="to date" icon={Settings} tone="orange" loading={!prdKpi} />
             <KpiCard label="Production Efficiency" value={kpis.efficiency_pct == null ? '—' : kpis.efficiency_pct.toFixed(1)} unit={kpis.efficiency_pct == null ? '' : '%'} sub="this period" icon={BarChart3} tone="purple" loading={loading} />
-            <KpiCard label="Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct(kpis.reject_pct)}, this period)`} icon={ShieldX} tone="red" loading={loading} />
-            <KpiCard label="Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct(kpis.rework_pct)}, this period)`} icon={RefreshCw} tone="teal" loading={loading} />
+            <KpiCard label="Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct2(kpis.reject_pct)}, this period)`} icon={ShieldX} tone="red" loading={loading} />
+            <KpiCard label="Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct2(kpis.rework_pct)}, this period)`} icon={RefreshCw} tone="teal" loading={loading} />
           </KpiCardRow>
         )}
 

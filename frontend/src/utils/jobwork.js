@@ -18,6 +18,7 @@ export function dcBalance(row) {
 export function receiptQtyError(qty, row) {
   const n = Number(qty)
   if (!Number.isFinite(n) || n <= 0) return 'Qty Received must be a number greater than zero.'
+  if (!Number.isInteger(n)) return 'Qty Received must be a whole number.'
   const balance = dcBalance(row)
   if (n > balance) return `Qty Received (${n}) is more than the balance on ${row?.dc_no} (${balance}).`
   return null
@@ -92,6 +93,7 @@ export function vendorLocked(row) {
 export function dispatchEditError(draft, row, limits) {
   const qty = Number(draft.qty)
   if (draft.qty === '' || !Number.isFinite(qty) || qty <= 0) return 'Qty must be a number greater than zero.'
+  if (!Number.isInteger(qty)) return 'Qty must be a whole number.'
   if (qty < limits.min) return `Qty (${qty}) cannot be less than the qty already received on ${row.dc_no} (${limits.min}).`
   if (limits.max !== null && qty > limits.max) return `Qty (${qty}) is more than the qty available for this stage (max ${limits.max}).`
   if (!draft.dispatch_date) return 'Despatch Date is required.'
@@ -118,6 +120,7 @@ export function receiptEditMax(receipt, dc) {
 export function receiptEditError(draft, receipt, dc) {
   const qty = Number(draft.qty_received)
   if (draft.qty_received === '' || !Number.isFinite(qty) || qty <= 0) return 'Qty Received must be a number greater than zero.'
+  if (!Number.isInteger(qty)) return 'Qty Received must be a whole number.'
   const max = receiptEditMax(receipt, dc)
   if (qty > max) return `Qty Received (${qty}) is more than the balance on ${receipt.dc_no} (max ${max}).`
   if (!draft.receipt_date) return 'Receipt Date is required.'

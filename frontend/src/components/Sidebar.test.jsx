@@ -44,8 +44,6 @@ describe('contextual sidebar navigation', () => {
       'Quality Master',
       'Maintenance Master',
       'Route Card',
-      'WIP Master',
-      'Finished Goods Master',
     ]
     masterScreens.forEach((label) => expect(html).toContain(label))
     // Rendered in data-entry order.

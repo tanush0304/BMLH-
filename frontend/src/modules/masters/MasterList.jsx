@@ -79,7 +79,9 @@ const MASTER_PRESENTATION = {
 
 const MASTER_NAV = NAV_ITEMS.find((item) => item.key === 'masters')?.subItems ?? []
 
-export const MASTER_ENTRIES = MASTER_NAV.map((item) => ({
+// `hidden: true` masters (WIP, Finished Goods) get no card and no screen --
+// opening one shows the Masters home.
+export const MASTER_ENTRIES = MASTER_NAV.filter((item) => !item.hidden).map((item) => ({
   ...item,
   ...MASTER_PRESENTATION[item.key],
   component: MASTER_COMPONENTS[item.key],

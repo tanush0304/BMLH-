@@ -22,6 +22,7 @@ import StockEditPanel, { useAppUsers, withEditedLabels, EDITED_COLUMN } from '..
 import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit } from '../../utils/stockEdit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import { wholePiecesError } from '../../utils/numericFields'
 import OrderLineFields from '../../components/OrderLineFields'
 
 const HISTORY_COLUMNS = [
@@ -197,7 +198,7 @@ export default function WipIssueScreen({ role }) {
     const poolBalance = pool?.current_stock ?? 0
     const problem = row.transaction_type === 'Issue'
       ? validateWipIssueEdit(draft.qty, row.qty, poolBalance)
-      : validateReceiptEdit(draft.qty, row.qty, poolBalance)
+      : wholePiecesError(draft.qty) || validateReceiptEdit(draft.qty, row.qty, poolBalance)
     if (problem) return problem
     await updateWipTransaction(row.id, stockEditPatch(draft))
     setEditingRow(null)
@@ -302,7 +303,7 @@ export default function WipIssueScreen({ role }) {
             />
           </Field>
           <Field label="Qty" required>
-            <TextInput type="number" min="0" step="any" value={form.qty} onChange={handleField('qty')} />
+            <TextInput type="number" min="0" step="1" value={form.qty} onChange={handleField('qty')} />
           </Field>
           <Field label="Remarks">
             <TextInput value={form.remarks} onChange={handleField('remarks')} />
@@ -323,6 +324,7 @@ export default function WipIssueScreen({ role }) {
 
         {editingRow && (
           <StockEditPanel
+            qtyStep="1"
             row={editingRow}
             info={[
               { label: editingRow.transaction_type === 'Issue' ? 'Issue No' : 'Receipt No', value: editingRow.doc_no },

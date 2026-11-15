@@ -251,7 +251,7 @@ export default function RawMaterialRequisitionScreen({ role }) {
             {/* Pre-filled from "order material requirement" once a material is
                 picked, but left editable -- a requisition can legitimately ask
                 for more or less than the order's raw computed need. */}
-            <TextInput type="number" value={form.qty_required} onChange={handleField('qty_required')} />
+            <TextInput type="number" min="0" step="any" value={form.qty_required} onChange={handleField('qty_required')} />
           </Field>
           {form.prd_no && bomForProduct.length === 0 && (
             <p className="text-sm text-amber-600 sm:col-span-3">

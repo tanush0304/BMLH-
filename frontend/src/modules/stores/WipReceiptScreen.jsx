@@ -24,6 +24,7 @@ import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { stageAcceptedQty, wipReceiptAvailable, qtyOverLimitError } from '../../utils/qtyLimits'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import { wholePiecesError } from '../../utils/numericFields'
 import OrderLineFields from '../../components/OrderLineFields'
 
 const HISTORY_COLUMNS = [
@@ -180,6 +181,10 @@ export default function WipReceiptScreen({ role }) {
       setError('Qty must be a finite number greater than zero.')
       return
     }
+    if (!Number.isInteger(quantity)) {
+      setError('Qty must be a whole number.')
+      return
+    }
     const overError = qtyOverLimitError(quantity, availableToReceive, 'Qty', 'the quantity available to receive from this stage')
     if (overError) {
       setError(`${overError} Available to receive = accepted output of the stage minus what is already in WIP.`)
@@ -238,7 +243,7 @@ export default function WipReceiptScreen({ role }) {
     const poolBalance = pool?.current_stock ?? 0
     const problem = row.transaction_type === 'Issue'
       ? validateWipIssueEdit(draft.qty, row.qty, poolBalance)
-      : validateReceiptEdit(draft.qty, row.qty, poolBalance) ||
+      : wholePiecesError(draft.qty) || validateReceiptEdit(draft.qty, row.qty, poolBalance) ||
         validateCeilingEdit(draft.qty, row.qty, availableToReceiveFor(row.nature_of_operation_stage_id), 'the quantity available to receive from this stage')
     if (problem) return problem
     await updateWipTransaction(row.id, stockEditPatch(draft))
@@ -323,7 +328,7 @@ export default function WipReceiptScreen({ role }) {
             />
           </Field>
           <Field label={availableToReceive === null ? 'Qty' : `Qty (available to receive: ${availableToReceive})`} required>
-            <TextInput type="number" min="0" step="any" value={form.qty} onChange={handleField('qty')} />
+            <TextInput type="number" min="0" step="1" value={form.qty} onChange={handleField('qty')} />
           </Field>
           <Field label="Remarks">
             <TextInput value={form.remarks} onChange={handleField('remarks')} />
@@ -344,6 +349,7 @@ export default function WipReceiptScreen({ role }) {
 
         {editingRow && (
           <StockEditPanel
+            qtyStep="1"
             row={editingRow}
             info={[
               { label: editingRow.transaction_type === 'Issue' ? 'Issue No' : 'Receipt No', value: editingRow.doc_no },

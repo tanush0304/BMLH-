@@ -439,6 +439,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={issueForm.qty}
                   onChange={handleIssueField('qty')}
                   placeholder="Enter Quantity"
@@ -513,6 +515,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
               <div className="flex rounded overflow-hidden border border-gray-300">
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={receiptForm.qty}
                   onChange={handleReceiptField('qty')}
                   placeholder="Enter Quantity"

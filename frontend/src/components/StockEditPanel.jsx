@@ -26,6 +26,7 @@ export default function StockEditPanel({
   onSave,
   onCancel,
   qtyKey = 'qty',
+  qtyStep = 'any', // '1' for pieces (FG / WIP); RM keeps decimals
   dateKey = 'transaction_date',
 }) {
   const [draft, setDraft] = useState(() => draftFrom(row, qtyKey, dateKey))
@@ -63,7 +64,7 @@ export default function StockEditPanel({
         </Field>
       ))}
       <Field label={qtyLabel} required>
-        <TextInput type="number" value={draft.qty} onChange={set('qty')} />
+        <TextInput type="number" min="0" step={qtyStep} value={draft.qty} onChange={set('qty')} />
       </Field>
       <Field label={dateLabel} required>
         <TextInput type="date" value={draft.transaction_date} onChange={set('transaction_date')} />

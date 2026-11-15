@@ -8,7 +8,8 @@
 //                  sum(target); "standard" = sum(target) (Good vs Target)
 //   reject %     = 100 x sum(rejected) / sum(produced)   (produced incl. rejects)
 //   rework %     = 100 x sum(rework)   / sum(produced)
-import { IDLE_CATEGORIES } from './productionReport'
+import { IDLE_CATEGORIES, lossPct } from './productionReport'
+export { lossPct, round2 } from './productionReport'
 
 function num(v) {
   const n = Number(v)
@@ -65,8 +66,8 @@ export function totals(rows) {
     standard,
     good,
     efficiency_pct: targetRows ? pct(good, standard) : pct(produced, standard),
-    reject_pct: pct(rejected, produced),
-    rework_pct: pct(rework, produced),
+    reject_pct: lossPct(rejected, good, rejected, rework),
+    rework_pct: lossPct(rework, good, rejected, rework),
   }
 }
 

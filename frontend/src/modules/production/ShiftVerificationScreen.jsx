@@ -441,13 +441,13 @@ export default function ShiftVerificationScreen({ role }) {
                           <td className="px-2 py-1">{h.hour_slot}</td>
                           {['qty_produced', 'qty_rejected', 'qty_rework'].map((k) => (
                             <td key={k} className="px-1 py-1">
-                              <input type="number" min="0" aria-label={`Hour ${h.hour_slot} ${k}`} value={drafts[h.id][k]} onChange={(e) => setDraft(h.id, k, e.target.value)} className="w-16 rounded border border-gray-300 px-1 py-0.5" />
+                              <input type="number" min="0" step="1" aria-label={`Hour ${h.hour_slot} ${k}`} value={drafts[h.id][k]} onChange={(e) => setDraft(h.id, k, e.target.value)} className="w-16 rounded border border-gray-300 px-1 py-0.5" />
                             </td>
                           ))}
                           <td className="px-2 py-1 num-highlight">{acceptedFromHour(h)}</td>
                           {idleCats.map((c) => (
                             <td key={c.key} className="px-1 py-1">
-                              <input type="number" min="0" aria-label={`Hour ${h.hour_slot} ${c.label}`} value={drafts[h.id][c.key]} onChange={(e) => setDraft(h.id, c.key, e.target.value)} className="w-12 rounded border border-gray-300 px-1 py-0.5" />
+                              <input type="number" min="0" step="1" aria-label={`Hour ${h.hour_slot} ${c.label}`} value={drafts[h.id][c.key]} onChange={(e) => setDraft(h.id, c.key, e.target.value)} className="w-12 rounded border border-gray-300 px-1 py-0.5" />
                             </td>
                           ))}
                           <td className="px-1 py-1">

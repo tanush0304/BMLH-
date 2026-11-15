@@ -88,6 +88,7 @@ export function correctionError(hourRows, drafts) {
     for (const key of correctionFieldsFor(h).filter((k) => k !== 'remarks')) {
       const n = Number(d[key] === '' ? 0 : d[key])
       if (!Number.isFinite(n) || n < 0) return `Hour ${h.hour_slot}: values must be numbers of 0 or more.`
+      if (!Number.isInteger(n)) return `Hour ${h.hour_slot}: values must be whole numbers.`
     }
     const idle = totalIdle(d) // 8 categories + setup (046)
     if (idle > 60) return `Hour ${h.hour_slot}: idle minutes add up to ${idle} (max 60).`

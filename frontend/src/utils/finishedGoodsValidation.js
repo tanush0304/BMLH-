@@ -8,6 +8,7 @@ export function validateDispatchQuantity(value, physicalStock, orderBalance) {
   if (quantity === null) {
     return { quantity: null, error: 'Despatch quantity must be a finite number greater than zero.' }
   }
+  if (!Number.isInteger(quantity)) return { quantity: null, error: 'Despatch quantity must be a whole number.' }
 
   const availableStock = parseNonNegativeFinite(physicalStock)
   const remainingOrderQuantity = parseNonNegativeFinite(orderBalance)

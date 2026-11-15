@@ -115,6 +115,16 @@ function round1(n) {
   return Math.round(n * 10) / 10
 }
 
+export function round2(n) {
+  return Math.round(n * 100) / 100
+}
+
+/** Reject % / Rework %: part x 100 / (good + rejected + rework), 2 decimals. */
+export function lossPct(part, good, rejected, rework) {
+  const whole = Number(good) + Number(rejected) + Number(rework)
+  return whole > 0 ? round2((100 * part) / whole) : null
+}
+
 /** Live log footer totals over every saved hour of the log plus the hour
  * rows typed but not yet saved. Mirrors the "production log totals" view.
  *
@@ -126,7 +136,8 @@ function round1(n) {
  * efficiency = 100 x sum good / sum target; no cycle time or target 0 -> null
  * (`no_cycle_time` true when the cycle time is missing). Slot minutes =
  * slotMinutes(row's shift, hour_slot) -- same as SQL hour_slot_minutes.
- * Reject / rework % of produced; 1 decimal; null when not computable.
+ * Reject / rework % = part x 100 / (good + rejected + rework), 2 decimals
+ * (good = produced - rejected - rework); null when not computable.
  * Display only -- the view stays the source of truth after save. */
 export function computeLiveLogTotals({ savedHours = [], draftRows = [], standardQtyPerHour, goodVsTarget = null }) {
   // A draft row carrying an id is an edit of that saved row -- it replaces it.
@@ -146,8 +157,8 @@ export function computeLiveLogTotals({ savedHours = [], draftRows = [], standard
     total_rejected: rejected,
     total_rework: rework,
     efficiency_pct: std > 0 && rows.length > 0 ? round1((100 * produced) / (std * rows.length)) : null,
-    reject_pct: produced > 0 ? round1((100 * rejected) / produced) : null,
-    rework_pct: produced > 0 ? round1((100 * rework) / produced) : null,
+    reject_pct: lossPct(rejected, produced - rejected - rework, rejected, rework),
+    rework_pct: lossPct(rework, produced - rejected - rework, rejected, rework),
   }
   if (!goodVsTarget) return out
 

@@ -82,7 +82,7 @@ describe('dailyTrend / byMachine', () => {
   it('groups by machine', () => {
     const m = byMachine(ROWS)
     expect(m.map((r) => r.machine_name)).toEqual(['CNC 2', 'VMC 1'])
-    expect(m[1]).toMatchObject({ rejected: 4, reject_pct: 16.7 })
+    expect(m[1]).toMatchObject({ rejected: 4, reject_pct: 16.67 })
   })
 })
 

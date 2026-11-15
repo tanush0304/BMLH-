@@ -19,27 +19,25 @@ const EXPECTED_LABELS = [
   'Quality Master',
   'Maintenance Master',
   'Route Card',
-  'WIP Master',
-  'Finished Goods Master',
 ]
 
 describe('Masters landing entries', () => {
   it('keeps the data-entry tile order and maps every card to a screen, icon and description', () => {
     expect(MASTER_ENTRIES.map((entry) => entry.label)).toEqual(EXPECTED_LABELS)
     expect(MASTER_ENTRIES.map((entry) => entry.key)).toEqual(
-      NAV_ITEMS.find((item) => item.key === 'masters').subItems.map((item) => item.key)
+      NAV_ITEMS.find((item) => item.key === 'masters').subItems.filter((item) => !item.hidden).map((item) => item.key)
     )
-    expect(MASTER_ENTRIES).toHaveLength(16)
+    expect(MASTER_ENTRIES).toHaveLength(14)
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => entry.description?.startsWith('Manage '))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => /^#[0-9A-F]{6}$/.test(entry.color) && /^#[0-9A-F]{6}$/.test(entry.bg))).toBe(true)
   })
 
-  it('shows all 16 cards when Masters has no selected submenu', () => {
+  it('shows all 14 cards (WIP + FG Master hidden) when Masters has no selected submenu', () => {
     const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
     expect(html).toContain('Select a master module to view or manage its records.')
-    expect(html.match(/aria-label="Open /g)).toHaveLength(16)
+    expect(html.match(/aria-label="Open /g)).toHaveLength(14)
     EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
   })
 

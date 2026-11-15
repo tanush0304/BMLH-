@@ -20,6 +20,7 @@ import Banner from '../../components/Banner'
 const DAYS_SHOWN = 5
 
 const fmtPct = (v) => (v == null ? '—' : v.toFixed(1))
+const fmtPct2 = (v) => (v == null ? '—' : v.toFixed(2)) // Reject %
 // Display-only thresholds, same as Production Status -- confirm with senior.
 const effClass = (v) => (v == null ? '' : v >= 90 ? 'bg-green-100' : v >= 80 ? 'bg-amber-100' : 'bg-red-100')
 const rejClass = (v) => (v == null ? '' : v <= 2 ? 'bg-green-100' : v <= 5 ? 'bg-amber-100' : 'bg-red-100')
@@ -103,7 +104,7 @@ export default function DailyMachineScreen() {
   const metricCols = (prefix) => [
     { key: `${prefix}_produced`, label: 'Production (Nos)', align: 'right', format: formatQty },
     { key: `${prefix}_eff`, label: 'Efficiency %', align: 'right', format: fmtPct, cellClass: effClass },
-    { key: `${prefix}_rej`, label: 'Reject %', align: 'right', format: fmtPct, cellClass: rejClass },
+    { key: `${prefix}_rej`, label: 'Reject %', align: 'right', format: fmtPct2, cellClass: rejClass },
   ]
   const columns = [
     { key: 'date', label: 'Date', format: displayDate },

@@ -12,6 +12,7 @@ import {
   slotDurations,
   computeReportTotals,
 } from '../utils/productionReport'
+import { validateHourQty } from '../utils/numericFields'
 
 /**
  * Shared hourly-entry grid for Production Data Entry and Manual Operations: one row
@@ -221,16 +222,17 @@ export default function HourlySlotsEntry({
   const changedSaved = readOnly ? [] : savedToday.filter((h) => Object.keys(changedFields(h)).length > 0)
   const anyEntered = pendingSlots.some((s) => isEntered(s.slot)) || changedSaved.length > 0
   const rowErrors = {}
-  if (showIdle) {
-    for (const s of pendingSlots) {
-      if (!isEntered(s.slot)) continue
-      const err = validateIdle(drafts[s.slot], durations[s.slot])
-      if (err) rowErrors[s.slot] = err
-    }
-    for (const h of changedSaved) {
-      const err = validateIdle(mergedSaved(h), durations[h.hour_slot])
-      if (err) rowErrors[h.hour_slot] = err
-    }
+  // Qty: whole numbers >= 0 (blank = 0), rejected + rework <= produced --
+  // checked on every row before Save (Data Entry + Manual Operations).
+  for (const s of pendingSlots) {
+    if (!isEntered(s.slot)) continue
+    const err = validateHourQty(drafts[s.slot]) ?? (showIdle ? validateIdle(drafts[s.slot], durations[s.slot]) : null)
+    if (err) rowErrors[s.slot] = err
+  }
+  for (const h of changedSaved) {
+    const merged = mergedSaved(h)
+    const err = validateHourQty(merged) ?? (showIdle ? validateIdle(merged, durations[h.hour_slot]) : null)
+    if (err) rowErrors[h.hour_slot] = err
   }
   const hasRowErrors = Object.keys(rowErrors).length > 0
 
@@ -308,11 +310,15 @@ export default function HourlySlotsEntry({
   }
 
   const [extraForm, setExtraForm] = useState({ qty_produced: '', qty_rejected: '', qty_rework: '' })
+  const [extraError, setExtraError] = useState(null)
   const nextExtraSlot = highestKnownSlotToday + 1
   const extraBlockedByLimit = !!limit && !hoursLimit?.canOvertime && !canAddSlot(limit, hoursLimit?.shift, nextExtraSlot)
 
   async function handleAddExtra() {
     if (nextExtraSlot > 12 || extraBlockedByLimit) return
+    const qtyError = validateHourQty(extraForm, `Hour ${nextExtraSlot} `)
+    setExtraError(qtyError)
+    if (qtyError) return
     const result = await onAddExtraHour({
       hour_slot: nextExtraSlot,
       qty_produced: extraForm.qty_produced === '' ? 0 : Number(extraForm.qty_produced),
@@ -472,6 +478,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            min="0"
+                            step="1"
                             aria-label={`Hour ${s.slot} produced`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_produced', saved)}
@@ -481,6 +489,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            min="0"
+                            step="1"
                             aria-label={`Hour ${s.slot} rejected`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_rejected', saved)}
@@ -490,6 +500,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
+                            min="0"
+                            step="1"
                             aria-label={`Hour ${s.slot} rework`}
                             className={inputClass}
                             value={cellValue(s.slot, 'qty_rework', saved)}
@@ -564,22 +576,28 @@ export default function HourlySlotsEntry({
         <Field label="Qty Produced" width="short">
           <TextInput
             type="number"
+            min="0"
+            step="1"
             value={extraForm.qty_produced}
-            onChange={(e) => setExtraForm((f) => ({ ...f, qty_produced: e.target.value }))}
+            onChange={(e) => { setExtraError(null); setExtraForm((f) => ({ ...f, qty_produced: e.target.value })) }}
           />
         </Field>
         <Field label="Qty Rejected" width="short">
           <TextInput
             type="number"
+            min="0"
+            step="1"
             value={extraForm.qty_rejected}
-            onChange={(e) => setExtraForm((f) => ({ ...f, qty_rejected: e.target.value }))}
+            onChange={(e) => { setExtraError(null); setExtraForm((f) => ({ ...f, qty_rejected: e.target.value })) }}
           />
         </Field>
         <Field label="Qty Rework" width="short">
           <TextInput
             type="number"
+            min="0"
+            step="1"
             value={extraForm.qty_rework}
-            onChange={(e) => setExtraForm((f) => ({ ...f, qty_rework: e.target.value }))}
+            onChange={(e) => { setExtraError(null); setExtraForm((f) => ({ ...f, qty_rework: e.target.value })) }}
           />
         </Field>
         <button
@@ -591,6 +609,7 @@ export default function HourlySlotsEntry({
           Add Hour {nextExtraSlot <= 12 ? nextExtraSlot : ''}
         </button>
       </div>
+      {extraError && <div role="alert" className="rounded border border-red-100 bg-red-50 px-2 py-1.5 text-xs text-red-700">{extraError}</div>}
       </fieldset>
     </div>
   )

@@ -25,8 +25,10 @@ export const NAV_ITEMS = [
       { key: 'quality', label: 'Quality Master' },
       { key: 'maintenance', label: 'Maintenance Master' },
       { key: 'route-card', label: 'Route Card' },
-      { key: 'wip', label: 'WIP Master' },
-      { key: 'finished-goods', label: 'Finished Goods Master' },
+      // hidden: true = not offered anywhere (sidebar, landing cards, menus);
+      // screen + queries kept. Remove the flag to bring it back (2026-11-15).
+      { key: 'wip', label: 'WIP Master', hidden: true },
+      { key: 'finished-goods', label: 'Finished Goods Master', hidden: true },
     ],
   },
   {
@@ -174,9 +176,16 @@ export function isModuleRestricted(moduleKey, role) {
   return NAV_ITEMS.find((item) => item.key === moduleKey)?.roles?.includes(role) === false
 }
 
-/** A sub-screen is visible to `role` unless it lists `roles` without it. */
+/** A sub-screen is visible to `role` unless it is `hidden` or lists `roles` without it. */
 export function canSeeSubItem(subItem, role) {
+  if (subItem.hidden) return false
   return !subItem.roles || subItem.roles.includes(role)
+}
+
+/** True for a NAV_ITEMS sub-item flagged `hidden: true` (e.g. WIP / FG Master):
+ * opening it lands on the module home instead. */
+export function isHiddenSubItem(topKey, subKey) {
+  return !!NAV_ITEMS.find((n) => n.key === topKey)?.subItems?.find((s) => s.key === subKey)?.hidden
 }
 
 /**

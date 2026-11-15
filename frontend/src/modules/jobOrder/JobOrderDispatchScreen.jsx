@@ -295,6 +295,10 @@ export default function JobOrderDispatchScreen({ role }) {
       setError('Qty must be a number greater than zero.')
       return
     }
+    if (!Number.isInteger(qty)) {
+      setError('Qty must be a whole number.')
+      return
+    }
     // Available = accepted pieces reaching this stage (previous stage's good
     // output, minus what went into WIP, plus WIP issued to this stage) minus
     // what has already been dispatched for it.
@@ -391,7 +395,7 @@ export default function JobOrderDispatchScreen({ role }) {
               <div className="flex h-[34px] items-center"><StatusPill status={editingRow.status} /></div>
             </Field>
             <Field label={`Qty (${dispatchLimitText(dispatchEditLimits(editingRow, editAvailable))})`} required>
-              <TextInput type="number" value={editDraft.qty} onChange={(e) => setEditDraft((d) => ({ ...d, qty: e.target.value }))} />
+              <TextInput type="number" min="0" step="1" value={editDraft.qty} onChange={(e) => setEditDraft((d) => ({ ...d, qty: e.target.value }))} />
             </Field>
             <Field label="Despatch Date" required>
               <TextInput type="date" value={editDraft.dispatch_date} onChange={(e) => setEditDraft((d) => ({ ...d, dispatch_date: e.target.value }))} />
@@ -474,7 +478,7 @@ export default function JobOrderDispatchScreen({ role }) {
             <TextInput value={expectedReceiptDate()} disabled />
           </Field>
           <Field label={`Qty${availableQty !== null ? ` (Available: ${availableQty})` : ''}`} required>
-            <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
+            <TextInput type="number" min="0" step="1" value={form.qty} onChange={handleField('qty')} />
           </Field>
           {selectedStage && (
             <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">

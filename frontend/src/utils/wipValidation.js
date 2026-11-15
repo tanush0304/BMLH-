@@ -86,6 +86,7 @@ export function validateWipIssueQuantity(value, availableBalance) {
   if (quantity === null) {
     return { quantity: null, error: 'Quantity must be a finite number greater than zero.' }
   }
+  if (!Number.isInteger(quantity)) return { quantity: null, error: 'Quantity must be a whole number.' }
 
   const balance = parseFiniteDecimal(availableBalance)
   if (balance === null || balance < 0) {

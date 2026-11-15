@@ -1069,8 +1069,8 @@ export default function ProductionDataEntryScreen({ role }) {
                     </>
                   )}
                   <span>Efficiency: <strong className="num-highlight">{v046 && liveTotals.no_cycle_time ? 'No cycle time' : `${liveTotals.efficiency_pct ?? '—'}%`}</strong></span>
-                  <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
-                  <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
+                  <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct == null ? '—' : liveTotals.reject_pct.toFixed(2)}%</strong></span>
+                  <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct == null ? '—' : liveTotals.rework_pct.toFixed(2)}%</strong></span>
                   <span data-testid="log-setting-time">Setting Time: <strong className="num-highlight">{logSettingMinutes({ savedHours: logHours, draftRows: draftHourRows, settingTimeMin: activeLog.setting_time_min })} min</strong></span>
                 </div>
               )}

@@ -98,6 +98,39 @@ export const NUMBER_RULES = {
   LEAD_TIME: { integer: true, min: 0, minExclusive: true, max: 365 },
   NON_NEGATIVE: { min: 0, max: 1000000000 },
   POSITIVE: { min: 0, minExclusive: true, max: 1000000000 },
+  // Pieces (Nos) -- whole numbers. Frontend-only rule: the DB columns are numeric.
+  PIECES: { integer: true, min: 0, max: 1000000 }, // hourly produced / rejected / rework (blank = 0)
+  QTY_PIECES: { integer: true, min: 0, minExclusive: true, max: 1000000 }, // FG / WIP / jobwork movements
+  QTY_DECIMAL: { min: 0, minExclusive: true, max: 1000000000 }, // RM (Kg etc.), decimals allowed
+}
+
+/** Pieces (Nos) movement qty: null when whole, else "<label> must be a whole
+ * number." Run after the screen's own > 0 / ceiling checks (RM keeps decimals). */
+export function wholePiecesError(value, label = 'Quantity') {
+  if (isBlank(value)) return null
+  const n = Number(String(value).trim())
+  return Number.isFinite(n) && !Number.isInteger(n) ? `${label} must be a whole number.` : null
+}
+
+/**
+ * Hourly qty row (produced / rejected / rework): each blank (= 0) or a whole
+ * number >= 0, and rejected + rework <= produced. `prefix` e.g. "Hour 3 ".
+ */
+export function validateHourQty(row, prefix = '') {
+  const fields = [
+    ['qty_produced', 'produced'],
+    ['qty_rejected', 'rejected'],
+    ['qty_rework', 'rework'],
+  ]
+  for (const [key, label] of fields) {
+    const err = validateNumber(row?.[key], { label: `${prefix}${label}`, ...NUMBER_RULES.PIECES })
+    if (err) return err
+  }
+  const n = (k) => (isBlank(row?.[k]) ? 0 : Number(row[k]))
+  if (n('qty_rejected') + n('qty_rework') > n('qty_produced')) {
+    return `${prefix}rejected + rework can't be more than produced.`
+  }
+  return null
 }
 
 const indian = (n) => Number(n).toLocaleString('en-IN')

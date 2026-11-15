@@ -34,6 +34,7 @@ import { voidEntry } from '../../data/queries/voidEntries'
 import { VOID_TYPES, isVoided, voidBlockReason, withVoidLabels, voidRowClass } from '../../utils/voidEntry'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import { wholePiecesError } from '../../utils/numericFields'
 import OrderLineFields, { DeliveryAddressBlock } from '../../components/OrderLineFields'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText } from '../../utils/deliveryAddress'
@@ -234,7 +235,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     const stock = qtyInStockForPrd(row.prd_no)
     const problem = row.transaction_type === 'Dispatch'
       ? validateFgDispatchEdit(draft.qty, row.qty, stock, orderStatus.find((s) => s.prd_no === row.prd_no)?.balance_to_dispatch)
-      : validateReceiptEdit(draft.qty, row.qty, stock) || (await fgReceiptCeilingProblem(row, draft.qty))
+      : wholePiecesError(draft.qty) || validateReceiptEdit(draft.qty, row.qty, stock) || (await fgReceiptCeilingProblem(row, draft.qty))
     if (problem) return problem
     await updateFinishedGoodsTransaction(row.id, stockEditPatch(draft))
     setEditingRow(null)
@@ -295,6 +296,10 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     const quantity = parsePositiveQuantity(f.qty)
     if (quantity === null) {
       setError('Quantity received must be a finite number greater than zero.')
+      return
+    }
+    if (!Number.isInteger(quantity)) {
+      setError('Quantity received must be a whole number.')
       return
     }
     if (!receiptLimits) {
@@ -523,7 +528,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
                 <input
                   type="number"
                   min="0"
-                  step="any"
+                  step="1"
                   value={dispatchForm.qty}
                   onChange={handleDispatchField('qty')}
                   placeholder="Enter Quantity"
@@ -593,7 +598,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
                 <input
                   type="number"
                   min="0"
-                  step="any"
+                  step="1"
                   value={receiptForm.qty}
                   onChange={handleReceiptField('qty')}
                   placeholder="Enter Quantity"
@@ -608,6 +613,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
 
         {editingRow && (
           <StockEditPanel
+            qtyStep="1"
             row={editingRow}
             info={[
               { label: editingRow.transaction_type === 'Dispatch' ? 'Despatch No' : 'Receipt No', value: editingRow.doc_no },

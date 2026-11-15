@@ -8,7 +8,7 @@ describe('computeLiveLogTotals', () => {
       draftRows: [{ qty_produced: '8', qty_rejected: '', qty_rework: '2' }],
       standardQtyPerHour: 12,
     })
-    expect(t).toEqual({ total_produced: 18, total_rejected: 1, total_rework: 2, efficiency_pct: 75, reject_pct: 5.6, rework_pct: 11.1 })
+    expect(t).toEqual({ total_produced: 18, total_rejected: 1, total_rework: 2, efficiency_pct: 75, reject_pct: 5.56, rework_pct: 11.11 })
   })
   it('gives null percentages when nothing produced or no standard', () => {
     const t = computeLiveLogTotals({ draftRows: [{ qty_produced: '' }], standardQtyPerHour: null })
