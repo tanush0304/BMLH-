@@ -17,6 +17,7 @@ import Banner from '../../components/Banner'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText } from '../../utils/deliveryAddress'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const IN = 'Production Receipt'
 const OUT = 'Dispatch'
@@ -182,6 +183,13 @@ export default function FgInventoryScreen() {
   ]
   const totalsRow = { order_qty: rows.reduce((a, x) => a + (x.order_qty ?? 0), 0), opening: cur.opening, receipts: cur.receipts, dispatched: cur.issues, closing: cur.closing, balance: balanceTotal }
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'customer', label: 'Customer', value: r.filters.customer, onChange: r.setFilter('customer'), options: customerOptions },
+    { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { customer: 'customer', prd: 'prdNo' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Finished Goods Inventory Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -189,10 +197,7 @@ export default function FgInventoryScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'customer', label: 'Customer', value: r.filters.customer, onChange: r.setFilter('customer'), options: customerOptions },
-            { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -207,7 +212,7 @@ export default function FgInventoryScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div>
-            <ChartCard title="FG Stock Movement Trend" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
+            <ChartCard screen="FG_Inventory" exportKey="FG_Movement_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', [{ key: 'receipts', label: 'Receipts' }, { key: 'issues', label: 'Despatched' }, { key: 'balance', label: 'Closing Stock' }])} title="FG Stock Movement Trend" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
               <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                 <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -221,7 +226,7 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
           <div>
-            <ChartCard title="FG Stock by Customer (Top 5)" icon={Users} loading={loading} empty={byCustomer.length === 0} height={260}>
+            <ChartCard screen="FG_Inventory" exportKey="FG_by_Customer" filterText={chartFilter} exportData={seriesExportData(byCustomer, 'label', 'Customer', [{ key: 'value', label: 'FG Stock (Nos)' }])} title="FG Stock by Customer (Top 5)" icon={Users} loading={loading} empty={byCustomer.length === 0} height={260}>
               <ComposedChart data={byCustomer} layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
                 <XAxis type="number" tick={AXIS_TICK} allowDecimals={false} />
@@ -240,7 +245,7 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
           <div>
-            <ChartCard title="Order Fulfilment (by qty)" icon={PieIcon} loading={loading} empty={fulfilment.total === 0} height={260} raw>
+            <ChartCard screen="FG_Inventory" exportKey="Order_Fulfilment" filterText={chartFilter} exportData={donutExportData(fulfilmentDonut, { labelHeader: 'Status', valueHeader: 'Quantity (Nos)' })} title="Order Fulfilment (by qty)" icon={PieIcon} loading={loading} empty={fulfilment.total === 0} height={260} raw>
               <DonutChart
                 data={fulfilmentDonut}
                 centre={{ caption: 'Total', total: formatQty(fulfilment.total), unit: 'Nos' }}

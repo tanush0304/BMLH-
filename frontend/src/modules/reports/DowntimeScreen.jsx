@@ -16,6 +16,7 @@ import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { machineRows, downtimeSummary, downtimeTrend, DOWNTIME_TYPES, round1, trendBuckets } from '../../utils/reportAggregates'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const EMPTY_FILTERS = { machineId: '', shiftCode: '' }
 
@@ -89,6 +90,13 @@ export default function DowntimeScreen() {
   const empty = hourRows.length === 0 && setupRows.length === 0
   const periodText = `${displayDate(applied.from)} to ${displayDate(applied.to)}`
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'machine', label: 'Machine', value: filters.machineId, onChange: r.setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+    { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: r.setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { machine: 'machineId', shift: 'shiftCode' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Downtime Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -97,10 +105,7 @@ export default function DowntimeScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'machine', label: 'Machine', value: filters.machineId, onChange: r.setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
-            { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: r.setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
-          ]}
+          filters={filterFields}
         />
 
         {error && <Banner tone="error" message={error} />}
@@ -113,7 +118,7 @@ export default function DowntimeScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
+          <ChartCard screen="Machine_Downtime" exportKey="Downtime_Hours_by_Type" filterText={chartFilter} exportData={seriesExportData(typeData, 'label', 'Type of Downtime', [{ key: 'hours', label: 'Hours Lost' }])} title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
             <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -131,7 +136,7 @@ export default function DowntimeScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260} raw>
+          <ChartCard screen="Machine_Downtime" exportKey="Downtime_Share" filterText={chartFilter} exportData={donutExportData(typeData.map((t) => ({ label: t.label, value: t.lostMin })), { labelHeader: 'Type of Downtime', valueHeader: 'Minutes Lost' })} title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260} raw>
             <DonutChart
               data={typeData.map((t) => ({ key: t.key, label: t.label, value: t.lostMin, color: t.color }))}
               centre={{ caption: 'Total', total: fmtHrs(hrs(summary.lostMin)), unit: 'Hrs Lost' }}
@@ -139,7 +144,7 @@ export default function DowntimeScreen() {
             />
           </ChartCard>
 
-          <ChartCard title="Trend of Downtime Hours" icon={TrendingUp} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Machine_Downtime" exportKey="Downtime_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', DOWNTIME_TYPES.map((t) => ({ key: t.key, label: t.label })))} title="Trend of Downtime Hours" icon={TrendingUp} loading={loading} empty={empty} height={260}>
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />

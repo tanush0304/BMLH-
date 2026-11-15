@@ -23,6 +23,7 @@ import { prdProducedKpis } from '../../utils/reportAggregates'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
+import { seriesExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
@@ -125,6 +126,15 @@ export default function ProductionStatusScreen() {
   const empty = rows.length === 0
   const periodText = `${displayDate(applied.from)} to ${displayDate(applied.to)}`
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'prd', label: 'PRD No', value: filters.prdNo, onChange: setFilter('prdNo'), options: options.prds },
+    { key: 'machine', label: 'Machine', value: filters.machineId, onChange: setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+    { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
+    { key: 'operator', label: 'Operator', value: filters.employeeId, onChange: setFilter('employeeId'), options: sortedEmployeeOptions(options.employees) },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', machine: 'machineId', shift: 'shiftCode', operator: 'employeeId' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Production Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -133,12 +143,7 @@ export default function ProductionStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'prd', label: 'PRD No', value: filters.prdNo, onChange: setFilter('prdNo'), options: options.prds },
-            { key: 'machine', label: 'Machine', value: filters.machineId, onChange: setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
-            { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
-            { key: 'operator', label: 'Operator', value: filters.employeeId, onChange: setFilter('employeeId'), options: sortedEmployeeOptions(options.employees) },
-          ]}
+          filters={filterFields}
         />
 
         {error && <Banner tone="error" message={error} />}
@@ -158,7 +163,7 @@ export default function ProductionStatusScreen() {
         )}
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
+          <ChartCard screen="Production_Status" exportKey="Produced_vs_Standard" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', goodVsTarget ? [{ key: 'standard', label: 'Target Qty' }, { key: 'good', label: 'Good Qty' }] : [{ key: 'standard', label: 'Standard Qty' }, { key: 'produced', label: 'Produced Qty' }])} title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -172,7 +177,7 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty}>
+          <ChartCard screen="Production_Status" exportKey="Efficiency_By_Machine" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'efficiency_pct', label: 'Efficiency %' }])} title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty}>
             <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
@@ -188,7 +193,7 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty}>
+          <ChartCard screen="Production_Status" exportKey="Reject_vs_Rework" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'rejected', label: 'Reject Quantity' }, { key: 'rework', label: 'Rework Quantity' }])} title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty}>
             <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />

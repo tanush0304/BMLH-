@@ -22,6 +22,7 @@ import { ORDER_TYPES } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText, deliveryOptionLabel } from '../../utils/deliveryAddress'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red', Cancelled: 'slate' }
 
@@ -166,6 +167,24 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     },
   ]
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'customer', label: 'Customer', value: r.filters.customerId, onChange: r.setFilter('customerId'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
+    { key: 'orderType', label: 'Order Type', value: r.filters.orderType, onChange: r.setFilter('orderType'), options: ORDER_TYPES.map((t) => ({ value: t, label: t })) },
+    ...(delivery.supported
+      ? [{
+          key: 'deliverTo',
+          label: 'Deliver To',
+          value: r.filters.deliveryAddressId,
+          onChange: r.setFilter('deliveryAddressId'),
+          options: delivery.addresses
+            .filter((a) => !r.filters.customerId || a.customer_id === r.filters.customerId)
+            .map((a) => ({ value: String(a.id), label: `${customerName.get(a.customer_id) ?? a.customer_id} – ${deliveryOptionLabel(a)}` })),
+        }]
+      : []),
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { customer: 'customerId', orderType: 'orderType', deliverTo: 'deliveryAddressId' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Customer Order Status Dashboard" subtitle="Right Material | Right Quantity | Right Production" />
@@ -173,21 +192,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'customer', label: 'Customer', value: r.filters.customerId, onChange: r.setFilter('customerId'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
-            { key: 'orderType', label: 'Order Type', value: r.filters.orderType, onChange: r.setFilter('orderType'), options: ORDER_TYPES.map((t) => ({ value: t, label: t })) },
-            ...(delivery.supported
-              ? [{
-                  key: 'deliverTo',
-                  label: 'Deliver To',
-                  value: r.filters.deliveryAddressId,
-                  onChange: r.setFilter('deliveryAddressId'),
-                  options: delivery.addresses
-                    .filter((a) => !r.filters.customerId || a.customer_id === r.filters.customerId)
-                    .map((a) => ({ value: String(a.id), label: `${customerName.get(a.customer_id) ?? a.customer_id} – ${deliveryOptionLabel(a)}` })),
-                }]
-              : []),
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -223,7 +228,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">
-            <ChartCard title="PO Order Vs Qty Despatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
+            <ChartCard screen="Customer_Order_Status" exportKey="PO_vs_Despatch" filterText={chartFilter} exportData={seriesExportData(monthly, 'label', 'Month', [{ key: 'po', label: 'PO Quantity' }, { key: 'dispatched', label: 'Quantity Despatched' }])} title="PO Order Vs Qty Despatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
               <ComposedChart data={monthly} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                 <XAxis dataKey="label" tick={AXIS_TICK} />
@@ -247,7 +252,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
               </ComposedChart>
             </ChartCard>
           </div>
-          <ChartCard title="PO Status (By Quantity)" icon={PieIcon} loading={loading} empty={totalQty === 0} height={270} raw>
+          <ChartCard screen="Customer_Order_Status" exportKey="PO_Status" filterText={chartFilter} exportData={donutExportData(donut, { labelHeader: 'Status', valueHeader: 'Quantity (Nos)' })} title="PO Status (By Quantity)" icon={PieIcon} loading={loading} empty={totalQty === 0} height={270} raw>
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(totalQty), unit: 'Nos' }} legendValue={(d) => `${formatQty(d.value)} Nos`} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
         </div>

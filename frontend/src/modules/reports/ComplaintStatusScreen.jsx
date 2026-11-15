@@ -24,6 +24,7 @@ import {
   normalizeDefect,
 } from '../../utils/reportComplaints'
 import Banner from '../../components/Banner'
+import { seriesExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const SEVERITY_COLORS = { Critical: CHART_COLORS.red, Major: CHART_COLORS.orange, Minor: CHART_COLORS.amber, 'Not set': '#94A3B8' }
 const STATUS_TONES = { Open: 'amber', 'Under Investigation': 'blue', 'Action Pending': 'amber', Resolved: 'blue', Closed: 'green' }
@@ -111,6 +112,13 @@ export default function ComplaintStatusScreen() {
     </ComposedChart>
   )
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'customer', label: 'Customer', value: r.filters.customer, onChange: r.setFilter('customer'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
+    { key: 'severity', label: 'Severity', allLabel: 'Severitie', value: r.filters.severity, onChange: r.setFilter('severity'), options: SEVERITY_OPTIONS },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { customer: 'customer', severity: 'severity' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Customer Complaint Report" subtitle="Capture | Investigate | Resolve | Close" />
@@ -118,10 +126,7 @@ export default function ComplaintStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'customer', label: 'Customer', value: r.filters.customer, onChange: r.setFilter('customer'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
-            { key: 'severity', label: 'Severity', allLabel: 'Severitie', value: r.filters.severity, onChange: r.setFilter('severity'), options: SEVERITY_OPTIONS },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -132,16 +137,16 @@ export default function ComplaintStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Customer" filterText={chartFilter} exportData={seriesExportData(byCustomer, 'label', 'Customer', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260}>
             {countChart(byCustomer, 'Complaints', CHART_COLORS.blue)}
           </ChartCard>
-          <ChartCard title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Defect" filterText={chartFilter} exportData={seriesExportData(byDefect, 'label', 'Defect Type', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260}>
             {countChart(byDefect, 'Complaints', CHART_COLORS.purple)}
           </ChartCard>
-          <ChartCard title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Part" filterText={chartFilter} exportData={seriesExportData(byPart, 'label', 'Part No', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260}>
             {countChart(byPart, 'Complaints', CHART_COLORS.green)}
           </ChartCard>
-          <ChartCard title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Severity" filterText={chartFilter} exportData={seriesExportData(bySeverity, 'label', 'Severity', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260}>
             {countChart(bySeverity, 'Complaints', CHART_COLORS.red, SEVERITY_COLORS)}
           </ChartCard>
         </div>

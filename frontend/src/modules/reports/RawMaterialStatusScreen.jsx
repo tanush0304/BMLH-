@@ -16,6 +16,7 @@ import { displayDate, previousRange } from '../../utils/reportPeriods'
 import { changePct } from '../../utils/reportAggregates'
 import { stockMovement, topN, sumByUom, dominantUom, rmMatchesFilters } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#64748B']
 const partsClass = (v) => (v == null ? '' : v <= 0 ? 'bg-red-100' : 'bg-green-100')
@@ -216,6 +217,16 @@ export default function RawMaterialStatusScreen() {
   ]
   const unitLabel = chartUom ? ` (${chartUom})` : ''
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'supplier', label: 'Supplier', value: r.filters.supplier, onChange: r.setFilter('supplier'), options: supplierOptions },
+    ...(gradeOk ? [{ key: 'grade', label: 'Grade', value: r.filters.grade, onChange: r.setFilter('grade'), options: gradeOptions }] : []),
+    { key: 'type', label: 'RM Type', value: r.filters.rmType, onChange: r.setFilter('rmType'), options: typeOptions },
+    { key: 'uom', label: 'UOM', allLabel: 'UoM', value: r.filters.uom, onChange: r.setFilter('uom'), options: uomOptions },
+    { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { supplier: 'supplier', grade: 'grade', type: 'rmType', uom: 'uom', rmCode: 'rmCode' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Raw Material Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -223,13 +234,7 @@ export default function RawMaterialStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'supplier', label: 'Supplier', value: r.filters.supplier, onChange: r.setFilter('supplier'), options: supplierOptions },
-            ...(gradeOk ? [{ key: 'grade', label: 'Grade', value: r.filters.grade, onChange: r.setFilter('grade'), options: gradeOptions }] : []),
-            { key: 'type', label: 'RM Type', value: r.filters.rmType, onChange: r.setFilter('rmType'), options: typeOptions },
-            { key: 'uom', label: 'UOM', allLabel: 'UoM', value: r.filters.uom, onChange: r.setFilter('uom'), options: uomOptions },
-            { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -243,7 +248,7 @@ export default function RawMaterialStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260}>
+          <ChartCard screen="Raw_Material_Status" exportKey="Stock_by_RM_Type" filterText={chartFilter} exportData={seriesExportData(byType, 'label', 'RM Type', [{ key: 'opening', label: 'Opening Stock' }, { key: 'receipts', label: 'Receipts' }, { key: 'issues', label: 'Issues' }, { key: 'closing', label: 'Closing Stock' }])} title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260}>
             <ComposedChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -257,7 +262,7 @@ export default function RawMaterialStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title={`Receipts by Supplier (Top 5)${unitLabel}`} icon={Users} loading={loading} empty={bySupplier.length === 0} height={260}>
+          <ChartCard screen="Raw_Material_Status" exportKey="Receipts_by_Supplier" filterText={chartFilter} exportData={seriesExportData(bySupplier, 'label', 'Supplier', [{ key: 'value', label: 'Receipts' }])} title={`Receipts by Supplier (Top 5)${unitLabel}`} icon={Users} loading={loading} empty={bySupplier.length === 0} height={260}>
             <ComposedChart data={bySupplier} layout="vertical" margin={{ top: 4, right: 44, left: 8, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
               <XAxis type="number" tick={AXIS_TICK} />
@@ -275,7 +280,7 @@ export default function RawMaterialStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="RM Type wise Material Availability (Parts)" icon={PieIcon} loading={loading} empty={partsByType.length === 0} height={260} raw>
+          <ChartCard screen="Raw_Material_Status" exportKey="RM_Availability" filterText={chartFilter} exportData={donutExportData(partsByType, { labelHeader: 'RM Type', valueHeader: 'Parts Available' })} title="RM Type wise Material Availability (Parts)" icon={PieIcon} loading={loading} empty={partsByType.length === 0} height={260} raw>
             <DonutChart data={partsByType} centre={{ caption: 'Total Parts Available', total: formatQty(partsTotal), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} parts`} />
           </ChartCard>
         </div>

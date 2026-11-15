@@ -17,6 +17,7 @@ import { trendBuckets } from '../../utils/reportAggregates'
 import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, dailyMovement, topN, wipChartState, wipNoStockMessage, WIP_NO_MOVEMENT_MESSAGE } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#0F9F8F', CHART_COLORS.amber]
 const balanceClass = (v) => (v > 0 ? 'bg-amber-100' : 'bg-green-100')
@@ -139,6 +140,13 @@ export default function WipStatusScreen() {
   const totalsRow = { order_qty: kpi.orderQty, received: kpi.received, issued: kpi.issued, balance: kpi.balance }
   const empty = rows.length === 0
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+    { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.operation, onChange: r.setFilter('operation'), options: operationOptions },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', op: 'operation' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="WIP Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -146,10 +154,7 @@ export default function WipStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
-            { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.operation, onChange: r.setFilter('operation'), options: operationOptions },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -162,7 +167,7 @@ export default function WipStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
+          <ChartCard screen="WIP_Status" exportKey="WIP_by_Operation" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])} title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
             <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -180,11 +185,12 @@ export default function WipStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} emptyText={balanceEmptyText} raw>
+          <ChartCard screen="WIP_Status" exportKey="WIP_Status" filterText={chartFilter} exportData={donutExportData(donut, { labelHeader: 'Operation', valueHeader: 'Balance WIP (Nos)' })} title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} emptyText={balanceEmptyText} raw>
             <DonutChart data={donut} centre={{ caption: 'Total WIP', total: formatQty(kpi.balance), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
 
           <ChartCard
+            screen="WIP_Status" exportKey="WIP_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', [{ key: 'receipts', label: 'Received' }, { key: 'issues', label: 'Issued' }, { key: 'balance', label: 'Closing WIP' }])}
             title={`WIP Status (${shortDate(r.applied.from)} to ${shortDate(r.applied.to)})`}
             icon={TrendingUp}
             loading={loading}

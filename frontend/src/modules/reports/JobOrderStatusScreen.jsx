@@ -16,6 +16,7 @@ import { displayDate } from '../../utils/reportPeriods'
 import { jobOrderRows, jobOrderCounts, dcTableStatusLabel, dcStatusCellText, filterByDcStatus, DC_STATUS_FILTER_OPTIONS } from '../../utils/reportOrders'
 import { topN } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const STATUS_TONES = { Received: 'green', 'Closed Short': 'slate', 'Partially Received': 'blue', Sent: 'amber', Overdue: 'red' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(0)}%)`)
@@ -131,6 +132,15 @@ export default function JobOrderStatusScreen() {
     },
   ]
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+    { key: 'vendor', label: 'Vendor', value: r.filters.vendorId, onChange: r.setFilter('vendorId'), options: vendors.map((v) => ({ value: v.vendor_id, label: v.vendor_name ?? v.vendor_id })) },
+    { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
+    { key: 'status', label: 'Status', value: r.filters.status, onChange: r.setFilter('status'), options: DC_STATUS_FILTER_OPTIONS },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', vendor: 'vendorId', op: 'jobWorkCode', status: 'status' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Job Order Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -138,12 +148,7 @@ export default function JobOrderStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
-            { key: 'vendor', label: 'Vendor', value: r.filters.vendorId, onChange: r.setFilter('vendorId'), options: vendors.map((v) => ({ value: v.vendor_id, label: v.vendor_name ?? v.vendor_id })) },
-            { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
-            { key: 'status', label: 'Status', value: r.filters.status, onChange: r.setFilter('status'), options: DC_STATUS_FILTER_OPTIONS },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -155,7 +160,7 @@ export default function JobOrderStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
+          <ChartCard screen="Job_Order_Status" exportKey="Despatched_vs_Pending" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Type of Operation', [{ key: 'dispatched', label: 'Quantity Despatched' }, { key: 'pending', label: 'Quantity Pending' }])} title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
             <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -179,11 +184,11 @@ export default function JobOrderStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={baseRows.length === 0} height={260} raw>
+          <ChartCard screen="Job_Order_Status" exportKey="Job_Order_Status" filterText={chartFilter} exportData={donutExportData(donut, { labelHeader: 'Status', valueHeader: 'Job Orders' })} title="Job Order Status (By Count)" icon={PieIcon} loading={loading} empty={baseRows.length === 0} height={260} raw>
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(donutCounts.total), unit: 'Job Orders' }} legendValue={(d) => formatQty(d.value)} tooltip={(d) => `${d.value} job orders`} />
           </ChartCard>
 
-          <ChartCard title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>
+          <ChartCard screen="Job_Order_Status" exportKey="Top_Vendors_Pending" filterText={chartFilter} exportData={seriesExportData(byVendor, 'label', 'Vendor', [{ key: 'value', label: 'Pending Quantity (Nos)' }])} title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>
             <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />

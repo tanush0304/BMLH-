@@ -22,6 +22,7 @@ import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary } from '../../utils/reportQuality'
 import Banner from '../../components/Banner'
+import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
 const RESULT_TONES = { OK: 'green', NG: 'red', Accepted: 'green', Rejected: 'red', 'No readings': 'amber' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(1)}%)`)
@@ -202,6 +203,23 @@ export default function QualityStatusScreen() {
     { key: 'pieces', label: 'Production Pieces (Produced / Rejected)', align: 'right', format: (v) => (v ? `${formatQty(v.produced)} / ${formatQty(v.rejected)}` : '—') },
   ]
 
+  // Filter bar fields (also give the chart Expand modal its filter line).
+  const filterFields = [
+    { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
+    {
+      key: 'machine',
+      label: 'Machine',
+      value: r.filters.machineId,
+      // A new machine has its own parameter list: clear the old pick.
+      onChange: (v) => { r.setFilter('machineId')(v); r.setFilter('parameter')('') },
+      options: opts.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })),
+    },
+    { key: 'param', label: 'Quality Parameter', allLabel: 'Parameter', value: r.filters.parameter, onChange: r.setFilter('parameter'), options: paramOptions },
+    { key: 'shift', label: 'Shift', value: r.filters.shiftCode, onChange: r.setFilter('shiftCode'), options: opts.shifts.map((s) => s.shift_code) },
+    { key: 'operator', label: 'Operator', value: r.filters.employeeId, onChange: r.setFilter('employeeId'), options: sortedEmployeeOptions(opts.employees) },
+  ]
+  const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', machine: 'machineId', param: 'parameter', shift: 'shiftCode', operator: 'employeeId' })
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Quality Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -209,20 +227,7 @@ export default function QualityStatusScreen() {
         <ReportFilterBar
           {...r.barProps}
           loading={loading}
-          filters={[
-            { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
-            {
-              key: 'machine',
-              label: 'Machine',
-              value: r.filters.machineId,
-              // A new machine has its own parameter list: clear the old pick.
-              onChange: (v) => { r.setFilter('machineId')(v); r.setFilter('parameter')('') },
-              options: opts.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })),
-            },
-            { key: 'param', label: 'Quality Parameter', allLabel: 'Parameter', value: r.filters.parameter, onChange: r.setFilter('parameter'), options: paramOptions },
-            { key: 'shift', label: 'Shift', value: r.filters.shiftCode, onChange: r.setFilter('shiftCode'), options: opts.shifts.map((s) => s.shift_code) },
-            { key: 'operator', label: 'Operator', value: r.filters.employeeId, onChange: r.setFilter('employeeId'), options: sortedEmployeeOptions(opts.employees) },
-          ]}
+          filters={filterFields}
         />
         {error && <Banner tone="error" message={error} />}
 
@@ -235,7 +240,7 @@ export default function QualityStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Inspection Result Trend" icon={TrendingUp} loading={loading} empty={counts.total === 0} height={270}>
+          <ChartCard screen="Quality_Status" exportKey="Inspection_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', [{ key: 'accepted', label: 'Accepted' }, { key: 'rejected', label: 'Rejected' }, { key: 'noReadings', label: 'No readings' }, { key: 'yield_pct', label: 'Yield %' }])} title="Inspection Result Trend" icon={TrendingUp} loading={loading} empty={counts.total === 0} height={270}>
             <ComposedChart data={trend} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -250,7 +255,7 @@ export default function QualityStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Quality Status (Overall)" icon={PieIcon} loading={loading} empty={counts.total === 0} height={270} raw>
+          <ChartCard screen="Quality_Status" exportKey="Quality_Status" filterText={chartFilter} exportData={donutExportData(donut, { labelHeader: 'Result', valueHeader: 'Inspections' })} title="Quality Status (Overall)" icon={PieIcon} loading={loading} empty={counts.total === 0} height={270} raw>
             <DonutChart
               data={donut}
               centre={{ caption: 'Total', total: formatQty(counts.total), unit: 'Inspections' }}
@@ -260,6 +265,7 @@ export default function QualityStatusScreen() {
           </ChartCard>
 
           <ChartCard
+            screen="Quality_Status" exportKey="Parameter_Analysis" filterText={chartFilter} exportData={seriesExportData(paramSeries, 'label', 'Date', [{ key: 'observed', label: `${chartParameter} (observed)` }])}
             title="Parameter Analysis"
             icon={Ruler}
             loading={loading}
