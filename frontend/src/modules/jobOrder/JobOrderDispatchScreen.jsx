@@ -65,6 +65,7 @@ export function mergeDispatchRows(statusRows, tableRows) {
   return [...live, ...voided].sort((a, b) => String(b.dispatch_date).localeCompare(String(a.dispatch_date)))
 }
 import { stageBackText } from '../../utils/reportOrders'
+import { outsourcedStageLabel } from '../../utils/jobRouteCard'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 
@@ -270,6 +271,11 @@ export default function JobOrderDispatchScreen({ role }) {
   const selectedStage = eligibleStages.find((s) => String(s.id) === String(stageId))
   const selectedProgress = selectedStage ? stageStatus[selectedStage.id] : null
   // A stage can be split across vendors: every DC still open on it.
+  // Stage pill from this stage's own DCs (the view's stage_status keeps
+  // "Partially Received" until the stored stage status turns Received).
+  const selectedStageStatus = selectedStage
+    ? outsourcedStageLabel({ status: selectedProgress?.stage_record_status }, dispatches.filter((d) => String(d.stage_id) === String(selectedStage.id)))
+    : 'Not Sent'
   const openDcsForStage = selectedStage ? dispatches.filter((d) => d.is_open && String(d.stage_id) === String(selectedStage.id)) : []
 
   function handleField(key) {
@@ -484,7 +490,7 @@ export default function JobOrderDispatchScreen({ role }) {
             <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">
               <div className="mb-1.5 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-700">This stage:</span>
-                <StatusPill status={selectedProgress?.stage_status ?? 'Not Sent'} />
+                <StatusPill status={selectedStageStatus} />
                 <span className="text-slate-600">{stageBackText(selectedProgress)}</span>
               </div>
               {openDcsForStage.length === 0 ? (

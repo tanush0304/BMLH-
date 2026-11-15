@@ -52,18 +52,52 @@ export function templateRow(stage, jobWorkTypes, machines = []) {
 
 /** Sent / received totals of an outsourced stage's DCs ("job order status" rows). */
 export function stageDcTotals(dcs) {
+  dcs = (dcs ?? []).filter((d) => !d.voided_at)
   return {
     sent: dcs.reduce((a, d) => a + (Number(d.qty) || 0), 0),
     back: dcs.reduce((a, d) => a + (Number(d.qty_received) || 0), 0),
   }
 }
 
+/** Non-voided DCs only ("job order status" already leaves voided DCs out;
+ * raw dispatch rows may carry voided_at). */
+const liveDcs = (dcs) => (dcs ?? []).filter((d) => !d.voided_at)
+
+/** A DC is back when received >= its own qty, or it was Closed Short. */
+export function dcIsBack(dc) {
+  return (Number(dc.qty_received) || 0) >= (Number(dc.qty) || 0) || !!dc.closed_short_at || dc.status === 'Closed Short'
+}
+
+/** Jobwork status of a stage, from its DCs only (2026-11-15): no DC -> Not
+ * Sent; every DC back (received >= DC qty, or Closed Short) -> Received; any
+ * DC with something back -> Partially Received; else Sent. Qty not yet sent
+ * out never makes it Partial (see stageNotSentText). */
+export function stageJobworkStatus(dcs) {
+  const live = liveDcs(dcs)
+  if (!live.length) return 'Not Sent'
+  if (live.every(dcIsBack)) return 'Received'
+  return live.some((d) => (Number(d.qty_received) || 0) > 0) ? 'Partially Received' : 'Sent'
+}
+
 /** Outsourced stage status (migration 031 -- a stage can be split across
- * vendors): Not Sent (no DC) / Sent / Partially Received / Received. */
+ * vendors). A stage the DB already marked Received stays Received; otherwise
+ * it follows its DCs (stageJobworkStatus). Before 2026-11-15 any stage with
+ * something back stayed "Partially Received" until the stored status turned
+ * Received, which also needs the previous stage Completed. */
 export function outsourcedStageLabel(stage, dcs) {
   if (stage.status === 'Received') return 'Received'
-  if (!dcs.length) return 'Not Sent'
-  return stageDcTotals(dcs).back === 0 ? 'Sent' : 'Partially Received'
+  return stageJobworkStatus(dcs)
+}
+
+/** "200 sent · 200 received · 300 not sent yet" (separate info, never part
+ * of the status). `notSent` = what is still to dispatch for the stage. */
+export function stageSentText(dcs, notSent = 0) {
+  const live = liveDcs(dcs)
+  const { sent, back } = stageDcTotals(live)
+  const fmt = (n) => n.toLocaleString('en-IN')
+  const parts = live.length ? [`${fmt(sent)} sent`, `${fmt(back)} received`] : []
+  if (Number(notSent) > 0) parts.push(`${fmt(Number(notSent))} not sent yet`)
+  return parts.join(' · ')
 }
 
 /** "300 of 500 back" for an outsourced stage's DCs ('' when none). */

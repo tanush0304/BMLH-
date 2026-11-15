@@ -7,7 +7,7 @@ import { stageMachineDisplay } from '../utils/machineEligibility'
 import { getWipAggregatesForPrd } from '../data/queries/wip'
 import { computeStageAvailability } from '../utils/calculations'
 import { listJobOrderStatus } from '../data/queries/jobOrders'
-import { outsourcedStageLabel, stageBackLabel } from '../utils/jobRouteCard'
+import { outsourcedStageLabel, stageSentText } from '../utils/jobRouteCard'
 
 function buildColumns(card) {
   const columns = [
@@ -75,7 +75,10 @@ export default function StageTraceTable({ prdNo, title, card, onRowsChange }) {
                 ...s,
                 machine: s.type === 'Internal' ? stageMachineDisplay({ plannedId: s.machine_id, logs: logs.filter((l) => l.stage_id === s.id) }) : '',
                 status: outsourced ? outsourcedStageLabel(s, dcs) : s.status,
-                jobwork: outsourced && dcs.length ? `${stageBackLabel(dcs)} · ${dcs.map((d) => d.dc_no).sort().join(', ')}` : '',
+                // Status from the DCs only; what is still to send is shown here, never as "Partial".
+                jobwork: outsourced && (dcs.length || availability[s.id] > 0)
+                  ? [stageSentText(dcs, availability[s.id]), dcs.map((d) => d.dc_no).sort().join(', ')].filter(Boolean).join(' · ')
+                  : '',
                 actual_output: aggregates[s.id]?.output ?? (s.type === 'Manual' ? '—' : 0),
                 available_qty: availability[s.id],
               }
