@@ -6,6 +6,8 @@ import { overdueDcItems, ALERT_ROLES } from '../../utils/alerts'
 import { listPoHeaders } from '../../data/queries/customerPoHeaders'
 import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
 import { expiredPoItems } from '../../utils/openPo'
+import { jobworkQcGateSupported, loadQcGateData } from '../../data/queries/jobworkQc'
+import { pendingIncomingQcItems } from '../../utils/jobworkQc'
 
 // Add more reminders here: { key, title, roles, load, toItems(data, today) }.
 export const overdueDcSource = {
@@ -39,4 +41,17 @@ export const expiredPoSource = {
   toItems: (data, today) => expiredPoItems({ ...data, today }),
 }
 
-export const ALERT_SOURCES = [overdueDcSource, expiredPoSource]
+// 055: jobwork receipts waiting for incoming QC (none yet / latest Rejected),
+// oldest first. Nothing before 055 or while the gate is off.
+export const pendingIncomingQcSource = {
+  key: 'pending-incoming-qc',
+  title: 'Pending incoming QC',
+  roles: ALERT_ROLES,
+  async load() {
+    if (!(await jobworkQcGateSupported())) return null
+    return loadQcGateData()
+  },
+  toItems: (data) => (data ? pendingIncomingQcItems(data) : []),
+}
+
+export const ALERT_SOURCES = [overdueDcSource, expiredPoSource, pendingIncomingQcSource]

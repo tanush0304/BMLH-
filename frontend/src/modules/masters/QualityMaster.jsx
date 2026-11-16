@@ -17,7 +17,9 @@ import {
   qualityGaugeStandardSupported,
   parameterHasReadings,
 } from '../../data/queries/qualityParameters'
-import { categoryOptions, operationsForTarget, appliesToLabel, isCategoryRow, normCategory } from '../../utils/qualityMatch'
+import { categoryOptions, operationsForTarget, operationsForJobWork, appliesToLabel, isCategoryRow, isJobWorkRow, normCategory } from '../../utils/qualityMatch'
+import { qualityReceiptSupported } from '../../data/queries/jobworkQc'
+import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
@@ -30,9 +32,10 @@ import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 const EMPTY_FORM = {
   id: '',
   part_serial_number: '',
-  applies_to: 'category', // 'category' | 'machine' (044; before it always 'machine')
+  applies_to: 'category', // 'category' | 'machine' (044; before it always 'machine') | 'jobwork' (054)
   machine_category: '',
   machine_id: '',
+  job_work_code: '', // 054: Job Work row = part + job_work_code
   type_of_operation: '',
   quality_parameter: '',
   standard: '',
@@ -61,19 +64,21 @@ const LIST_COLUMNS = [
   { key: 'remarks', label: 'Remarks' },
 ]
 
-/** Same part + operation + target (machine or category) + parameter name already saved. */
-export function duplicateParameter(records, form, byCategory) {
+/** Same part + operation + target (machine, category or job work) + parameter name already saved. */
+export function duplicateParameter(records, form, byCategory, byJobWork = false) {
   const name = form.quality_parameter.trim().toLowerCase()
   const clash = records.find((r) =>
     String(r.id) !== String(form.id || '') &&
     r.part_serial_number === form.part_serial_number &&
     (r.type_of_operation ?? '') === form.type_of_operation &&
     String(r.quality_parameter ?? '').trim().toLowerCase() === name &&
-    (byCategory
-      ? isCategoryRow(r) && normCategory(r.machine_category) === normCategory(form.machine_category)
-      : r.machine_id === form.machine_id))
+    (byJobWork
+      ? isJobWorkRow(r) && String(r.job_work_code).trim() === String(form.job_work_code).trim()
+      : byCategory
+        ? isCategoryRow(r) && normCategory(r.machine_category) === normCategory(form.machine_category)
+        : !isJobWorkRow(r) && r.machine_id === form.machine_id))
   if (!clash) return null
-  const where = byCategory ? `${form.machine_category.trim()} (all)` : form.machine_id
+  const where = byJobWork ? `Job Work ${form.job_work_code}` : byCategory ? `${form.machine_category.trim()} (all)` : form.machine_id
   return `${String(clash.quality_parameter).trim()} is already defined for ${form.part_serial_number} – ${form.type_of_operation} on ${where} -- edit it instead.`
 }
 
@@ -113,10 +118,15 @@ export default function QualityMaster() {
     }
   }, [checkTypeOn, form.id])
   const listColumns = LIST_COLUMNS.filter((c) => !c.needsCheckType || checkTypeOn)
+  const [jobWorkOn, setJobWorkOn] = useState(false) // 054: Applies To "Job Work"
+  const [jobWorkTypes, setJobWorkTypes] = useState([])
+  const byJobWork = jobWorkOn && form.applies_to === 'jobwork'
   const byCategory = !!categoryOn && form.applies_to === 'category'
 
   useEffect(() => {
     let active = true
+    qualityReceiptSupported().then((ok) => { if (active) setJobWorkOn(!!ok) }).catch(() => {})
+    listJobWorkTypes().then((rows) => { if (active) setJobWorkTypes(rows ?? []) }).catch(() => {})
     qualityCategorySupported().then((ok) => { if (active) setCategoryOn(ok) })
     qualityCheckTypeSupported().then((ok) => { if (active) setCheckTypeOn(!!ok) }).catch(() => {})
     qualityGaugeStandardSupported().then((ok) => { if (active) setGaugeStandardOn(!!ok) }).catch(() => {})
@@ -149,13 +159,15 @@ export default function QualityMaster() {
   }, [])
 
   const selectedProduct = products.find((product) => product.part_serial_number === form.part_serial_number)
-  const operations = operationsForTarget({
-    cycleTimes,
-    machines,
-    partSerialNumber: form.part_serial_number,
-    machineId: byCategory ? '' : form.machine_id,
-    category: byCategory ? form.machine_category : '',
-  })
+  const operations = byJobWork
+    ? operationsForJobWork({ cycleTimes, partSerialNumber: form.part_serial_number, jobWorkCode: form.job_work_code })
+    : operationsForTarget({
+      cycleTimes,
+      machines,
+      partSerialNumber: form.part_serial_number,
+      machineId: byCategory ? '' : form.machine_id,
+      category: byCategory ? form.machine_category : '',
+    })
   const categories = categoryOptions(machines)
   const parameterSuggestions = [...new Set(records.map((row) => row.quality_parameter).filter(Boolean))]
   const displayRecords = useMemo(() => records.map((row) => {
@@ -169,9 +181,9 @@ export default function QualityMaster() {
     machine_label: appliesToLabel(row, (id) => {
       const m = machines.find((machine) => machine.machine_id === id)
       return m ? machineOptionLabel(m) : id
-    }),
+    }, (code) => jobWorkTypes.find((j) => j.job_work_code === code)?.type_of_job_work ?? code),
     }
-  }), [records, products, machines])
+  }), [records, products, machines, jobWorkTypes])
 
   function handleField(key) {
     return (e) => setForm((current) => ({ ...current, [key]: e.target.value }))
@@ -190,7 +202,11 @@ export default function QualityMaster() {
   }
 
   function handleAppliesTo(value) {
-    setForm((current) => ({ ...current, applies_to: value, machine_id: '', machine_category: '', type_of_operation: '' }))
+    setForm((current) => ({ ...current, applies_to: value, machine_id: '', machine_category: '', job_work_code: '', type_of_operation: '' }))
+  }
+
+  function handleJobWorkChange(e) {
+    setForm((current) => ({ ...current, job_work_code: e.target.value, type_of_operation: '' }))
   }
 
   function handleNew() {
@@ -207,7 +223,7 @@ export default function QualityMaster() {
     setForm({
       ...EMPTY_FORM,
       ...Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value ?? ''])),
-      applies_to: isCategoryRow(row) ? 'category' : 'machine',
+      applies_to: isJobWorkRow(row) ? 'jobwork' : isCategoryRow(row) ? 'category' : 'machine',
     })
     setMode('view')
     setSaveError(null)
@@ -219,12 +235,12 @@ export default function QualityMaster() {
   }
 
   async function handleSave() {
-    const target = byCategory ? form.machine_category.trim() : form.machine_id
+    const target = byJobWork ? form.job_work_code : byCategory ? form.machine_category.trim() : form.machine_id
     if (!form.part_serial_number || !target || !form.type_of_operation || !form.quality_parameter.trim()) {
-      setSaveError(`Part Serial Number, ${byCategory ? 'Machine Category' : 'Machine'}, Type of Operation and Quality Parameter are required.`)
+      setSaveError(`Part Serial Number, ${byJobWork ? 'Job Work' : byCategory ? 'Machine Category' : 'Machine'}, Type of Operation and Quality Parameter are required.`)
       return
     }
-    const duplicate = duplicateParameter(records, form, byCategory)
+    const duplicate = duplicateParameter(records, form, byCategory, byJobWork)
     if (duplicate) {
       setSaveError(duplicate)
       return
@@ -249,8 +265,10 @@ export default function QualityMaster() {
     try {
       const payload = {
         part_serial_number: form.part_serial_number,
-        machine_id: byCategory ? null : form.machine_id,
+        machine_id: byCategory || byJobWork ? null : form.machine_id,
         ...(categoryOn ? { machine_category: byCategory ? form.machine_category.trim() : null } : {}),
+        // 054 only: a Job Work row has no machine / category (DB check)
+        ...(jobWorkOn ? { job_work_code: byJobWork ? form.job_work_code : null } : {}),
         type_of_operation: form.type_of_operation,
         quality_parameter: form.quality_parameter.trim(),
         standard: isGauge ? null : toNumberOrNull(form.standard),
@@ -342,7 +360,7 @@ export default function QualityMaster() {
           {categoryOn && (
             <Field label="Applies To" required>
               <div className="flex items-center gap-4 h-8 text-xs" role="radiogroup" aria-label="Applies To">
-                {[['category', 'Machine Category'], ['machine', 'Specific Machine']].map(([value, label]) => (
+                {[['category', 'Machine Category'], ['machine', 'Specific Machine'], ...(jobWorkOn ? [['jobwork', 'Job Work']] : [])].map(([value, label]) => (
                   <label key={value} className="inline-flex items-center gap-1.5">
                     <input type="radio" name="qm-applies-to" value={value} checked={form.applies_to === value} onChange={() => handleAppliesTo(value)} disabled={readOnly} />
                     {label}
@@ -351,7 +369,16 @@ export default function QualityMaster() {
               </div>
             </Field>
           )}
-          {byCategory ? (
+          {byJobWork ? (
+            <Field label="Job Work" required>
+              <SearchableSelect
+                value={form.job_work_code}
+                onChange={handleJobWorkChange}
+                disabled={readOnly}
+                options={jobWorkTypes.map((j) => ({ value: j.job_work_code, label: `${j.type_of_job_work} (${j.job_work_code})` }))}
+              />
+            </Field>
+          ) : byCategory ? (
             <Field label="Machine Category" required>
               <SearchableSelect value={form.machine_category} onChange={handleCategoryChange} disabled={readOnly} options={categories} />
             </Field>

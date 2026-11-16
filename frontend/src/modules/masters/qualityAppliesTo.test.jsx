@@ -20,6 +20,11 @@ vi.mock('../../data/queries/qualityParameters', () => ({
   qualityGaugeStandardSupported: async () => m.gaugeStandard ?? false,
   parameterHasReadings: async (id) => (m.withReadings ?? []).includes(id),
 }))
+// 054: Applies To "Job Work" (part + job_work_code)
+vi.mock('../../data/queries/jobworkQc', () => ({ qualityReceiptSupported: async () => m.jobWork ?? false }))
+vi.mock('../../data/queries/jobWorkTypes', () => ({
+  listJobWorkTypes: async () => [{ job_work_code: 'HT', type_of_job_work: 'Heat Treatment' }, { job_work_code: 'BR', type_of_job_work: 'Broaching' }],
+}))
 vi.mock('../../data/queries/products', () => ({ listProducts: async () => [{ part_serial_number: 'P1', part_name: 'Shaft' }] }))
 vi.mock('../../data/queries/machines', () => ({
   listMachines: async () => [
@@ -33,6 +38,7 @@ vi.mock('../../data/queries/cycleTimes', () => ({
     { part_serial_number: 'P1', machine_id: 'MC-004', operation: 'Rough Turning' },
     { part_serial_number: 'P1', machine_id: 'MC-005', operation: 'Finish Turning' },
     { part_serial_number: 'P1', machine_id: 'MC-007', operation: 'Drilling' },
+    { part_serial_number: 'P1', machine_id: null, operation: 'Toughening', type: 'Outsourced', job_work_code: 'HT' },
   ],
 }))
 vi.mock('../../components/SearchableSelect', () => ({
@@ -66,10 +72,83 @@ function fillNumbers() {
 
 beforeEach(() => {
   m.supported = true
+  m.jobWork = false
   m.records = []
   m.create.mockClear()
 })
 afterEach(() => cleanup())
+
+describe('Quality Master -- Job Work (054)', () => {
+  async function fillJobWorkRow(param = 'Hardness') {
+    await ready()
+    await waitFor(() => screen.getByRole('radio', { name: 'Job Work' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Job Work' }))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('HT'), 'HT')
+    pick(selectWith('Toughening'), 'Toughening')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: param } })
+    fillNumbers()
+  }
+
+  it('before 054: no Job Work option and job_work_code never sent', async () => {
+    await ready()
+    await waitFor(() => screen.getByLabelText('Machine Category'))
+    expect(screen.queryByRole('radio', { name: 'Job Work' })).toBeNull()
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('CNC'), 'CNC')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+    fillNumbers()
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect('job_work_code' in m.create.mock.calls[0][0]).toBe(false)
+  })
+
+  it('after 054: Job Work row = part + job_work_code; operations from that job work; no machine / category', async () => {
+    m.jobWork = true
+    await fillJobWorkRow()
+    expect(optionTexts(selectWith('HT'))).toEqual(['Heat Treatment (HT)', 'Broaching (BR)'])
+    expect(optionTexts(selectWith('Toughening'))).toEqual(['Toughening'])
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect(m.create.mock.calls[0][0]).toMatchObject({
+      part_serial_number: 'P1', job_work_code: 'HT', machine_id: null, machine_category: null, type_of_operation: 'Toughening', quality_parameter: 'Hardness',
+    })
+  })
+
+  it('after 054: a machine row sends job_work_code null', async () => {
+    m.jobWork = true
+    await ready()
+    await waitFor(() => screen.getByLabelText('Specific Machine'))
+    fireEvent.click(screen.getByLabelText('Specific Machine'))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('MC-004'), 'MC-004')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+    fillNumbers()
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect(m.create.mock.calls[0][0]).toMatchObject({ machine_id: 'MC-004', job_work_code: null })
+  })
+
+  it('refuses a duplicate Job Work parameter; list shows "Job Work: Heat Treatment"', async () => {
+    m.jobWork = true
+    m.records = [{ id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', standard: 50 }]
+    await fillJobWorkRow(' hardness ')
+    expect(screen.getAllByText('Job Work: Heat Treatment').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/Hardness is already defined for P1 – Toughening on Job Work HT/)).toBeTruthy()
+    expect(m.create).not.toHaveBeenCalled()
+  })
+
+  it('a saved Job Work row opens with Applies To = Job Work', async () => {
+    m.jobWork = true
+    m.records = [{ id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', standard: 50 }]
+    await ready()
+    fireEvent.click(await screen.findByText('Hardness'))
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Job Work' }).checked).toBe(true))
+  })
+})
 
 describe('Quality Master -- Applies To', () => {
   it('defaults to Machine Category; operations come from every machine of the category', async () => {

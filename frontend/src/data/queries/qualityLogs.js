@@ -62,6 +62,14 @@ export async function listQualityInspectionHistory() {
   if (stageErr) throw stageErr
   const stageById = new Map(stages.map((s) => [s.id, s]))
   const logById = new Map(logs.map((l) => [l.id, l]))
+  // 054: receipt (incoming jobwork) inspections have no machine -- show their JR no.
+  const receiptIds = [...new Set(logs.map((l) => l.receipt_id).filter((id) => id != null))]
+  let receiptNoById = new Map()
+  if (receiptIds.length) {
+    const { data: receipts, error: rcErr } = await supabase.from('job order receipt').select('id, receipt_no, dc_no').in('id', receiptIds)
+    if (rcErr) throw rcErr
+    receiptNoById = new Map(receipts.map((r) => [r.id, r]))
+  }
 
   return results.map((r) => {
     const log = logById.get(r.quality_log_id)
@@ -73,6 +81,9 @@ export async function listQualityInspectionHistory() {
       ...r,
       prd_no: log?.prd_no ?? '',
       machine_id: log?.machine_id ?? '',
+      receipt_id: log?.receipt_id ?? null,
+      receipt_no: receiptNoById.get(log?.receipt_id)?.receipt_no ?? '',
+      dc_no: receiptNoById.get(log?.receipt_id)?.dc_no ?? '',
       log_date: log?.log_date ?? '',
       employee_id: log?.employee_id ?? '',
       shift_code: log?.shift_code ?? '',

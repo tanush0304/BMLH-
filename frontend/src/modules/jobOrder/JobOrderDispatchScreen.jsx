@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQcGate } from '../../components/QcGateDialog'
 import { toDateOrNull } from '../../utils/numericFields'
 import { Truck, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -87,6 +88,7 @@ function vendorLabel(vendorId, vendors) {
 }
 
 export default function JobOrderDispatchScreen({ role }) {
+  const qcGate = useQcGate({ role })
   const appUsers = useAppUsers()
   const canEdit = canEditStock(role)
   const [selectedRow, setSelectedRow] = useState(null)
@@ -315,6 +317,11 @@ export default function JobOrderDispatchScreen({ role }) {
     }
     setSaving(true)
     setError(null)
+    // 055: a DC for this stage needs the previous jobwork stage's receipts QC-passed.
+    if (!(await qcGate.check({ prdNo, targetStageId: selectedStage.id }))) {
+      setSaving(false)
+      return
+    }
     try {
       const dcNo = await generateNextDcNo()
       await createDispatch({
@@ -532,6 +539,7 @@ export default function JobOrderDispatchScreen({ role }) {
           onRowClick={(r) => { if (!editingRow) { setSelectedRow(r); setNotice('') } }}
           rowKey="dc_no" searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search by DC No / PRD No / Status..." />
       </div>
+      {qcGate.dialog}
     </div>
   )
 }

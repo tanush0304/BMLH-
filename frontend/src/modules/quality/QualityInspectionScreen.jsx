@@ -29,7 +29,11 @@ import { employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { machinesForStage } from '../../utils/machineEligibility'
-import { qualityParamsForStage, noParamsMessage, machineCategoryOf } from '../../utils/qualityMatch'
+import { qualityParamsForStage, noParamsMessage, machineCategoryOf, jobWorkParamsForStage, noJobWorkParamsMessage } from '../../utils/qualityMatch'
+import { qualityReceiptSupported, listReceiptsForPrd, getReceiptWithDc } from '../../data/queries/jobworkQc'
+import { receiptFromMode, qualityMachineText } from '../../utils/jobworkQc'
+import { ddmmyyyy } from '../../utils/alerts'
+import PendingIncomingQcPanel from './PendingIncomingQcPanel'
 import { stageLabel } from '../../utils/stageLabel'
 import { MACHINE_CHOICE_MODE } from '../../utils/constants'
 import { listAllMachineOperations } from '../../data/queries/machineOperations'
@@ -39,12 +43,41 @@ import OrderLineFields from '../../components/OrderLineFields'
 
 // stage_id picks the stage (two stages may share an operation name); operation
 // is that stage's operation text, used for parameter matching and display.
-const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', stage_id: '', operation: '' }
+// receipt_id (054): an incoming inspection of a jobwork receipt -- no machine.
+const EMPTY_HEADER = { employee_id: '', shift_code: '', prd_no: '', machine_id: '', stage_id: '', operation: '', receipt_id: '' }
+
+/** "JR-008 · DC-008 · Stage 4 – Toughening · 411 pcs · 15-11-2026" */
+export function receiptOptionLabel(r, stages = []) {
+  const stage = stages.find((s) => String(s.id) === String(r.stage_id))
+  return [r.receipt_no, r.dc_no, stage ? stageLabel(stage) : null, `${r.qty_received} pcs`, ddmmyyyy(r.receipt_date)].filter(Boolean).join(' · ')
+}
+
+/** One readings-table row from a Quality Master parameter. */
+function readingRowFromParam(p) {
+  return {
+    quality_parameter_id: p.id,
+    quality_parameter: p.quality_parameter,
+    standard: p.standard,
+    upper_tolerance: p.upper_tolerance,
+    lower_tolerance: p.lower_tolerance,
+    observed_value: '',
+    check_type: p.check_type ?? 'Measured', // 048
+    gauge_ref: p.gauge_ref ?? '',
+    gauge_standard: p.gauge_standard ?? null, // 053
+    gauge_result: '',
+  }
+}
+
+/** History "Machine": the machine id, or "Jobwork · JR-008" for a receipt inspection (054). */
+export function historyMachineText(r) {
+  const text = qualityMachineText(r)
+  return !r?.machine_id && r?.receipt_no ? `${text} · ${r.receipt_no}` : text
+}
 
 const HISTORY_COLUMNS = [
   { key: 'log_date', label: 'Date' },
   { key: 'prd_no', label: 'PRD' },
-  { key: 'machine_id', label: 'Machine' },
+  { key: 'machine_text', label: 'Machine' }, // receipt logs (054): "Jobwork · JR-008"
   { key: 'operation', label: 'Operation' },
   { key: 'inspected_by', label: 'Inspected By' },
   { key: 'quality_parameter', label: 'Parameter' },
@@ -62,8 +95,15 @@ const HISTORY_COLUMNS = [
  * computeQualityResult (utils/qualityResult.js) mirrors that view's CASE
  * so what the user sees while typing matches what is derived after save.
  */
-export default function QualityInspectionScreen({ role }) {
+export default function QualityInspectionScreen({ role, initialMode }) {
   const [step, setStep] = useState('header')
+  // 054: "Inspection Of" machine stage | jobwork receipt (incoming QC)
+  const [receiptOn, setReceiptOn] = useState(false)
+  const [inspectionOf, setInspectionOf] = useState('machine')
+  const [allStages, setAllStages] = useState([]) // every stage of the PRD (receipt mode needs the outsourced ones)
+  const [prdReceipts, setPrdReceipts] = useState([])
+  const [panelKey, setPanelKey] = useState(0)
+  const byReceipt = receiptOn && inspectionOf === 'receipt'
 
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -118,24 +158,79 @@ export default function QualityInspectionScreen({ role }) {
     refreshLookups()
   }, [])
 
+  useEffect(() => {
+    let live = true
+    qualityReceiptSupported().then((ok) => live && setReceiptOn(!!ok)).catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
   const selectedOrder = orders.find((o) => o.prd_no === header.prd_no)
   const part = usePartForPrd(header.prd_no)
 
+  async function loadPrd(prd) {
+    const stages = await getStagesForPrd(prd)
+    setAllStages(stages)
+    setPrdStages(stages.filter((s) => s.type === 'Internal'))
+    setPrdReceipts(receiptOn || (await qualityReceiptSupported()) ? await listReceiptsForPrd(prd) : [])
+    return stages
+  }
+
   async function handlePrdChange(e) {
     const prd = e.target.value
-    setHeader((f) => ({ ...f, prd_no: prd, stage_id: '', operation: '' }))
+    setHeader((f) => ({ ...f, prd_no: prd, stage_id: '', operation: '', receipt_id: '' }))
     setResolvedStage(null)
     if (!prd) {
       setPrdStages([])
+      setAllStages([])
+      setPrdReceipts([])
       return
     }
     try {
-      const stages = await getStagesForPrd(prd)
-      setPrdStages(stages.filter((s) => s.type === 'Internal'))
+      await loadPrd(prd)
     } catch (e) {
       setError(e.message)
     }
   }
+
+  function pickReceipt(receiptId, receipts = prdReceipts, stages = allStages) {
+    const r = receipts.find((x) => String(x.id) === String(receiptId)) ?? null
+    const stage = r ? stages.find((s) => String(s.id) === String(r.stage_id)) ?? null : null
+    setHeader((f) => ({ ...f, receipt_id: r ? String(r.id) : '', machine_id: '', stage_id: stage ? String(stage.id) : '', operation: stage?.operation ?? '' }))
+    setResolvedStage(stage)
+  }
+
+  function handleInspectionOf(value) {
+    setInspectionOf(value)
+    setHeader((f) => ({ ...f, machine_id: '', stage_id: '', operation: '', receipt_id: '' }))
+    setResolvedStage(null)
+    setEligibleStages([])
+  }
+
+  // Pending panel "Inspect" / bell Open (qc:<receipt id>): receipt mode with that receipt.
+  async function startReceiptInspection(receiptId) {
+    try {
+      const r = await getReceiptWithDc(receiptId)
+      if (!r) return
+      setInspectionOf('receipt')
+      setStep('header')
+      setHeader((f) => ({ ...f, prd_no: r.prd_no, machine_id: '', stage_id: '', operation: '', receipt_id: '' }))
+      const stages = await getStagesForPrd(r.prd_no)
+      setAllStages(stages)
+      setPrdStages(stages.filter((s) => s.type === 'Internal'))
+      const receipts = await listReceiptsForPrd(r.prd_no)
+      setPrdReceipts(receipts)
+      pickReceipt(receiptId, receipts, stages)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const initialReceipt = receiptFromMode(initialMode)
+  useEffect(() => {
+    if (initialReceipt != null && receiptOn) startReceiptInspection(initialReceipt)
+  }, [initialReceipt, receiptOn]) // once per opened receipt
 
   // Eligibility comes from Cycle Time Master (part_serial_number + seq +
   // machine_id) -- the route itself says which machines can run which
@@ -197,6 +292,8 @@ export default function QualityInspectionScreen({ role }) {
   function resetHeader() {
     setHeader(EMPTY_HEADER)
     setPrdStages([])
+    setAllStages([])
+    setPrdReceipts([])
     setEligibleStages([])
     setResolvedStage(null)
     setError(null)
@@ -204,6 +301,31 @@ export default function QualityInspectionScreen({ role }) {
 
   async function handleSubmitHeader() {
     setError(null)
+    if (byReceipt) {
+      if (!header.employee_id || !header.shift_code || !header.prd_no || !header.receipt_id || !resolvedStage) {
+        setError('Employee, Shift, Production Order and Jobwork Receipt are all required.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const params = await listQualityParameters()
+        const matching = jobWorkParamsForStage({
+          params,
+          partSerialNumber: selectedOrder?.part_serial_number,
+          operation: header.operation,
+          jobWorkCode: resolvedStage.job_work_code,
+        })
+        setParamNote('')
+        setReadingRows(matching.map(readingRowFromParam))
+        setSaveError(null)
+        setStep('readings')
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
     if (!header.employee_id || !header.shift_code || !header.prd_no || !header.machine_id || !header.operation || !resolvedStage) {
       setError('Employee, Shift, Production Order, Machine and Type of Operation are all required.')
       return
@@ -222,20 +344,7 @@ export default function QualityInspectionScreen({ role }) {
         plannedId: resolvedStage.machine_id,
       })
       setParamNote(note)
-      setReadingRows(
-        matching.map((p) => ({
-          quality_parameter_id: p.id,
-          quality_parameter: p.quality_parameter,
-          standard: p.standard,
-          upper_tolerance: p.upper_tolerance,
-          lower_tolerance: p.lower_tolerance,
-          observed_value: '',
-          check_type: p.check_type ?? 'Measured', // 048
-          gauge_ref: p.gauge_ref ?? '',
-          gauge_standard: p.gauge_standard ?? null, // 053
-          gauge_result: '',
-        }))
-      )
+      setReadingRows(matching.map(readingRowFromParam))
       setSaveError(null)
       setStep('readings')
     } catch (e) {
@@ -276,7 +385,9 @@ export default function QualityInspectionScreen({ role }) {
       const log = await createQualityLog({
         prd_no: header.prd_no,
         stage_id: resolvedStage.id,
-        machine_id: header.machine_id,
+        // 054: a receipt inspection has no machine (DB check: machine OR receipt)
+        machine_id: byReceipt ? null : header.machine_id,
+        ...(byReceipt ? { receipt_id: Number(header.receipt_id) } : {}),
         employee_id: header.employee_id,
         shift_code: header.shift_code,
       })
@@ -292,6 +403,7 @@ export default function QualityInspectionScreen({ role }) {
       resetHeader()
       setReadingRows([])
       setStep('header')
+      setPanelKey((k) => k + 1)
       await refreshLookups()
     } catch (e) {
       setSaveError(e.message)
@@ -321,6 +433,7 @@ export default function QualityInspectionScreen({ role }) {
     result_text: readingResultText(r),
     check_type_text: isGaugeRow(r) ? 'Gauge' : 'Measured',
     instrument_text: r.gauge_ref || '',
+    machine_text: historyMachineText(r),
   }))
   // 048: the view only has check_type once 048 is run
   const historyColumns = HISTORY_COLUMNS.filter((c) => !c.needsCheckType || history.some((r) => 'check_type' in r))
@@ -359,7 +472,7 @@ export default function QualityInspectionScreen({ role }) {
     const q = historySearch.toLowerCase()
     return (
       r.prd_no?.toLowerCase().includes(q) ||
-      r.machine_id?.toLowerCase().includes(q) ||
+      r.machine_text?.toLowerCase().includes(q) ||
       r.quality_parameter?.toLowerCase().includes(q) ||
       r.operation?.toLowerCase().includes(q)
     )
@@ -390,8 +503,22 @@ export default function QualityInspectionScreen({ role }) {
           <Banner tone="error" message={error} />
         )}
 
+        <PendingIncomingQcPanel refreshKey={panelKey} onInspect={(item) => startReceiptInspection(item.receipt_id)} />
+
         {step === 'header' && (
           <FormSection icon={ClipboardCheck} title="1. Inspection Header" subtitle="Who, what and where inspected" columns={3}>
+            {receiptOn && (
+              <Field label="Inspection Of" required>
+                <div className="flex items-center gap-4 h-8 text-xs" role="radiogroup" aria-label="Inspection Of">
+                  {[['machine', 'Machine stage'], ['receipt', 'Jobwork receipt (incoming)']].map(([value, label]) => (
+                    <label key={value} className="inline-flex items-center gap-1.5">
+                      <input type="radio" name="qi-inspection-of" value={value} checked={inspectionOf === value} onChange={() => handleInspectionOf(value)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            )}
             <Field label="Date & Time">
               <AutoFillBox value={new Date().toLocaleString()} />
             </Field>
@@ -422,25 +549,46 @@ export default function QualityInspectionScreen({ role }) {
             <Field label="Part Drawing No">
               <AutoFillBox value={part.part_drawing_reference_number} />
             </Field>
-            <Field label="Machine" required>
-              <SearchableSelect
-                value={header.machine_id}
-                onChange={handleMachineChange}
-                options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
-              />
-            </Field>
-            <Field label="Type of Operation" required>
-              <SearchableSelect
-                value={header.stage_id}
-                onChange={handleOperationChange}
-                disabled={!header.prd_no}
-                options={operationOptions}
-              />
-            </Field>
-            <Field label="Cycle Time (min)">
-              <AutoFillBox value={resolvedStage?.cycle_time_min ?? ''} />
-            </Field>
-            {noEligibleForMachine && (
+            {byReceipt ? (
+              <>
+                <Field label="Jobwork Receipt" required>
+                  <SearchableSelect
+                    value={header.receipt_id}
+                    onChange={(e) => pickReceipt(e.target.value)}
+                    disabled={!header.prd_no}
+                    options={prdReceipts.map((r) => ({ value: String(r.id), label: receiptOptionLabel(r, allStages) }))}
+                  />
+                </Field>
+                <Field label="Stage">
+                  <AutoFillBox value={resolvedStage ? stageLabel(resolvedStage) : ''} />
+                </Field>
+                {header.prd_no && prdReceipts.length === 0 && (
+                  <p className="text-sm text-amber-600 sm:col-span-3">Nothing has come back from jobwork on this PRD yet.</p>
+                )}
+              </>
+            ) : (
+              <>
+                <Field label="Machine" required>
+                  <SearchableSelect
+                    value={header.machine_id}
+                    onChange={handleMachineChange}
+                    options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))}
+                  />
+                </Field>
+                <Field label="Type of Operation" required>
+                  <SearchableSelect
+                    value={header.stage_id}
+                    onChange={handleOperationChange}
+                    disabled={!header.prd_no}
+                    options={operationOptions}
+                  />
+                </Field>
+                <Field label="Cycle Time (min)">
+                  <AutoFillBox value={resolvedStage?.cycle_time_min ?? ''} />
+                </Field>
+              </>
+            )}
+            {!byReceipt && noEligibleForMachine && (
               <p className="text-sm text-amber-600 sm:col-span-3">
                 No stage of this product is set up for this machine in Cycle Time Master.
               </p>
@@ -452,7 +600,7 @@ export default function QualityInspectionScreen({ role }) {
           <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
             <div className="flex items-center justify-between gap-2 bg-bmlhsky border-b border-gray-200 px-3.5 py-1.5">
               <h2 className="text-xs font-semibold text-bmlhnavy">
-                2. Readings -- {header.prd_no} / {header.machine_id} / {header.operation}
+                2. Readings -- {header.prd_no} / {byReceipt ? `Jobwork · ${prdReceipts.find((r) => String(r.id) === String(header.receipt_id))?.receipt_no ?? ''}` : header.machine_id} / {header.operation}
               </h2>
               <button onClick={handleBackToHeader} className="text-xs text-bmlhblue hover:underline">
                 Back
@@ -470,12 +618,18 @@ export default function QualityInspectionScreen({ role }) {
             )}
             {readingRows.length === 0 ? (
               <div className="p-4 text-xs text-gray-500">
-                {noParamsMessage({
-                  partSerialNumber: selectedOrder?.part_serial_number,
-                  operation: header.operation,
-                  machineId: header.machine_id,
-                  category: machineCategoryOf(machines, header.machine_id),
-                })}
+                {byReceipt
+                  ? noJobWorkParamsMessage({
+                    partSerialNumber: selectedOrder?.part_serial_number,
+                    operation: header.operation,
+                    jobWorkCode: resolvedStage?.job_work_code,
+                  })
+                  : noParamsMessage({
+                    partSerialNumber: selectedOrder?.part_serial_number,
+                    operation: header.operation,
+                    machineId: header.machine_id,
+                    category: machineCategoryOf(machines, header.machine_id),
+                  })}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -607,7 +761,7 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
         <AutoFillBox value={first.prd_no} />
       </Field>
       <Field label="Machine">
-        <AutoFillBox value={first.machine_id} />
+        <AutoFillBox value={historyMachineText(first)} />
       </Field>
       <Field label="Type of Operation">
         <AutoFillBox value={first.operation} />

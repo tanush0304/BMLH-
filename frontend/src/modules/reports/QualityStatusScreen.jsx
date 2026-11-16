@@ -17,6 +17,7 @@ import { machineOptionLabel } from '../../utils/machineLabel'
 import { sortedEmployeeOptions, employeeLabelForId } from '../../utils/employeeLabel'
 import { listQualityParameters } from '../../data/queries/qualityParameters'
 import { parameterNamesForMachine } from '../../utils/qualityMatch'
+import { qualityMachineText, JOBWORK_MACHINE_LABEL } from '../../utils/jobworkQc'
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
@@ -148,8 +149,10 @@ export default function QualityStatusScreen() {
       const base = {
         prd_no: i.prd_no,
         stage: stageLabel({ seq: i.stage_seq, position: i.stage_position, operation: i.operation }),
-        machine: i.machine_id ? `${i.machine_name ?? ''} (${i.machine_id})` : '—',
-        machine_category: i.machine_category,
+        // 054: an incoming jobwork inspection has no machine (the 029 view
+        // gives category 'Uncategorised' for it) -- shown as "Jobwork".
+        machine: qualityMachineText(i, (x) => `${x.machine_name ?? ''} (${x.machine_id})`),
+        machine_category: i.machine_id ? i.machine_category : JOBWORK_MACHINE_LABEL,
         log_date: i.log_date,
         shift_code: i.shift_code,
         employee: employeeLabelForId(i.employee_id, opts.employees) || '—',

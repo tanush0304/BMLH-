@@ -20,5 +20,6 @@ export default function QualityModule({ activeTab, activeMode, role, onSelect })
   if (activeTab === 'complaint') {
     return <CustomerComplaintScreen key={activeMode ?? ''} initialMode={activeMode || undefined} role={role} />
   }
-  return <QualityInspectionScreen role={role} />
+  // activeMode "qc:<receipt id>" (bell / pending panel): open that receipt's incoming inspection.
+  return <QualityInspectionScreen key={activeMode ?? ''} role={role} initialMode={activeMode || undefined} />
 }

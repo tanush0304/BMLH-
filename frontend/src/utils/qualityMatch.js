@@ -15,7 +15,45 @@ const normName = (value) => String(value ?? '').trim().toLowerCase()
 const isBlank = (value) => String(value ?? '').trim() === ''
 
 /** True when the row is a category row (no machine). */
-export const isCategoryRow = (row) => !row?.machine_id && !isBlank(row?.machine_category)
+export const isCategoryRow = (row) => !row?.machine_id && !isBlank(row?.machine_category) && isBlank(row?.job_work_code)
+
+/** 054: a Job Work row (part + job_work_code, no machine / category) -- incoming
+ * inspection of a jobwork receipt. */
+export const isJobWorkRow = (row) => !isBlank(row?.job_work_code)
+
+/**
+ * Parameters for an incoming inspection of a jobwork receipt: Job Work rows of
+ * the part with the stage's job_work_code; blank operation = any; per
+ * parameter name an exact-operation row beats a blank one.
+ */
+export function jobWorkParamsForStage({ params = [], partSerialNumber, operation, jobWorkCode }) {
+  if (!partSerialNumber || isBlank(jobWorkCode)) return []
+  const code = String(jobWorkCode).trim()
+  const rows = params.filter((p) => isJobWorkRow(p) && String(p.job_work_code).trim() === code && p.part_serial_number === partSerialNumber && opMatches(p, operation))
+  const best = new Map()
+  rows.forEach((p, order) => {
+    const rank = isBlank(p.type_of_operation) ? 1 : 0
+    const key = normName(p.quality_parameter)
+    const cur = best.get(key)
+    if (!cur || rank < cur.rank) best.set(key, { p, rank, order: cur?.order ?? order })
+  })
+  return [...best.values()].sort((a, b) => a.order - b.order).map((x) => x.p)
+}
+
+/** Empty-result text for a jobwork receipt inspection. */
+export function noJobWorkParamsMessage({ partSerialNumber, operation, jobWorkCode }) {
+  return `No quality parameters are defined for ${partSerialNumber ?? ''} - ${operation ?? ''} (Job Work ${jobWorkCode ?? ''}). Add them in Quality Master (Applies To: Job Work) before this receipt can be inspected.`
+}
+
+/** Type of Operation options for a Job Work row: the part's Cycle Time rows with that job work code. */
+export function operationsForJobWork({ cycleTimes = [], partSerialNumber, jobWorkCode }) {
+  if (!partSerialNumber || isBlank(jobWorkCode)) return []
+  const code = String(jobWorkCode).trim()
+  return [...new Set(cycleTimes
+    .filter((r) => r.part_serial_number === partSerialNumber && String(r.job_work_code ?? '').trim() === code)
+    .map((r) => r.operation)
+    .filter(Boolean))]
+}
 
 /** Distinct non-blank machine categories (trimmed, first spelling kept), sorted. */
 export function categoryOptions(machines = []) {
@@ -32,8 +70,10 @@ export function machineCategoryOf(machines = [], machineId) {
   return String(m?.category ?? '').trim()
 }
 
-/** "CNC (all)" for a category row, else the machine label (or id). */
-export function appliesToLabel(row, machineLabel = (id) => id) {
+/** "CNC (all)" for a category row, "Job Work: Heat Treatment" for a Job Work
+ * row, else the machine label (or id). */
+export function appliesToLabel(row, machineLabel = (id) => id, jobWorkLabel = (code) => code) {
+  if (isJobWorkRow(row)) return `Job Work: ${jobWorkLabel(String(row.job_work_code).trim())}`
   if (isCategoryRow(row)) return `${String(row.machine_category).trim()} (all)`
   return row?.machine_id ? machineLabel(row.machine_id) : ''
 }

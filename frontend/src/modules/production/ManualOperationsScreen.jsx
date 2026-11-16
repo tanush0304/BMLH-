@@ -54,6 +54,7 @@ import { orderLineSuffix } from '../../utils/deliveryAddress'
 import { materialAvailableText } from '../../utils/stageReopen'
 import { hourQtyCapProblems } from '../../utils/hourQtyCap'
 import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { useQcGate } from '../../components/QcGateDialog'
 import { getHourCapSettings } from '../../data/queries/appSettings'
 
 /**
@@ -270,6 +271,11 @@ export default function ManualOperationsScreen({ role }) {
     }
     setStarting(true)
     setError(null)
+    // 055: material back from the previous (jobwork) stage must have passed incoming QC.
+    if (!(await qcGate.check({ prdNo, targetStageId: resolvedStage.id }))) {
+      setStarting(false)
+      return
+    }
     try {
       const log = await createProductionLog({
         prd_no: prdNo,
@@ -325,6 +331,7 @@ export default function ManualOperationsScreen({ role }) {
     }
   }, [])
   const capDialog = useQtyCapDialog()
+  const qcGate = useQcGate({ role })
   function capProblems(newRows, changes = []) {
     return hourQtyCapProblems({
       newRows,
@@ -674,6 +681,7 @@ export default function ManualOperationsScreen({ role }) {
         )}
       </div>
       {capDialog.dialog}
+      {qcGate.dialog}
     </div>
   )
 }

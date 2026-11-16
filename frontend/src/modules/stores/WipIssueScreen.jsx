@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQcGate } from '../../components/QcGateDialog'
 import ShiftDateLine from '../../components/ShiftDateLine'
 import { todayISO } from '../../utils/dates'
 import { PackageMinus } from 'lucide-react'
@@ -37,6 +38,7 @@ const HISTORY_COLUMNS = [
 const EMPTY_FORM = { prd_no: '', pool_stage_id: '', target_stage_id: '', qty: '', employee_id: '', shift_code: '', remarks: '' }
 
 export default function WipIssueScreen({ role }) {
+  const qcGate = useQcGate({ role })
   const [orders, setOrders] = useState([])
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
@@ -150,6 +152,17 @@ export default function WipIssueScreen({ role }) {
     }
     const issuePrd = form.prd_no
     setSaving(true)
+    // 055: issuing into a stage needs the jobwork receipts before it QC-passed
+    // (and the source stage's, when the source is a jobwork stage further back).
+    const qcOk = await qcGate.check({
+      prdNo: form.prd_no,
+      targetStageId: stageValidation.targetStage.id,
+      sourceStageId: stageValidation.sourceStage.id,
+    })
+    if (!qcOk) {
+      setSaving(false)
+      return
+    }
     try {
       const userId = await getCurrentUserId()
       const saved = await createWipIssue({
@@ -353,6 +366,7 @@ export default function WipIssueScreen({ role }) {
           />
         )}
       </div>
+      {qcGate.dialog}
     </div>
   )
 }
