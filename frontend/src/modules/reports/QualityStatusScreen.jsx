@@ -20,7 +20,7 @@ import { parameterNamesForMachine } from '../../utils/qualityMatch'
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
-import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary } from '../../utils/reportQuality'
+import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary, readingTarget, formatTarget } from '../../utils/reportQuality'
 import Banner from '../../components/Banner'
 import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
@@ -164,8 +164,9 @@ export default function QualityStatusScreen() {
         out.push({
           ...base,
           key: `${i.quality_log_id}-${x.reading_id}`,
-          parameter: gauge ? `${x.quality_parameter} (Gauge${x.gauge_ref ? `: ${x.gauge_ref}` : ''})` : x.quality_parameter,
-          target: gauge ? null : x.standard,
+          parameter: gauge ? `${x.quality_parameter} (Gauge)` : x.quality_parameter,
+          instrument: x.gauge_ref || null,
+          target: readingTarget(x), // 053: Gauge = its text Standard
           tolerance: b ? `${fmtNum(b.min)} – ${fmtNum(b.max)}` : '—',
           actual: gauge ? x.gauge_result ?? null : x.observed_value,
           result: x.result === 'Accepted' ? 'OK' : x.result === 'Not Accepted' ? 'NG' : null,
@@ -195,8 +196,9 @@ export default function QualityStatusScreen() {
     { key: 'shift_code', label: 'Shift' },
     { key: 'employee', label: 'Inspected By' },
     { key: 'parameter', label: 'Quality Parameter' },
-    { key: 'target', label: 'Target', align: 'right', format: fmtNum },
+    { key: 'target', label: 'Target', align: 'right', format: formatTarget },
     { key: 'tolerance', label: 'Tolerance Band' },
+    { key: 'instrument', label: 'Instrument', format: (v) => v || '—' }, // gauge_ref
     { key: 'actual', label: 'Actual', align: 'right', format: (v) => (typeof v === 'string' ? v : fmtNum(v)) }, // gauge: OK / Not OK
     { key: 'result', label: 'Result', format: (v) => v ?? '—', render: (row) => (row.result ? <ReportBadge status={row.result} tones={RESULT_TONES} /> : '—') },
     { key: 'inspection_result', label: 'Inspection Result', render: (row) => <ReportBadge status={row.inspection_result} tones={RESULT_TONES} /> },

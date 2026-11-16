@@ -92,3 +92,19 @@ export function gaugeSummary(readings, inspectionById, partForPrd, part, paramet
   if (rows.length === 0) return null
   return { gauge: true, ok: rows.filter((r) => r.gauge_result === 'OK').length, notOk: rows.filter((r) => r.gauge_result === 'Not OK').length }
 }
+
+// ---------------------------------------------------------------- 053
+/** Quality Status "Target" for a reading: Measured -> numeric standard,
+ * Gauge -> its text gauge_standard (display only). Blank -> null. */
+export function readingTarget(row) {
+  const v = row?.check_type === 'Gauge' ? row?.gauge_standard : row?.standard
+  if (v === null || v === undefined || String(v).trim() === '') return null
+  return typeof v === 'string' ? v.trim() : v
+}
+
+/** Number -> Indian grouping (max 3 decimals); text (gauge spec) as typed; null -> '—'. */
+export function formatTarget(v) {
+  if (v === null || v === undefined || String(v).trim() === '') return '—'
+  if (typeof v === 'number') return v.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+  return String(v).trim()
+}

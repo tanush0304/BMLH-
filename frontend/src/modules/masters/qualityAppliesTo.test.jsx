@@ -17,6 +17,7 @@ vi.mock('../../data/queries/qualityParameters', () => ({
   deleteQualityParameter: vi.fn(),
   qualityCategorySupported: async () => m.supported,
   qualityCheckTypeSupported: async () => m.checkType ?? false,
+  qualityGaugeStandardSupported: async () => m.gaugeStandard ?? false,
   parameterHasReadings: async (id) => (m.withReadings ?? []).includes(id),
 }))
 vi.mock('../../data/queries/products', () => ({ listProducts: async () => [{ part_serial_number: 'P1', part_name: 'Shaft' }] }))
@@ -163,7 +164,7 @@ describe('Quality Master -- Check Type (048)', () => {
       await fillBase()
       fireEvent.change(checkType(), { target: { value: 'Gauge' } })
       expect(screen.queryByText('Standard', { selector: 'span' })).toBeNull()
-      fireEvent.change(screen.getByText('Gauge (name / no.)', { selector: 'span' }).closest('label').querySelector('input'), { target: { value: ' M10 GO/NO-GO ' } })
+      fireEvent.change(screen.getByText('Instrument', { selector: 'span' }).closest('label').querySelector('input'), { target: { value: ' M10 GO/NO-GO ' } })
       fireEvent.click(screen.getByRole('button', { name: /save/i }))
       await waitFor(() => expect(m.create).toHaveBeenCalled())
       expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Gauge', gauge_ref: 'M10 GO/NO-GO', standard: null, upper_tolerance: null, lower_tolerance: null })
@@ -182,7 +183,7 @@ describe('Quality Master -- Check Type (048)', () => {
       fillNumbers()
       fireEvent.click(screen.getByRole('button', { name: /save/i }))
       await waitFor(() => expect(m.create).toHaveBeenCalled())
-      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Measured', gauge_ref: null, standard: 50 })
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Measured', gauge_ref: null, standard: 50 }) // Instrument left blank
     } finally {
       m.checkType = false
     }
@@ -223,5 +224,142 @@ describe('Quality Master -- Check Type locked once there are readings (048)', ()
       m.checkType = false
       m.withReadings = []
     }
+  })
+})
+
+describe('Quality Master -- Gauge Standard (053)', () => {
+  async function fillGauge() {
+    await ready()
+    await waitFor(() => screen.getByLabelText('Machine Category'))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('CNC'), 'CNC')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'Thread' } })
+    const ct = await waitFor(() => screen.getByText('Check Type', { selector: 'span' }).closest('label').querySelector('select'))
+    fireEvent.change(ct, { target: { value: 'Gauge' } })
+  }
+  const standardInput = () => screen.queryByText('Standard', { selector: 'span' })?.closest('label').querySelector('input')
+
+  it('after 053: Gauge shows an optional text Standard, tolerances stay hidden; saves gauge_standard trimmed', async () => {
+    m.checkType = true
+    m.gaugeStandard = true
+    try {
+      await fillGauge()
+      await waitFor(() => expect(standardInput()).toBeTruthy())
+      expect(standardInput().type).not.toBe('number')
+      expect(screen.queryByText('Upper Tolerance', { selector: 'span' })).toBeNull()
+      expect(screen.queryByText('Lower Tolerance', { selector: 'span' })).toBeNull()
+      fireEvent.change(standardInput(), { target: { value: '  M8x1.25 6H ' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Gauge', gauge_standard: 'M8x1.25 6H', standard: null, upper_tolerance: null, lower_tolerance: null })
+    } finally {
+      m.checkType = false
+      m.gaugeStandard = false
+    }
+  })
+
+  it('after 053: blank Gauge Standard is optional and saves null; Measured sends gauge_standard null', async () => {
+    m.checkType = true
+    m.gaugeStandard = true
+    try {
+      await fillGauge()
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Gauge', gauge_standard: null })
+      cleanup()
+      m.create.mockClear()
+      await ready()
+      await waitFor(() => screen.getByLabelText('Machine Category'))
+      pick(selectWith('P1'), 'P1')
+      pick(selectWith('CNC'), 'CNC')
+      pick(selectWith('Rough Turning'), 'Rough Turning')
+      fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+      await waitFor(() => screen.getByText('Check Type', { selector: 'span' }))
+      fillNumbers()
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Measured', standard: 50, gauge_standard: null })
+    } finally {
+      m.checkType = false
+      m.gaugeStandard = false
+    }
+  })
+
+  it('before 053: Gauge has no Standard field and gauge_standard is never sent', async () => {
+    m.checkType = true
+    try {
+      await fillGauge()
+      expect(standardInput()).toBeFalsy()
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).not.toHaveProperty('gauge_standard')
+    } finally {
+      m.checkType = false
+    }
+  })
+
+  it('list Standard column: number for Measured, text spec for Gauge', async () => {
+    m.checkType = true
+    m.gaugeStandard = true
+    m.records = [
+      { id: 1, part_serial_number: 'P1', machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', standard: 50 },
+      { id: 2, part_serial_number: 'P1', machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', standard: null, gauge_standard: 'M8x1.25 6H' },
+    ]
+    try {
+      await ready()
+      expect(await screen.findByText('M8x1.25 6H')).toBeTruthy()
+      expect(screen.getByText('50')).toBeTruthy()
+    } finally {
+      m.checkType = false
+      m.gaugeStandard = false
+    }
+  })
+})
+
+describe('Quality Master -- Instrument (gauge_ref, both check types)', () => {
+  const instrument = () => screen.getByText('Instrument', { selector: 'span' }).closest('label').querySelector('input')
+
+  it('Measured: Instrument shown next to Standard, optional, saved trimmed to gauge_ref', async () => {
+    m.checkType = true
+    m.gaugeStandard = true
+    try {
+      await ready()
+      await waitFor(() => screen.getByLabelText('Machine Category'))
+      pick(selectWith('P1'), 'P1')
+      pick(selectWith('CNC'), 'CNC')
+      pick(selectWith('Rough Turning'), 'Rough Turning')
+      fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+      await waitFor(() => expect(instrument()).toBeTruthy())
+      expect(screen.queryByText('Gauge (name / no.)', { selector: 'span' })).toBeNull()
+      fireEvent.change(instrument(), { target: { value: ' Micrometer 0-25 ' } })
+      fillNumbers()
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({ check_type: 'Measured', standard: 50, gauge_ref: 'Micrometer 0-25' })
+    } finally {
+      m.checkType = false
+      m.gaugeStandard = false
+    }
+  })
+
+  it('list has an Instrument column for both types; hidden before 048', async () => {
+    m.checkType = true
+    m.records = [
+      { id: 1, part_serial_number: 'P1', machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', standard: 50, gauge_ref: 'Micrometer' },
+      { id: 2, part_serial_number: 'P1', machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', gauge_ref: 'PG-01' },
+    ]
+    try {
+      await ready()
+      expect(await screen.findByText('Micrometer')).toBeTruthy()
+      expect(screen.getByText('PG-01')).toBeTruthy()
+      expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toContain('Instrument')
+    } finally {
+      m.checkType = false
+    }
+    cleanup()
+    await ready()
+    await waitFor(() => expect(screen.getAllByRole('columnheader').length).toBeGreaterThan(0))
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).not.toContain('Instrument')
   })
 })

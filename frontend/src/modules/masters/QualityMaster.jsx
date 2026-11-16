@@ -14,6 +14,7 @@ import {
   deleteQualityParameter,
   qualityCategorySupported,
   qualityCheckTypeSupported,
+  qualityGaugeStandardSupported,
   parameterHasReadings,
 } from '../../data/queries/qualityParameters'
 import { categoryOptions, operationsForTarget, appliesToLabel, isCategoryRow, normCategory } from '../../utils/qualityMatch'
@@ -22,6 +23,7 @@ import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
+import { standardText } from '../../utils/qualityResult'
 import Banner from '../../components/Banner'
 import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
@@ -40,6 +42,7 @@ const EMPTY_FORM = {
   remarks: '',
   check_type: 'Measured', // 048
   gauge_ref: '', // 048
+  gauge_standard: '', // 053
 }
 
 const LIST_COLUMNS = [
@@ -50,8 +53,8 @@ const LIST_COLUMNS = [
   { key: 'type_of_operation', label: 'Type of Operation' },
   { key: 'quality_parameter', label: 'Quality Parameter' },
   { key: 'check_type', label: 'Check Type', needsCheckType: true },
-  { key: 'gauge_ref', label: 'Gauge', needsCheckType: true },
-  { key: 'standard', label: 'Standard' },
+  { key: 'gauge_ref', label: 'Instrument', needsCheckType: true }, // gauge_ref: Measured + Gauge
+  { key: 'standard_text', label: 'Standard' }, // Measured: number; Gauge: text spec (053)
   { key: 'upper_tolerance', label: 'Upper Tolerance' },
   { key: 'lower_tolerance', label: 'Lower Tolerance' },
   { key: 'unit_of_measurement', label: 'UoM' },
@@ -95,6 +98,7 @@ export default function QualityMaster() {
   const [categoryOn, setCategoryOn] = useState(null)
   const [checkTypeOn, setCheckTypeOn] = useState(false) // 048: Check Type (Measured / Gauge)
   const isGauge = checkTypeOn && form.check_type === 'Gauge'
+  const [gaugeStandardOn, setGaugeStandardOn] = useState(false) // 053: text Standard for Gauge
   // 048: Check Type is fixed once the parameter has readings (DB guard too)
   const [hasReadings, setHasReadings] = useState(false)
   useEffect(() => {
@@ -115,6 +119,7 @@ export default function QualityMaster() {
     let active = true
     qualityCategorySupported().then((ok) => { if (active) setCategoryOn(ok) })
     qualityCheckTypeSupported().then((ok) => { if (active) setCheckTypeOn(!!ok) }).catch(() => {})
+    qualityGaugeStandardSupported().then((ok) => { if (active) setGaugeStandardOn(!!ok) }).catch(() => {})
     return () => { active = false }
   }, [])
 
@@ -157,6 +162,7 @@ export default function QualityMaster() {
     const product = products.find((p) => p.part_serial_number === row.part_serial_number)
     return {
     ...row,
+    standard_text: standardText(row) ?? '',
     part_name: product?.part_name ?? '',
     part_drawing_reference_number: product?.part_drawing_reference_number ?? '',
     unit_of_measurement: product?.unit_of_measurement ?? '',
@@ -251,7 +257,11 @@ export default function QualityMaster() {
         upper_tolerance: isGauge ? null : toNumberOrNull(form.upper_tolerance),
         lower_tolerance: isGauge ? null : toNumberOrNull(form.lower_tolerance),
         ...(checkTypeOn
-          ? { check_type: isGauge ? 'Gauge' : 'Measured', gauge_ref: isGauge ? String(form.gauge_ref ?? '').trim() || null : null }
+          ? { check_type: isGauge ? 'Gauge' : 'Measured', gauge_ref: String(form.gauge_ref ?? '').trim() || null } // Instrument, optional, both types
+          : {}),
+        // 053: text Standard for Gauge only (display, never used for the result)
+        ...(checkTypeOn && gaugeStandardOn
+          ? { gauge_standard: isGauge ? String(form.gauge_standard ?? '').trim() || null : null }
           : {}),
         expected_text_value: null,
         remarks: form.remarks.trim() || null,
@@ -369,8 +379,17 @@ export default function QualityMaster() {
               )}
             </Field>
           )}
+          {checkTypeOn && (
+            <Field label="Instrument"><TextInput value={form.gauge_ref ?? ''} onChange={handleField('gauge_ref')} disabled={readOnly} /></Field>
+          )}
           {isGauge ? (
-            <Field label="Gauge (name / no.)"><TextInput value={form.gauge_ref ?? ''} onChange={handleField('gauge_ref')} disabled={readOnly} /></Field>
+            <>
+              {gaugeStandardOn && (
+                <Field label="Standard">
+                  <TextInput value={form.gauge_standard ?? ''} onChange={handleField('gauge_standard')} disabled={readOnly} placeholder="e.g. M8x1.25 6H" />
+                </Field>
+              )}
+            </>
           ) : (
             <>
               <Field label="Standard" required><TextInput type="number" value={inputValue(form.standard)} onChange={handleField('standard')} disabled={readOnly} /></Field>

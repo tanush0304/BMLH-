@@ -64,7 +64,7 @@ const SAMPLE = {
     { quality_log_id: 1, prd_no: 'PRD-1', stage_id: 11, stage_seq: 1, operation: 'Turning', machine_id: 'MC-1', machine_name: 'CNC 1', machine_category: 'CNC', log_date: D1, shift_code: 'A', employee_id: 'E1', inspection_result: 'Accepted' },
     { quality_log_id: 2, prd_no: 'PRD-1', stage_id: 11, stage_seq: 1, operation: 'Turning', machine_id: 'MC-1', machine_name: 'CNC 1', machine_category: 'CNC', log_date: T, shift_code: 'B', employee_id: 'E2', inspection_result: 'No readings' },
   ],
-  listReadingsForLogs: [{ reading_id: 1, quality_log_id: 1, quality_parameter: 'Dia', observed_value: 10.02, standard: 10, upper_tolerance: 0.05, lower_tolerance: 0.05, result: 'Accepted' }],
+  listReadingsForLogs: [{ reading_id: 1, quality_log_id: 1, quality_parameter: 'Dia', observed_value: 10.02, standard: 10, upper_tolerance: 0.05, lower_tolerance: 0.05, result: 'Accepted', gauge_ref: 'Micrometer-7' }],
   listQualityParameters: [{ id: 1, part_serial_number: 'P1', machine_id: 'MC-1', quality_parameter: 'Dia', standard: 10 }],
   listComplaintsForReport: [
     { id: 1, complaint_no: 'CMP-1', complaint_date: D1, customer_id: 'C1', part_serial_number: 'P1', defect_problem: 'Burr', severity: 'Major', status: 'Open' },
@@ -98,7 +98,7 @@ const SCREENS = [
   ['CustomerOrderStatus', (await import('./CustomerOrderStatusScreen')).default, 'Customer Order', 'PO-1'],
   ['JobOrderStatus', (await import('./JobOrderStatusScreen')).default, 'Job Order Status Report', 'Partially Received (Closed)'],
   ['FgInventory', (await import('./FgInventoryScreen')).default, 'Finished Goods Inventory Report', 'DRG-1'],
-  ['QualityStatus', (await import('./QualityStatusScreen')).default, 'Quality Status Report', 'Dia'],
+  ['QualityStatus', (await import('./QualityStatusScreen')).default, 'Quality Status Report', 'Micrometer-7'], // Instrument column (gauge_ref)
   ['RawMaterialStatus', (await import('./RawMaterialStatusScreen')).default, 'Raw Material Status Report', 'EN8 Bar'],
   ['DailyMachine', (await import('./DailyMachineScreen')).default, 'Daily Machine Wise Dashboard', 'VMC'],
   ['ComplaintStatus', (await import('./ComplaintStatusScreen')).default, 'Customer Complaint Report', 'CMP-1'],

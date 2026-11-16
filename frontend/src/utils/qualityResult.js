@@ -25,6 +25,18 @@ export function computeQualityResult(standard, upperTolerance, lowerTolerance, o
 
 export const isGaugeRow = (row) => row?.check_type === 'Gauge'
 
+/**
+ * 053: the "Standard" to show for a parameter / reading row -- Measured: the
+ * numeric standard; Gauge: the text gauge_standard (display only, never used
+ * for the result). Blank -> null.
+ */
+export function standardText(row) {
+  const v = isGaugeRow(row) ? row?.gauge_standard : row?.standard
+  if (v === null || v === undefined) return null
+  const s = String(v).trim()
+  return s === '' ? null : s
+}
+
 /** 'OK' -> 'Accepted', 'Not OK' -> 'Rejected', else null. */
 export function gaugeResultLabel(gaugeResult) {
   if (gaugeResult === 'OK') return 'Accepted'

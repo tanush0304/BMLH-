@@ -22,7 +22,7 @@ vi.mock('../../data/queries/qualityLogs', () => ({
   listPrdsWithRouteCard: async () => [{ prd_no: 'PRD-001', part_serial_number: 'P1' }],
   createQualityLog: m.createLog,
   createQualityLogReadings: m.createReadings,
-  listQualityInspectionHistory: async () => [],
+  listQualityInspectionHistory: async () => m.history ?? [],
   updateQualityLog: vi.fn(),
   updateQualityLogReading: vi.fn(),
 }))
@@ -143,7 +143,7 @@ describe('Quality Inspection -- Gauge checks (048)', () => {
     await fillHeader('13')
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
     await waitFor(() => expect(screen.getByText('Thread')).toBeTruthy())
-    expect(screen.getByText('Gauge: M10 GO/NO-GO')).toBeTruthy()
+    expect(screen.getByText('Thread').closest('tr').querySelector('[data-testid="instrument-cell"]').textContent).toBe('M10 GO/NO-GO')
     const gaugeRow = screen.getByText('Thread').closest('tr')
     expect(gaugeRow.querySelector('input[type="number"]')).toBeNull()
 
@@ -159,5 +159,82 @@ describe('Quality Inspection -- Gauge checks (048)', () => {
     const rows = m.createReadings.mock.calls[0][0]
     expect(rows.find((r) => r.quality_parameter_id === 2)).toEqual({ quality_log_id: 500, quality_parameter_id: 2, observed_value: null, gauge_result: 'Not OK' })
     expect(rows.find((r) => r.quality_parameter_id === 1)).toEqual({ quality_log_id: 500, quality_parameter_id: 1, observed_value: 50 })
+  })
+})
+
+describe('Quality Inspection -- Gauge Standard (053)', () => {
+  const PARAMS = [
+    { id: 1, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'OD', standard: 50, upper_tolerance: 1, lower_tolerance: 1, check_type: 'Measured' },
+    // standard 12 on a Gauge row must never be shown or used for the result
+    { id: 2, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', standard: 12, upper_tolerance: 0, lower_tolerance: 0, check_type: 'Gauge', gauge_ref: 'PG-01', gauge_standard: 'M8x1.25 6H' },
+  ]
+
+  it('Standard column: number for Measured, text spec for Gauge (same column, next to the OK / Not OK buttons); result from the buttons only', async () => {
+    m.params = PARAMS
+    await fillHeader('13')
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(screen.getByText('Thread')).toBeTruthy())
+    const gaugeRow = screen.getByText('Thread').closest('tr')
+    const measuredRow = screen.getByText('OD').closest('tr')
+    expect(gaugeRow.querySelector('[data-testid="standard-cell"]').textContent).toBe('M8x1.25 6H')
+    expect(measuredRow.querySelector('[data-testid="standard-cell"]').textContent).toBe('50')
+    // same column index in both rows
+    const idx = (row) => [...row.children].findIndex((td) => td.dataset.testid === 'standard-cell')
+    expect(idx(gaugeRow)).toBe(idx(measuredRow))
+    expect(gaugeRow.textContent).not.toContain('12')
+    fireEvent.click(screen.getByRole('button', { name: 'Thread gauge: OK' }))
+    expect(gaugeRow.textContent).toContain('Accepted')
+    fireEvent.click(screen.getByRole('button', { name: 'Thread gauge: Not OK' }))
+    expect(gaugeRow.textContent).toContain('Rejected')
+  })
+
+  it('history list has a Standard column (Measured number / Gauge text)', async () => {
+    m.params = []
+    m.history = [
+      { reading_id: 11, quality_log_id: 7, log_date: '2026-11-16', prd_no: 'PRD-001', machine_id: 'MC-004', operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', standard: 50, observed_value: 50.2, result: 'Accepted' },
+      { reading_id: 12, quality_log_id: 7, log_date: '2026-11-16', prd_no: 'PRD-001', machine_id: 'MC-004', operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', standard: 12, gauge_standard: 'M8x1.25 6H', gauge_result: 'OK', observed_value: null, result: 'Accepted' },
+    ]
+    try {
+      render(<QualityInspectionScreen />)
+      expect(await screen.findByText('M8x1.25 6H')).toBeTruthy()
+      const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
+      expect(headers.indexOf('Standard')).toBeGreaterThan(-1)
+      expect(headers.indexOf('Standard')).toBe(headers.indexOf('Observed Value') - 1)
+    } finally {
+      m.history = undefined
+    }
+  })
+})
+
+describe('Quality Inspection -- Instrument column', () => {
+  it('entry table: Instrument for Measured and Gauge rows; history column + value', async () => {
+    m.params = [
+      { id: 1, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'OD', standard: 50, check_type: 'Measured', gauge_ref: 'Micrometer' },
+      { id: 2, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', gauge_ref: 'PG-01' },
+      { id: 3, part_serial_number: 'P1', machine_id: 'MC-004', type_of_operation: 'Rough Turning', quality_parameter: 'Length', standard: 20, check_type: 'Measured' },
+    ]
+    await fillHeader('13')
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(screen.getByText('Thread')).toBeTruthy())
+    const cell = (name) => screen.getByText(name).closest('tr').querySelector('[data-testid="instrument-cell"]').textContent
+    expect(cell('OD')).toBe('Micrometer')
+    expect(cell('Thread')).toBe('PG-01')
+    expect(cell('Length')).toBe('—')
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toContain('Instrument')
+  })
+
+  it('history list shows the Instrument for a Measured reading', async () => {
+    m.params = []
+    m.history = [
+      { reading_id: 21, quality_log_id: 9, log_date: '2026-11-16', prd_no: 'PRD-001', machine_id: 'MC-004', operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', gauge_ref: 'Micrometer', standard: 50, observed_value: 50, result: 'Accepted' },
+    ]
+    try {
+      render(<QualityInspectionScreen />)
+      expect(await screen.findByText('Micrometer')).toBeTruthy()
+      const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
+      expect(headers.indexOf('Instrument')).toBe(headers.indexOf('Check Type') + 1)
+    } finally {
+      m.history = undefined
+    }
   })
 })

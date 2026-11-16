@@ -86,6 +86,35 @@ export function resetQualityCheckTypeCache() {
   checkTypeProbe = null
 }
 
+// Migration 053: "quality master".gauge_standard (text Standard for Gauge
+// parameters). Until it is run the field / value stays hidden. Same caching
+// as above; one expected 400 in the console before 053.
+let gaugeStandardSupported = null
+let gaugeStandardProbe = null
+
+export async function qualityGaugeStandardSupported() {
+  if (gaugeStandardSupported !== null) return gaugeStandardSupported
+  gaugeStandardProbe ??= (async () => {
+    let error
+    try {
+      ;({ error } = await supabase.from(TABLE).select('gauge_standard').limit(0))
+    } catch {
+      return false
+    }
+    if (!error) return (gaugeStandardSupported = true)
+    if (isMissingColumnError(error)) return (gaugeStandardSupported = false)
+    return false
+  })().finally(() => {
+    gaugeStandardProbe = null
+  })
+  return gaugeStandardProbe
+}
+
+export function resetQualityGaugeStandardCache() {
+  gaugeStandardSupported = null
+  gaugeStandardProbe = null
+}
+
 /** 048: true when the parameter already has inspection readings (its Check
  * Type is then fixed -- the DB refuses a change too). */
 export async function parameterHasReadings(parameterId) {

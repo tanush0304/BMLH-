@@ -24,17 +24,18 @@
 -- PREVIEW (read-only)
 -- =====================================================================
 
--- P1. Rows below 0 (must be empty before the VALIDATE statements).
-select 'production log hours' as tbl, id, 'qty_produced' as col, qty_produced::text as value from public."production log hours" where qty_produced < 0
-union all select 'production log hours', id, 'qty_rejected', qty_rejected::text from public."production log hours" where qty_rejected < 0
-union all select 'production log hours', id, 'qty_rework',   qty_rework::text   from public."production log hours" where qty_rework < 0
-union all select 'raw material transactions',   id, 'qty', qty::text from public."raw material transactions"   where qty < 0
-union all select 'wip transactions',            id, 'qty', qty::text from public."wip transactions"            where qty < 0
-union all select 'finished goods transactions', id, 'qty', qty::text from public."finished goods transactions" where qty < 0
-union all select 'job order dispatch',          id, 'qty', qty::text from public."job order dispatch"          where qty < 0
-union all select 'job order receipt',           id, 'qty_received', qty_received::text from public."job order receipt" where qty_received < 0
-union all select 'raw material requisitions',   id, 'qty_required', qty_required::text from public."raw material requisitions" where qty_required < 0
-order by 1, 2;
+-- P1. Rows below 0, counted per column ("job order dispatch" has no id
+-- column). Every count must be 0 before the VALIDATE statements.
+select 'production log hours.qty_produced' as col, count(*) from public."production log hours" where qty_produced < 0
+union all select 'production log hours.qty_rejected', count(*) from public."production log hours" where qty_rejected < 0
+union all select 'production log hours.qty_rework', count(*) from public."production log hours" where qty_rework < 0
+union all select 'raw material transactions.qty', count(*) from public."raw material transactions" where qty < 0
+union all select 'wip transactions.qty', count(*) from public."wip transactions" where qty < 0
+union all select 'finished goods transactions.qty', count(*) from public."finished goods transactions" where qty < 0
+union all select 'job order dispatch.qty', count(*) from public."job order dispatch" where qty < 0
+union all select 'job order receipt.qty_received', count(*) from public."job order receipt" where qty_received < 0
+union all select 'raw material requisitions.qty_required', count(*) from public."raw material requisitions" where qty_required < 0;
+
 
 -- P2. Check constraints that already cover these columns (those columns are skipped).
 select c.conrelid::regclass as tbl, a.attname as col, c.conname, pg_get_constraintdef(c.oid) as def
