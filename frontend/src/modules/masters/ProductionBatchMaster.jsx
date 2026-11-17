@@ -26,6 +26,7 @@ const EMPTY_FORM = {
 
 const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' }, // from Product Master (display only, never saved)
   { key: 'production_batch_quantity', label: 'Batch Quantity' },
 ]
 
@@ -142,9 +143,11 @@ export default function ProductionBatchMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Production Batch Master', 'production_batch_master')
   }
 
-  const filteredRecords = records.filter((r) => {
+  const partNames = new Map(products.map((p) => [p.part_serial_number, p.part_name]))
+  const filteredRecords = records.map((r) => ({ ...r, part_name: partNames.get(r.part_serial_number) ?? '' })).filter((r) => {
     if (!listSearch) return true
-    return r.part_serial_number?.toLowerCase().includes(listSearch.toLowerCase())
+    const q = listSearch.toLowerCase()
+    return r.part_serial_number?.toLowerCase().includes(q) || r.part_name?.toLowerCase().includes(q)
   })
 
   const readOnly = mode === 'view'
@@ -209,7 +212,7 @@ export default function ProductionBatchMaster() {
           selectedKey={form.part_serial_number}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number..."
+          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Part Name..."
         />
       </div>
       {del.dialog}

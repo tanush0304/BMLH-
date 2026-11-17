@@ -35,6 +35,7 @@ const EMPTY_FORM = {
 
 const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
+  { key: 'part_name', label: 'Part Name' }, // from Product Master (display only, never saved)
   { key: 'stage_no', label: 'Stage' }, // route position (withRoutePositions); the raw seq is edited on the form
   { key: 'operation', label: 'Operation' },
   { key: 'type', label: 'Type' },
@@ -194,11 +195,12 @@ export default function CycleTimeMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Cycle Time Master', 'cycle_time_master')
   }
 
-  const filteredRecords = records.filter((r) => {
+  const partNames = new Map(products.map((p) => [p.part_serial_number, p.part_name]))
+  const filteredRecords = records.map((r) => ({ ...r, part_name: partNames.get(r.part_serial_number) ?? '' })).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
     return (
-      r.part_serial_number?.toLowerCase().includes(q) || r.operation?.toLowerCase().includes(q)
+      r.part_serial_number?.toLowerCase().includes(q) || r.part_name?.toLowerCase().includes(q) || r.operation?.toLowerCase().includes(q)
     )
   })
 
@@ -298,7 +300,7 @@ export default function CycleTimeMaster() {
           selectedKey={form.id}
           onRowClick={handleRowClick}
           searchValue={listSearch}
-          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Operation..."
+          onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Part Name / Operation..."
         />
       </div>
       {del.dialog}
