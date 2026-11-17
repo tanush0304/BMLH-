@@ -66,7 +66,10 @@ const SAMPLE = {
   ],
   listReadingsForLogs: [{ reading_id: 1, quality_log_id: 1, quality_parameter: 'Dia', observed_value: 10.02, standard: 10, upper_tolerance: 0.05, lower_tolerance: 0.05, result: 'Accepted', gauge_ref: 'Micrometer-7' },
     // 056: a Job Work (Gauge) reading -- Standard text, no tolerance band
-    { reading_id: 2, quality_log_id: 1, quality_parameter: 'Hardness', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_result: 'OK', observed_value: null, standard: null, upper_tolerance: null, lower_tolerance: null, result: 'Accepted', gauge_ref: 'HT-01' }],
+    { reading_id: 2, quality_log_id: 1, quality_parameter: 'Hardness', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_result: 'OK', observed_value: null, standard: null, upper_tolerance: null, lower_tolerance: null, result: 'Accepted', gauge_ref: 'HT-01' },
+    // 057: two samples of one parameter (second out of tolerance)
+    { reading_id: 3, quality_log_id: 1, quality_parameter: 'Bore', sample_no: 1, observed_value: 20, standard: 20, upper_tolerance: 0.02, lower_tolerance: 0.02, result: 'Accepted' },
+    { reading_id: 4, quality_log_id: 1, quality_parameter: 'Bore', sample_no: 2, observed_value: 20.5, standard: 20, upper_tolerance: 0.02, lower_tolerance: 0.02, result: 'Not Accepted' }],
   listQualityParameters: [{ id: 1, part_serial_number: 'P1', machine_id: 'MC-1', quality_parameter: 'Dia', standard: 10 }],
   listComplaintsForReport: [
     { id: 1, complaint_no: 'CMP-1', complaint_date: D1, customer_id: 'C1', part_serial_number: 'P1', defect_problem: 'Burr', severity: 'Major', status: 'Open' },
@@ -158,5 +161,23 @@ describe('Quality Status -- Job Work (Gauge) rows (056)', () => {
     expect(rowText).toContain('—') // tolerance band
     expect(rowText.some((t) => /^[\d.,-]+ – [\d.,-]+$/.test(t))).toBe(false) // no 'min – max' band
     expect(rowText).toContain('OK')
+  })
+})
+
+describe('Quality Status -- samples (057)', () => {
+  it('Sample + Parameter Result columns; each sample row carries its parameter NG result', async () => {
+    data = 'sample'
+    const QualityStatus = (await import('./QualityStatusScreen')).default
+    let view
+    await act(async () => {
+      view = render(<ChartTypeProvider initial="bar"><QualityStatus onOpenTraceability={() => {}} initialPrdNo="" /></ChartTypeProvider>)
+    })
+    for (let i = 0; i < 4; i++) await act(async () => {})
+    const headers = [...view.container.querySelectorAll('th')].map((th) => th.textContent)
+    expect(headers).toContain('Sample')
+    expect(headers).toContain('Parameter Result')
+    const bore = [...view.container.querySelectorAll('tr')].filter((tr) => [...tr.querySelectorAll('td')].some((td) => td.textContent === 'Bore'))
+    expect(bore).toHaveLength(2)
+    for (const tr of bore) expect([...tr.querySelectorAll('td')].map((td) => td.textContent)).toContain('NG')
   })
 })

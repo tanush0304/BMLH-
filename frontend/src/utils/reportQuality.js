@@ -51,8 +51,29 @@ export function parameterSeries(readings, inspectionById, partForPrd, part, para
     .filter((r) => r.quality_parameter === parameter && !isGaugeRow(r)) // 048 / Job Work: gauge has no value to chart
     .map((r) => ({ r, i: inspectionById.get(r.quality_log_id) }))
     .filter(({ i }) => i && partForPrd(i.prd_no) === part)
-    .sort((a, b) => (a.i.log_date < b.i.log_date ? -1 : a.i.log_date > b.i.log_date ? 1 : a.r.reading_id - b.r.reading_id))
-    .map(({ r, i }) => ({ date: i.log_date, observed: num(r.observed_value), result: r.result, ...(toleranceBand(r) ?? { min: null, max: null, std: null }) }))
+    // 057: every sample is a point -- same date: by inspection, then sample_no
+    .sort((a, b) => (a.i.log_date < b.i.log_date ? -1 : a.i.log_date > b.i.log_date ? 1
+      : a.r.quality_log_id !== b.r.quality_log_id ? a.r.reading_id - b.r.reading_id
+      : (a.r.sample_no ?? 1) - (b.r.sample_no ?? 1) || a.r.reading_id - b.r.reading_id))
+    .map(({ r, i }) => ({ date: i.log_date, sample_no: r.sample_no ?? null, observed: num(r.observed_value), result: r.result, ...(toleranceBand(r) ?? { min: null, max: null, std: null }) }))
+}
+
+/** 057: chart x label -- "16-Nov · S3" when the series has more than one sample per inspection. */
+export function seriesLabel(point, multiSample, shortDate) {
+  const d = shortDate(point.date)
+  return multiSample && point.sample_no ? `${d} · S${point.sample_no}` : d
+}
+
+/** 057: per inspection x parameter, 'NG' when any sample is Not Accepted, else 'OK'
+ * (null when none has a result). Map(`${quality_log_id}|${quality_parameter}` -> 'OK' | 'NG'). */
+export function parameterResultsByLog(readings = []) {
+  const out = new Map()
+  for (const r of readings) {
+    const key = `${r.quality_log_id}|${r.quality_parameter}`
+    if (r.result === 'Not Accepted') out.set(key, 'NG')
+    else if (r.result === 'Accepted' && !out.has(key)) out.set(key, 'OK')
+  }
+  return out
 }
 
 /** Production pieces per (prd, stage, date, shift) from "report production

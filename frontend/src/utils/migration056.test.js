@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const sql = readFileSync(new URL('../../../backend/migrations/056_jobwork_gauge_and_security.sql', import.meta.url), 'utf8')
+const sql = readFileSync(new URL('../../../backend/migrations/056_jobwork_gauge_and_security.sql', import.meta.url), 'utf8').replace(/\r\n/g, '\n') // CRLF checkout
 // statements only (comment lines dropped)
 const code = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
 

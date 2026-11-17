@@ -37,7 +37,7 @@ describe('parameter series', () => {
     const byId = new Map(INSP.map((i) => [i.quality_log_id, i]))
     const part = (prd) => (prd === 'P1' ? 'PART-A' : 'PART-B')
     expect(parameterSeries(readings, byId, part, 'PART-A', 'OD')).toEqual([
-      { date: '2026-10-01', observed: 49.98, result: 'Accepted', min: 49.9, max: 50.1, std: 50 },
+      { date: '2026-10-01', sample_no: null, observed: 49.98, result: 'Accepted', min: 49.9, max: 50.1, std: 50 }, // 057: sample_no null before 057
     ])
     expect(parameterSeries(readings, byId, part, 'PART-B', 'OD')[0].observed).toBe(50.2)
   })

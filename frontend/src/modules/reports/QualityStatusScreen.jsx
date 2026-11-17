@@ -22,7 +22,7 @@ import { qualityMachineText, JOBWORK_MACHINE_LABEL } from '../../utils/jobworkQc
 import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
-import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary, readingTarget, formatTarget } from '../../utils/reportQuality'
+import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary, readingTarget, formatTarget, seriesLabel, parameterResultsByLog } from '../../utils/reportQuality'
 import Banner from '../../components/Banner'
 import { seriesExportData, donutExportData, fieldsFilterText } from '../../utils/chartExport'
 
@@ -123,7 +123,11 @@ export default function QualityStatusScreen() {
   const chartParameter = paramsForPart.includes(chartParam) ? chartParam : (param && paramsForPart.includes(param) ? param : paramsForPart[0] ?? '')
   // Not `series`: that name is the Bar/Line helper imported above.
   const paramSeries = useMemo(
-    () => parameterSeries(readings, inspectionById, partForPrd, part, chartParameter).map((p, n) => ({ ...p, n: n + 1, label: shortDate(p.date) })),
+    () => {
+      const pts = parameterSeries(readings, inspectionById, partForPrd, part, chartParameter)
+      const multi = pts.some((p) => (p.sample_no ?? 1) > 1) // 057: every sample plotted
+      return pts.map((p, n) => ({ ...p, n: n + 1, label: seriesLabel(p, multi, shortDate) }))
+    },
     [readings, inspectionById, partForPrd, part, chartParameter]
   )
   const band = paramSeries.find((p) => p.min != null)
@@ -139,6 +143,8 @@ export default function QualityStatusScreen() {
 
   // Table: one row per reading; an inspection without readings gets one row.
   const pieces = useMemo(() => piecesByInspectionKey(hours), [hours])
+  const hasSamples = readings.some((x) => x.sample_no != null) // 057 run
+  const paramResults = useMemo(() => parameterResultsByLog(scopedReadings), [scopedReadings])
   const rows = useMemo(() => {
     const byLog = new Map()
     for (const x of scopedReadings) {
@@ -169,6 +175,8 @@ export default function QualityStatusScreen() {
           ...base,
           key: `${i.quality_log_id}-${x.reading_id}`,
           parameter: gauge ? `${x.quality_parameter} (Gauge)` : x.quality_parameter,
+          sample_no: x.sample_no ?? 1, // 057
+          parameter_result: paramResults.get(`${i.quality_log_id}|${x.quality_parameter}`) ?? null,
           instrument: x.gauge_ref || null,
           target: readingTarget(x), // 053: Gauge = its text Standard
           tolerance: b ? `${fmtNum(b.min)} – ${fmtNum(b.max)}` : '—',
@@ -178,7 +186,7 @@ export default function QualityStatusScreen() {
       }
     }
     return out
-  }, [scopedInspections, scopedReadings, pieces, opts.employees])
+  }, [scopedInspections, scopedReadings, pieces, paramResults, opts.employees])
 
   const prdOptions = [...new Set(opts.orders.map((o) => o.prd_no).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
   // With a Machine picked: every parameter Quality Master defines for that
@@ -200,11 +208,13 @@ export default function QualityStatusScreen() {
     { key: 'shift_code', label: 'Shift' },
     { key: 'employee', label: 'Inspected By' },
     { key: 'parameter', label: 'Quality Parameter' },
+    ...(hasSamples ? [{ key: 'sample_no', label: 'Sample', align: 'right' }] : []), // 057
     { key: 'target', label: 'Target', align: 'right', format: formatTarget },
     { key: 'tolerance', label: 'Tolerance Band' },
     { key: 'instrument', label: 'Instrument', format: (v) => v || '—' }, // gauge_ref
     { key: 'actual', label: 'Actual', align: 'right', format: (v) => (typeof v === 'string' ? v : fmtNum(v)) }, // gauge: OK / Not OK
     { key: 'result', label: 'Result', format: (v) => v ?? '—', render: (row) => (row.result ? <ReportBadge status={row.result} tones={RESULT_TONES} /> : '—') },
+    ...(hasSamples ? [{ key: 'parameter_result', label: 'Parameter Result', format: (v) => v ?? '—', render: (row) => (row.parameter_result ? <ReportBadge status={row.parameter_result} tones={RESULT_TONES} /> : '—') }] : []), // 057: any NG sample -> NG
     { key: 'inspection_result', label: 'Inspection Result', render: (row) => <ReportBadge status={row.inspection_result} tones={RESULT_TONES} /> },
     { key: 'pieces', label: 'Production Pieces (Produced / Rejected)', align: 'right', format: (v) => (v ? `${formatQty(v.produced)} / ${formatQty(v.rejected)}` : '—') },
   ]
