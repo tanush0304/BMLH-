@@ -1,3 +1,4 @@
+import { isGaugeRow } from '../../utils/qualityResult'
 import { useEffect, useMemo, useState } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea, ReferenceLine } from 'recharts'
 import { useChartType, series } from '../../components/reports/ChartTypeToggle'
@@ -162,7 +163,7 @@ export default function QualityStatusScreen() {
       const list = byLog.get(i.quality_log_id) ?? []
       if (list.length === 0) out.push({ ...base, key: `${i.quality_log_id}-none`, parameter: '—', result: null })
       for (const x of list) {
-        const gauge = x.check_type === 'Gauge' // 048
+        const gauge = isGaugeRow(x) // 048 / Job Work
         const b = gauge ? null : toleranceBand(x)
         out.push({
           ...base,

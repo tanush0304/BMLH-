@@ -2,6 +2,7 @@
 // (029: one row per inspection, inspection_result Accepted / Rejected /
 // No readings) and "quality log results" (one row per reading).
 import { groupBy, pct } from './reportAggregates'
+import { isGaugeRow } from './qualityResult'
 
 function num(v) {
   const n = Number(v)
@@ -37,7 +38,7 @@ export function dailyQuality(inspections, days) {
 /** Tolerance band of a reading: standard - lower .. standard + upper
  * (same rule as "quality log results"); null without a standard. */
 export function toleranceBand(r) {
-  if (r.standard == null) return null
+  if (r.standard == null || isGaugeRow(r)) return null // Gauge / Job Work: no band
   const std = num(r.standard)
   return { min: std - num(r.lower_tolerance), max: std + num(r.upper_tolerance), std }
 }
@@ -47,7 +48,7 @@ export function toleranceBand(r) {
  * reading's date / PRD; `partForPrd(prd)` its part. */
 export function parameterSeries(readings, inspectionById, partForPrd, part, parameter) {
   return readings
-    .filter((r) => r.quality_parameter === parameter && r.check_type !== 'Gauge') // 048: gauge has no value to chart
+    .filter((r) => r.quality_parameter === parameter && !isGaugeRow(r)) // 048 / Job Work: gauge has no value to chart
     .map((r) => ({ r, i: inspectionById.get(r.quality_log_id) }))
     .filter(({ i }) => i && partForPrd(i.prd_no) === part)
     .sort((a, b) => (a.i.log_date < b.i.log_date ? -1 : a.i.log_date > b.i.log_date ? 1 : a.r.reading_id - b.r.reading_id))
@@ -84,7 +85,7 @@ export function qualityTrend(inspections, days, { maxDays = 62, dayLabel = (d) =
  * (null when the parameter is not a Gauge check for that part). */
 export function gaugeSummary(readings, inspectionById, partForPrd, part, parameter) {
   const rows = readings
-    .filter((r) => r.quality_parameter === parameter && r.check_type === 'Gauge')
+    .filter((r) => r.quality_parameter === parameter && isGaugeRow(r))
     .filter((r) => {
       const i = inspectionById.get(r.quality_log_id)
       return i && partForPrd(i.prd_no) === part
@@ -97,7 +98,7 @@ export function gaugeSummary(readings, inspectionById, partForPrd, part, paramet
 /** Quality Status "Target" for a reading: Measured -> numeric standard,
  * Gauge -> its text gauge_standard (display only). Blank -> null. */
 export function readingTarget(row) {
-  const v = row?.check_type === 'Gauge' ? row?.gauge_standard : row?.standard
+  const v = isGaugeRow(row) ? row?.gauge_standard : row?.standard
   if (v === null || v === undefined || String(v).trim() === '') return null
   return typeof v === 'string' ? v.trim() : v
 }

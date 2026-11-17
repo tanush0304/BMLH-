@@ -62,6 +62,7 @@ function readingRowFromParam(p) {
     lower_tolerance: p.lower_tolerance,
     observed_value: '',
     check_type: p.check_type ?? 'Measured', // 048
+    job_work_code: p.job_work_code ?? null, // 054: Job Work = always OK / Not OK
     gauge_ref: p.gauge_ref ?? '',
     gauge_standard: p.gauge_standard ?? null, // 053
     gauge_result: '',
@@ -653,7 +654,7 @@ export default function QualityInspectionScreen({ role, initialMode }) {
                         : computeQualityResult(row.standard, row.upper_tolerance, row.lower_tolerance, row.observed_value)
                       const noLimit = !gauge && (row.standard === null || row.standard === undefined)
                       return (
-                        <tr key={row.quality_parameter_id} className="border-t border-gray-100" data-check-type={row.check_type}>
+                        <tr key={row.quality_parameter_id} className="border-t border-gray-100" data-check-type={isGaugeRow(row) ? 'Gauge' : row.check_type}>
                           <td className="px-3 py-1">
                             {row.quality_parameter}
                             {gauge && (

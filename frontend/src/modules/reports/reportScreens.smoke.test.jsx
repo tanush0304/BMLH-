@@ -64,7 +64,9 @@ const SAMPLE = {
     { quality_log_id: 1, prd_no: 'PRD-1', stage_id: 11, stage_seq: 1, operation: 'Turning', machine_id: 'MC-1', machine_name: 'CNC 1', machine_category: 'CNC', log_date: D1, shift_code: 'A', employee_id: 'E1', inspection_result: 'Accepted' },
     { quality_log_id: 2, prd_no: 'PRD-1', stage_id: 11, stage_seq: 1, operation: 'Turning', machine_id: 'MC-1', machine_name: 'CNC 1', machine_category: 'CNC', log_date: T, shift_code: 'B', employee_id: 'E2', inspection_result: 'No readings' },
   ],
-  listReadingsForLogs: [{ reading_id: 1, quality_log_id: 1, quality_parameter: 'Dia', observed_value: 10.02, standard: 10, upper_tolerance: 0.05, lower_tolerance: 0.05, result: 'Accepted', gauge_ref: 'Micrometer-7' }],
+  listReadingsForLogs: [{ reading_id: 1, quality_log_id: 1, quality_parameter: 'Dia', observed_value: 10.02, standard: 10, upper_tolerance: 0.05, lower_tolerance: 0.05, result: 'Accepted', gauge_ref: 'Micrometer-7' },
+    // 056: a Job Work (Gauge) reading -- Standard text, no tolerance band
+    { reading_id: 2, quality_log_id: 1, quality_parameter: 'Hardness', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_result: 'OK', observed_value: null, standard: null, upper_tolerance: null, lower_tolerance: null, result: 'Accepted', gauge_ref: 'HT-01' }],
   listQualityParameters: [{ id: 1, part_serial_number: 'P1', machine_id: 'MC-1', quality_parameter: 'Dia', standard: 10 }],
   listComplaintsForReport: [
     { id: 1, complaint_no: 'CMP-1', complaint_date: D1, customer_id: 'C1', part_serial_number: 'P1', defect_problem: 'Burr', severity: 'Major', status: 'Open' },
@@ -138,5 +140,23 @@ describe.each(['empty', 'sample'])('report screens with %s data', (set) => {
       if (set === 'sample') expect(view.container.textContent).toContain(sampleText) // data really loaded
       expect(realErrors()).toEqual([])
     })
+  })
+})
+
+describe('Quality Status -- Job Work (Gauge) rows (056)', () => {
+  it('shows the Standard text and no tolerance band', async () => {
+    data = 'sample'
+    const QualityStatus = (await import('./QualityStatusScreen')).default
+    let view
+    await act(async () => {
+      view = render(<ChartTypeProvider initial="bar"><QualityStatus onOpenTraceability={() => {}} initialPrdNo="" /></ChartTypeProvider>)
+    })
+    for (let i = 0; i < 4; i++) await act(async () => {})
+    const cell = [...view.container.querySelectorAll('td')].find((td) => td.textContent === '58-62 HRC')
+    expect(cell).toBeTruthy()
+    const rowText = [...cell.closest('tr').querySelectorAll('td')].map((td) => td.textContent)
+    expect(rowText).toContain('—') // tolerance band
+    expect(rowText.some((t) => /^[\d.,-]+ – [\d.,-]+$/.test(t))).toBe(false) // no 'min – max' band
+    expect(rowText).toContain('OK')
   })
 })

@@ -75,7 +75,7 @@ const values = (el) => [...el.options].map((o) => o.value).filter(Boolean)
 const selectWith = (v) => screen.getAllByTestId('ss').find((el) => values(el).includes(v))
 const pick = (el, value) => fireEvent.change(el, { target: { value } })
 const PARAMS = [
-  { id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', standard: 30, upper_tolerance: 2, lower_tolerance: 2 },
+  { id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_ref: 'HT-01', standard: null, upper_tolerance: null, lower_tolerance: null },
   { id: 2, part_serial_number: 'P1', machine_id: 'MC-004', machine_category: null, job_work_code: null, type_of_operation: 'Toughening', quality_parameter: 'OD', standard: 50 },
 ]
 const gateData = () => ({
@@ -141,11 +141,11 @@ describe('Quality Inspection -- jobwork receipt (054)', () => {
     await waitFor(() => expect(screen.getByText(/2\. Readings -- PRD-001 \/ Jobwork · JR-008 \/ Toughening/)).toBeTruthy())
     expect(screen.getByText('Hardness')).toBeTruthy()
     expect(screen.queryByText('OD')).toBeNull() // machine row not used for a receipt
-    fireEvent.change(document.querySelector('input[type="number"]'), { target: { value: '31' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Hardness gauge: OK' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save Inspection' }))
     await waitFor(() => expect(m.createLog).toHaveBeenCalled())
     expect(m.createLog.mock.calls[0][0]).toEqual({ prd_no: 'PRD-001', stage_id: 14, machine_id: null, receipt_id: 8, employee_id: 'E1', shift_code: 'A' })
-    expect(m.createReadings.mock.calls[0][0]).toEqual([{ quality_log_id: 500, quality_parameter_id: 1, observed_value: 31 }])
+    expect(m.createReadings.mock.calls[0][0]).toEqual([{ quality_log_id: 500, quality_parameter_id: 1, observed_value: null, gauge_result: 'OK' }])
   })
 
   it('no Job Work parameters: says where to add them, nothing saved', async () => {
@@ -204,5 +204,49 @@ describe('Pending incoming QC panel (055)', () => {
     render(<QualityInspectionScreen role="operator" />)
     await waitFor(() => expect(selectWith('PRD-001')).toBeTruthy())
     expect(screen.queryByRole('region', { name: 'Pending incoming QC' })).toBeNull()
+  })
+})
+
+describe('Quality Inspection -- Job Work parameters are OK / Not OK (056)', () => {
+  async function openReadings(params = PARAMS) {
+    m.params = params
+    await receiptMode()
+    pick(selectWith('8'), '8')
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(screen.getByText('Hardness')).toBeTruthy())
+  }
+
+  it('shows Standard text + Instrument with OK / Not OK buttons and no observed-value box', async () => {
+    await openReadings()
+    expect(screen.getByTestId('standard-cell').textContent).toBe('58-62 HRC')
+    expect(screen.getByTestId('instrument-cell').textContent).toBe('HT-01')
+    expect(screen.getByRole('button', { name: 'Hardness gauge: OK' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hardness gauge: Not OK' })).toBeTruthy()
+    expect(document.querySelector('input[type="number"]')).toBeNull()
+  })
+
+  it('OK -> Accepted, Not OK -> Rejected', async () => {
+    await openReadings()
+    const row = screen.getByText('Hardness').closest('tr')
+    fireEvent.click(screen.getByRole('button', { name: 'Hardness gauge: OK' }))
+    expect(within(row).getByText('Accepted')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Hardness gauge: Not OK' }))
+    expect(within(row).getByText('Rejected')).toBeTruthy()
+  })
+
+  it('a Job Work row saved before 056 as Measured is still OK / Not OK (no number box)', async () => {
+    await openReadings([{ ...PARAMS[0], check_type: 'Measured', standard: 30, upper_tolerance: 2, lower_tolerance: 2 }, PARAMS[1]])
+    expect(document.querySelector('input[type="number"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Hardness gauge: Not OK' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save Inspection' }))
+    await waitFor(() => expect(m.createReadings).toHaveBeenCalled())
+    expect(m.createReadings.mock.calls[0][0]).toEqual([{ quality_log_id: 500, quality_parameter_id: 1, observed_value: null, gauge_result: 'Not OK' }])
+  })
+
+  it('a Job Work row needs OK or Not OK before saving', async () => {
+    await openReadings()
+    fireEvent.click(screen.getByRole('button', { name: 'Save Inspection' }))
+    expect(await screen.findByText(/Choose OK or Not OK for Hardness/)).toBeTruthy()
+    expect(m.createLog).not.toHaveBeenCalled()
   })
 })

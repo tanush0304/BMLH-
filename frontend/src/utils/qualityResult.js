@@ -23,7 +23,10 @@ export function computeQualityResult(standard, upperTolerance, lowerTolerance, o
 // a value. The view keeps 'Accepted' / 'Not Accepted' (report quality
 // inspections unchanged); screens show a gauge result as Accepted / Rejected.
 
-export const isGaugeRow = (row) => row?.check_type === 'Gauge'
+// Job Work parameters (054 job_work_code) are always OK / Not OK -- treated as
+// Gauge even if a row were saved otherwise (056 DB check makes them Gauge).
+export const isGaugeRow = (row) =>
+  row?.check_type === 'Gauge' || (row?.job_work_code != null && String(row.job_work_code).trim() !== '')
 
 /**
  * 053: the "Standard" to show for a parameter / reading row -- Measured: the

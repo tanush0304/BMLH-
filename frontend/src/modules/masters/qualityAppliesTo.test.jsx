@@ -67,7 +67,7 @@ async function ready() {
 
 function fillNumbers() {
   const inputs = document.querySelectorAll('input[type="number"]')
-  fireEvent.change(inputs[0], { target: { value: '50' } })
+  if (inputs[0]) fireEvent.change(inputs[0], { target: { value: '50' } }) // Job Work (056): no numeric Standard
 }
 
 beforeEach(() => {
@@ -440,5 +440,63 @@ describe('Quality Master -- Instrument (gauge_ref, both check types)', () => {
     await ready()
     await waitFor(() => expect(screen.getAllByRole('columnheader').length).toBeGreaterThan(0))
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).not.toContain('Instrument')
+  })
+})
+
+describe('Quality Master -- Job Work is always OK / Not OK (056)', () => {
+  const label = (text) => screen.queryByText(text, { selector: 'span' })
+  async function startJobWork() {
+    await ready()
+    await waitFor(() => screen.getByRole('radio', { name: 'Job Work' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Job Work' }))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('HT'), 'HT')
+    pick(selectWith('Toughening'), 'Toughening')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'Hardness' } })
+  }
+  function on() { m.jobWork = true; m.checkType = true; m.gaugeStandard = true }
+  function off() { m.checkType = false; m.gaugeStandard = false }
+
+  it('hides Check Type; shows only text Standard + Instrument; no tolerances / numeric Standard', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      expect(label('Check Type')).toBeNull()
+      expect(label('Upper Tolerance')).toBeNull()
+      expect(label('Lower Tolerance')).toBeNull()
+      expect(document.querySelectorAll('input[type="number"]').length).toBe(0)
+      expect(label('Standard').closest('label').querySelector('input').type).not.toBe('number')
+    } finally { off() }
+  })
+
+  it('saves check_type Gauge automatically, numerics null, gauge_standard + gauge_ref trimmed', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      fireEvent.change(label('Standard').closest('label').querySelector('input'), { target: { value: ' 58-62 HRC ' } })
+      fireEvent.change(label('Instrument').closest('label').querySelector('input'), { target: { value: ' HT-01 ' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({
+        job_work_code: 'HT', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_ref: 'HT-01',
+        standard: null, upper_tolerance: null, lower_tolerance: null,
+      })
+    } finally { off() }
+  })
+
+  it('switching away from Job Work brings back Check Type (Measured) + numeric Standard + tolerances', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      fireEvent.click(screen.getByLabelText('Machine Category'))
+      await waitFor(() => expect(label('Check Type')).toBeTruthy())
+      expect(label('Check Type').closest('label').querySelector('select').value).toBe('Measured')
+      expect(label('Upper Tolerance')).toBeTruthy()
+      expect(label('Lower Tolerance')).toBeTruthy()
+      expect(label('Standard').closest('label').querySelector('input').type).toBe('number')
+    } finally { off() }
   })
 })

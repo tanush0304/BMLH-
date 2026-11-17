@@ -102,7 +102,6 @@ export default function QualityMaster() {
   // 044 run? null = not known yet (treated as "no": the old form).
   const [categoryOn, setCategoryOn] = useState(null)
   const [checkTypeOn, setCheckTypeOn] = useState(false) // 048: Check Type (Measured / Gauge)
-  const isGauge = checkTypeOn && form.check_type === 'Gauge'
   const [gaugeStandardOn, setGaugeStandardOn] = useState(false) // 053: text Standard for Gauge
   // 048: Check Type is fixed once the parameter has readings (DB guard too)
   const [hasReadings, setHasReadings] = useState(false)
@@ -121,6 +120,8 @@ export default function QualityMaster() {
   const [jobWorkOn, setJobWorkOn] = useState(false) // 054: Applies To "Job Work"
   const [jobWorkTypes, setJobWorkTypes] = useState([])
   const byJobWork = jobWorkOn && form.applies_to === 'jobwork'
+  // Job Work parameters are always OK / Not OK (Gauge; 056 DB check): no Check Type choice.
+  const isGauge = byJobWork || (checkTypeOn && form.check_type === 'Gauge')
   const byCategory = !!categoryOn && form.applies_to === 'category'
 
   useEffect(() => {
@@ -202,7 +203,9 @@ export default function QualityMaster() {
   }
 
   function handleAppliesTo(value) {
-    setForm((current) => ({ ...current, applies_to: value, machine_id: '', machine_category: '', job_work_code: '', type_of_operation: '' }))
+    setForm((current) => ({ ...current, applies_to: value, machine_id: '', machine_category: '', job_work_code: '', type_of_operation: '',
+      // Job Work = Gauge; leaving Job Work brings back the normal (Measured) fields
+      ...(value === 'jobwork' ? { check_type: 'Gauge', standard: '', upper_tolerance: '', lower_tolerance: '' } : current.applies_to === 'jobwork' ? { check_type: 'Measured', gauge_standard: '' } : {}) }))
   }
 
   function handleJobWorkChange(e) {
@@ -274,11 +277,11 @@ export default function QualityMaster() {
         standard: isGauge ? null : toNumberOrNull(form.standard),
         upper_tolerance: isGauge ? null : toNumberOrNull(form.upper_tolerance),
         lower_tolerance: isGauge ? null : toNumberOrNull(form.lower_tolerance),
-        ...(checkTypeOn
+        ...(checkTypeOn || byJobWork
           ? { check_type: isGauge ? 'Gauge' : 'Measured', gauge_ref: String(form.gauge_ref ?? '').trim() || null } // Instrument, optional, both types
           : {}),
         // 053: text Standard for Gauge only (display, never used for the result)
-        ...(checkTypeOn && gaugeStandardOn
+        ...((checkTypeOn || byJobWork) && gaugeStandardOn
           ? { gauge_standard: isGauge ? String(form.gauge_standard ?? '').trim() || null : null }
           : {}),
         expected_text_value: null,
@@ -396,7 +399,7 @@ export default function QualityMaster() {
               {parameterSuggestions.map((name) => <option key={name} value={name} />)}
             </datalist>
           </Field>
-          {checkTypeOn && (
+          {checkTypeOn && !byJobWork && (
             <Field label="Check Type" required>
               <SelectInput value={form.check_type || 'Measured'} onChange={handleField('check_type')} disabled={readOnly || hasReadings} options={['Measured', 'Gauge']} />
               {hasReadings && (
@@ -406,7 +409,7 @@ export default function QualityMaster() {
               )}
             </Field>
           )}
-          {checkTypeOn && (
+          {(checkTypeOn || byJobWork) && (
             <Field label="Instrument"><TextInput value={form.gauge_ref ?? ''} onChange={handleField('gauge_ref')} disabled={readOnly} /></Field>
           )}
           {isGauge ? (
