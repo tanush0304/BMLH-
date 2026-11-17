@@ -31,7 +31,7 @@ vi.mock('../../data/queries/routeCards', () => ({
   getStagesForPrd: async () => [
     { id: 11, seq: 10, position: 1, operation: 'Rough Turning', type: 'Internal', machine_id: 'MC-004' },
     { id: 12, seq: 20, position: 2, operation: 'Drilling', type: 'Internal', machine_id: 'MC-007' },
-    { id: 13, seq: 30, position: 3, operation: 'Rough Turning', type: 'Internal', machine_id: 'MC-004' },
+    { id: 13, seq: 30, position: 3, operation: 'Rough Turning', type: 'Internal', machine_id: 'MC-004', cycle_time_min: 4.5 },
   ],
 }))
 vi.mock('../../data/queries/machineOperations', () => ({ listAllMachineOperations: async () => [] }))
@@ -236,5 +236,15 @@ describe('Quality Inspection -- Instrument column', () => {
     } finally {
       m.history = undefined
     }
+  })
+})
+
+describe('Quality Inspection -- no Cycle Time field (2026-11-17)', () => {
+  it('header has no "Cycle Time (min)" field even with a stage that has a cycle time; stage list still filtered by machine', async () => {
+    await fillHeader('13')
+    expect(values(selectWith('13'))).toEqual(['11', '13']) // Cycle Time Master eligibility kept
+    expect(screen.queryByText(/Cycle Time/)).toBeNull()
+    expect(screen.queryByDisplayValue('4.5')).toBeNull()
+    expect(screen.queryByText('4.5')).toBeNull()
   })
 })

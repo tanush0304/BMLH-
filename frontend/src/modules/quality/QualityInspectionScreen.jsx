@@ -584,9 +584,6 @@ export default function QualityInspectionScreen({ role, initialMode }) {
                     options={operationOptions}
                   />
                 </Field>
-                <Field label="Cycle Time (min)">
-                  <AutoFillBox value={resolvedStage?.cycle_time_min ?? ''} />
-                </Field>
               </>
             )}
             {!byReceipt && noEligibleForMachine && (
