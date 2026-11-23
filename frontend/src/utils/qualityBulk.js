@@ -171,31 +171,3 @@ export function rowFromDbError(error, rows) {
   })
   return hits.length === 1 ? hits[0] : null
 }
-
-/** Saved rows of the same part + operation + target as `source` (Copy from). */
-export function sourceRecords(records, source, flags) {
-  const { byJobWork, byCategory } = targetMode(source, flags)
-  return records.filter((r) =>
-    r.part_serial_number === source.part_serial_number &&
-    (r.type_of_operation ?? '') === source.type_of_operation &&
-    (byJobWork
-      ? isJobWorkRow(r) && text(r.job_work_code) === text(source.job_work_code)
-      : byCategory
-        ? isCategoryRow(r) && normCategory(r.machine_category) === normCategory(source.machine_category)
-        : !isJobWorkRow(r) && !isCategoryRow(r) && r.machine_id === source.machine_id))
-}
-
-/** Saved records -> editable grid rows (ids dropped, numbers as text). */
-export function copyRows(records) {
-  const str = (v) => (v === null || v === undefined ? '' : String(v))
-  return records.map((r) => ({
-    quality_parameter: str(r.quality_parameter),
-    check_type: r.check_type === 'Gauge' || isJobWorkRow(r) ? 'Gauge' : 'Measured',
-    standard: str(r.standard),
-    upper_tolerance: str(r.upper_tolerance),
-    lower_tolerance: str(r.lower_tolerance),
-    gauge_standard: str(r.gauge_standard),
-    gauge_ref: str(r.gauge_ref),
-    remarks: str(r.remarks),
-  }))
-}

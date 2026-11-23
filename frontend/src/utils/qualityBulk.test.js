@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildPayload, rowProblem, rowFromDbError, isBlankRow, bulkProblems, bulkPayloads, sourceRecords, copyRows, EMPTY_BULK_ROW,
+  buildPayload, rowProblem, rowFromDbError, isBlankRow, bulkProblems, bulkPayloads, EMPTY_BULK_ROW,
 } from './qualityBulk'
 
 const ALL = { categoryOn: true, jobWorkOn: true, checkTypeOn: true, gaugeStandardOn: true }
@@ -99,21 +99,5 @@ describe('rowFromDbError', () => {
     expect(rowFromDbError({ message: 'new row violates check constraint' }, rows)).toBeNull()
     expect(rowFromDbError({ message: 'OD and Length clash' }, rows)).toBeNull()
     expect(rowFromDbError(null, rows)).toBeNull()
-  })
-})
-
-describe('Copy from', () => {
-  const records = [
-    { id: 1, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', standard: 50, upper_tolerance: 0.1, lower_tolerance: null, gauge_ref: 'Mic' },
-    { id: 2, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', gauge_standard: 'M8' },
-    { id: 3, part_serial_number: 'P1', machine_id: 'MC-004', machine_category: null, type_of_operation: 'Rough Turning', quality_parameter: 'Other' },
-  ]
-  it('picks only the same part + operation + target; rows editable, no ids', () => {
-    const rows = copyRows(sourceRecords(records, { ...CAT, machine_category: 'cnc' }, ALL))
-    expect(rows).toEqual([
-      { quality_parameter: 'OD', check_type: 'Measured', standard: '50', upper_tolerance: '0.1', lower_tolerance: '', gauge_standard: '', gauge_ref: 'Mic', remarks: '' },
-      { quality_parameter: 'Thread', check_type: 'Gauge', standard: '', upper_tolerance: '', lower_tolerance: '', gauge_standard: 'M8', gauge_ref: '', remarks: '' },
-    ])
-    expect(copyRows(sourceRecords(records, { ...CAT, applies_to: 'machine', machine_id: 'MC-004' }, ALL)).map((r) => r.quality_parameter)).toEqual(['Other'])
   })
 })

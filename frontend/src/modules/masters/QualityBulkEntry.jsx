@@ -1,18 +1,17 @@
 // Quality Master -- "Add Multiple Parameters": one Part + Applies To + target +
 // Type of Operation, then a grid of parameters saved in ONE insert (all or
 // nothing). Same payload + rules as the single form (utils/qualityBulk.js).
-import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
-import { ListPlus, Plus, Trash2, Copy } from 'lucide-react'
+import { useEffect, useImperativeHandle, useState } from 'react'
+import { ListPlus, Plus, Trash2 } from 'lucide-react'
 import FormSection, { Field, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import Banner from '../../components/Banner'
-import ConfirmDialog from '../../components/ConfirmDialog'
 import { productOptions } from '../../utils/productOptions'
 import { machineOptionLabel } from '../../utils/machineLabel'
-import { categoryOptions, operationsForTarget, operationsForJobWork, appliesToLabel, isCategoryRow, isJobWorkRow } from '../../utils/qualityMatch'
+import { categoryOptions, operationsForTarget, operationsForJobWork } from '../../utils/qualityMatch'
 import {
   BULK_START_ROWS, EMPTY_BULK_ROW, targetMode, rowIsGauge, bulkProblems, bulkPayloads,
-  isBlankRow, sourceRecords, copyRows, rowFromDbError,
+  isBlankRow, rowFromDbError,
 } from '../../utils/qualityBulk'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { createQualityParameters } from '../../data/queries/qualityParameters'
@@ -23,27 +22,6 @@ const EMPTY_TARGET = { part_serial_number: '', applies_to: 'category', machine_i
 const cellClass = (bad) =>
   `w-full h-7 rounded border px-1.5 text-xs disabled:bg-gray-100 ${bad ? 'border-red-500 bg-red-50' : 'border-gray-300'}`
 
-/** Distinct saved part + operation + target combinations (Copy from choices). */
-function sourceChoices(records, machineLabel, jobWorkLabel) {
-  const seen = new Map()
-  for (const r of records) {
-    const appliesTo = isJobWorkRow(r) ? 'jobwork' : isCategoryRow(r) ? 'category' : 'machine'
-    const src = {
-      part_serial_number: r.part_serial_number,
-      applies_to: appliesTo,
-      machine_id: appliesTo === 'machine' ? r.machine_id ?? '' : '',
-      machine_category: appliesTo === 'category' ? String(r.machine_category).trim() : '',
-      job_work_code: appliesTo === 'jobwork' ? String(r.job_work_code).trim() : '',
-      type_of_operation: r.type_of_operation ?? '',
-    }
-    const key = JSON.stringify(src)
-    if (!seen.has(key)) {
-      seen.set(key, { value: key, label: `${src.part_serial_number} – ${src.type_of_operation || '(any)'} · ${appliesToLabel(r, machineLabel, jobWorkLabel)}`, src })
-    }
-  }
-  return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
-}
-
 export default function QualityBulkEntry({ apiRef, records, products, machines, cycleTimes, jobWorkTypes, flags, onSaved }) {
   const [target, setTarget] = useState(EMPTY_TARGET)
   const [rows, setRows] = useState(() => freshRows())
@@ -51,16 +29,9 @@ export default function QualityBulkEntry({ apiRef, records, products, machines, 
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [copyKey, setCopyKey] = useState('')
-  const [confirmCopy, setConfirmCopy] = useState(false)
 
   const { byJobWork, byCategory } = targetMode(target, flags)
   const product = products.find((p) => p.part_serial_number === target.part_serial_number)
-  const machineLabel = (id) => {
-    const mc = machines.find((x) => x.machine_id === id)
-    return mc ? machineOptionLabel(mc) : id
-  }
-  const jobWorkLabel = (code) => jobWorkTypes.find((j) => j.job_work_code === code)?.type_of_job_work ?? code
   const operations = byJobWork
     ? operationsForJobWork({ cycleTimes, partSerialNumber: target.part_serial_number, jobWorkCode: target.job_work_code })
     : operationsForTarget({
@@ -68,7 +39,6 @@ export default function QualityBulkEntry({ apiRef, records, products, machines, 
       machineId: byCategory ? '' : target.machine_id,
       category: byCategory ? target.machine_category : '',
     })
-  const choices = useMemo(() => sourceChoices(records, machineLabel, jobWorkLabel), [records, machines, jobWorkTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearMarks() {
     setProblems({})
@@ -114,25 +84,9 @@ export default function QualityBulkEntry({ apiRef, records, products, machines, 
     setRows((rs) => (rs.length > 1 ? rs.filter((_, j) => j !== i) : freshRows(1)))
   }
 
-  function loadCopy() {
-    const choice = choices.find((c) => c.value === copyKey)
-    if (!choice) return
-    const copied = copyRows(sourceRecords(records, choice.src, flags))
-      .map((r) => (byJobWork ? { ...r, check_type: 'Gauge', standard: '', upper_tolerance: '', lower_tolerance: '' } : r))
-    clearMarks()
-    setRows(copied.length ? copied : freshRows())
-  }
-
-  function handleCopy() {
-    if (!copyKey) return
-    if (rows.some((r) => !isBlankRow(r))) setConfirmCopy(true)
-    else loadCopy()
-  }
-
   function reset() {
     setTarget(EMPTY_TARGET)
     setRows(freshRows())
-    setCopyKey('')
     clearMarks()
     setSuccess(null)
   }
@@ -242,17 +196,7 @@ export default function QualityBulkEntry({ apiRef, records, products, machines, 
       </FormSection>
 
       <section className="rounded-lg border border-gray-200 bg-white p-3 space-y-2" aria-label="Parameters">
-        <div className="flex flex-wrap items-end gap-2">
-          <h3 className="text-sm font-semibold text-[#1F3A5F] mr-auto">2. Parameters <span className="font-normal text-xs text-gray-500">(blank rows are ignored)</span></h3>
-          <label className="flex flex-col text-[11px] text-gray-600 min-w-[260px]">
-            Copy from…
-            <SearchableSelect value={copyKey} onChange={(e) => setCopyKey(e.target.value)} options={choices.map(({ value, label }) => ({ value, label }))} />
-          </label>
-          <button type="button" onClick={handleCopy} disabled={!copyKey}
-            className="inline-flex items-center gap-1 h-8 rounded border border-gray-300 px-2 text-xs disabled:opacity-50">
-            <Copy size={13} /> Load
-          </button>
-        </div>
+        <h3 className="text-sm font-semibold text-[#1F3A5F]">2. Parameters <span className="font-normal text-xs text-gray-500">(blank rows are ignored)</span></h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -325,16 +269,6 @@ export default function QualityBulkEntry({ apiRef, records, products, machines, 
         </button>
         {saving && <span className="ml-2 text-xs text-gray-500">Saving…</span>}
       </section>
-
-      <ConfirmDialog
-        open={confirmCopy}
-        tone="confirm"
-        title="Replace the rows?"
-        body="The rows you typed will be replaced by the copied parameters."
-        confirmLabel="Replace"
-        onConfirm={loadCopy}
-        onClose={() => setConfirmCopy(false)}
-      />
     </>
   )
 }

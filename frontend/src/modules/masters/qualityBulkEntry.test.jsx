@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Quality Master "Add Multiple Parameters": grid, per-row errors, duplicates,
-// blank rows ignored, ONE insert call, DB refusal keeps rows, Copy from, Job Work = Gauge.
+// blank rows ignored, ONE insert call, DB refusal keeps rows, Job Work = Gauge, leave warnings.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 
@@ -170,29 +170,10 @@ describe('Add Multiple Parameters', () => {
     expect(cell(1, 'Standard').value).toBe('50')
   })
 
-  it('Copy from loads a saved part + operation + target into the grid (confirm before replacing typed rows)', async () => {
-    m.records = [
-      { id: 1, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'OD', check_type: 'Measured', standard: 50, upper_tolerance: 0.1, gauge_ref: 'Mic' },
-      { id: 2, part_serial_number: 'P1', machine_id: null, machine_category: 'CNC', type_of_operation: 'Rough Turning', quality_parameter: 'Thread', check_type: 'Gauge', gauge_standard: 'M8' },
-    ]
+  it('no "Copy from…" on the panel', async () => {
     await openBulk()
-    type(1, 'Parameter', 'typed')
-    const key = JSON.stringify({ part_serial_number: 'P1', applies_to: 'category', machine_id: '', machine_category: 'CNC', job_work_code: '', type_of_operation: 'Rough Turning' })
-    pick(selectWith(key), key)
-    fireEvent.click(screen.getByRole('button', { name: /load/i }))
-    const dialog = await screen.findByRole('alertdialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Replace' }))
-    await waitFor(() => expect(cell(1, 'Parameter').value).toBe('OD'))
-    expect(gridRows()).toHaveLength(2)
-    expect(cell(1, 'Standard').value).toBe('50')
-    expect(cell(1, 'Instrument').value).toBe('Mic')
-    expect(cell(2, 'Check Type').value).toBe('Gauge')
-    expect(cell(2, 'Standard').value).toBe('M8')
-    // save to another part: no duplicate there
-    pickCategoryTarget('P2', 'Facing')
-    save()
-    await waitFor(() => expect(m.createMany).toHaveBeenCalledTimes(1))
-    expect(m.createMany.mock.calls[0][0].map((r) => [r.part_serial_number, r.type_of_operation, r.quality_parameter])).toEqual([['P2', 'Facing', 'OD'], ['P2', 'Facing', 'Thread']])
+    expect(screen.queryByText(/copy from/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /^load$/i })).toBeNull()
   })
 
   it('Job Work: no Check Type column, text Standard, saves Gauge with numbers null', async () => {
