@@ -1,6 +1,6 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import { useEffect, useMemo, useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ShieldCheck, ListPlus, ArrowLeft } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, AutoFillBox, SelectInput } from '../../components/FormSection'
@@ -17,17 +17,19 @@ import {
   qualityGaugeStandardSupported,
   parameterHasReadings,
 } from '../../data/queries/qualityParameters'
-import { categoryOptions, operationsForTarget, operationsForJobWork, appliesToLabel, isCategoryRow, isJobWorkRow, normCategory } from '../../utils/qualityMatch'
+import { categoryOptions, operationsForTarget, operationsForJobWork, appliesToLabel, isCategoryRow, isJobWorkRow } from '../../utils/qualityMatch'
+import { buildPayload, duplicateParameter } from '../../utils/qualityBulk'
+import QualityBulkEntry from './QualityBulkEntry'
 import { qualityReceiptSupported } from '../../data/queries/jobworkQc'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { listCycleTimes } from '../../data/queries/cycleTimes'
 import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
-import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
+import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import { standardText } from '../../utils/qualityResult'
 import Banner from '../../components/Banner'
-import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
+import ConfirmDialog, { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -64,23 +66,8 @@ const LIST_COLUMNS = [
   { key: 'remarks', label: 'Remarks' },
 ]
 
-/** Same part + operation + target (machine, category or job work) + parameter name already saved. */
-export function duplicateParameter(records, form, byCategory, byJobWork = false) {
-  const name = form.quality_parameter.trim().toLowerCase()
-  const clash = records.find((r) =>
-    String(r.id) !== String(form.id || '') &&
-    r.part_serial_number === form.part_serial_number &&
-    (r.type_of_operation ?? '') === form.type_of_operation &&
-    String(r.quality_parameter ?? '').trim().toLowerCase() === name &&
-    (byJobWork
-      ? isJobWorkRow(r) && String(r.job_work_code).trim() === String(form.job_work_code).trim()
-      : byCategory
-        ? isCategoryRow(r) && normCategory(r.machine_category) === normCategory(form.machine_category)
-        : !isJobWorkRow(r) && r.machine_id === form.machine_id))
-  if (!clash) return null
-  const where = byJobWork ? `Job Work ${form.job_work_code}` : byCategory ? `${form.machine_category.trim()} (all)` : form.machine_id
-  return `${String(clash.quality_parameter).trim()} is already defined for ${form.part_serial_number} – ${form.type_of_operation} on ${where} -- edit it instead.`
-}
+// Moved to utils/qualityBulk.js (shared with bulk entry); re-exported for existing imports.
+export { duplicateParameter }
 
 function inputValue(value) {
   return value ?? ''
@@ -99,6 +86,9 @@ export default function QualityMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [bulk, setBulk] = useState(false) // "Add Multiple Parameters" open
+  const bulkApi = useRef(null)
+  const [pendingLeave, setPendingLeave] = useState(null) // action waiting for "Discard"
   // 044 run? null = not known yet (treated as "no": the old form).
   const [categoryOn, setCategoryOn] = useState(null)
   const [checkTypeOn, setCheckTypeOn] = useState(false) // 048: Check Type (Measured / Gauge)
@@ -212,17 +202,31 @@ export default function QualityMaster() {
     setForm((current) => ({ ...current, job_work_code: e.target.value, type_of_operation: '' }))
   }
 
+  function openBulk() {
+    handleNew()
+    setBulk(true)
+  }
+
+  // Leaving "Add Multiple Parameters" with typed rows asks first.
+  function guardLeave(action) {
+    if (bulk && bulkApi.current?.isDirty()) setPendingLeave(() => action)
+    else action()
+  }
+
   function handleNew() {
+    setBulk(false)
     setForm(EMPTY_FORM)
     setMode('new')
     setSaveError(null)
   }
 
   function handleClear() {
-    handleNew()
+    if (bulk) bulkApi.current?.reset()
+    else handleNew()
   }
 
   function handleRowClick(row) {
+    setBulk(false)
     setForm({
       ...EMPTY_FORM,
       ...Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value ?? ''])),
@@ -266,27 +270,8 @@ export default function QualityMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = {
-        part_serial_number: form.part_serial_number,
-        machine_id: byCategory || byJobWork ? null : form.machine_id,
-        ...(categoryOn ? { machine_category: byCategory ? form.machine_category.trim() : null } : {}),
-        // 054 only: a Job Work row has no machine / category (DB check)
-        ...(jobWorkOn ? { job_work_code: byJobWork ? form.job_work_code : null } : {}),
-        type_of_operation: form.type_of_operation,
-        quality_parameter: form.quality_parameter.trim(),
-        standard: isGauge ? null : toNumberOrNull(form.standard),
-        upper_tolerance: isGauge ? null : toNumberOrNull(form.upper_tolerance),
-        lower_tolerance: isGauge ? null : toNumberOrNull(form.lower_tolerance),
-        ...(checkTypeOn || byJobWork
-          ? { check_type: isGauge ? 'Gauge' : 'Measured', gauge_ref: String(form.gauge_ref ?? '').trim() || null } // Instrument, optional, both types
-          : {}),
-        // 053: text Standard for Gauge only (display, never used for the result)
-        ...((checkTypeOn || byJobWork) && gaugeStandardOn
-          ? { gauge_standard: isGauge ? String(form.gauge_standard ?? '').trim() || null : null }
-          : {}),
-        expected_text_value: null,
-        remarks: form.remarks.trim() || null,
-      }
+      // Shared with "Add Multiple Parameters" (utils/qualityBulk.js)
+      const payload = buildPayload(form, form, { categoryOn, jobWorkOn, checkTypeOn, gaugeStandardOn })
       if (mode === 'edit') await updateQualityParameter(form.id, payload)
       else await createQualityParameter(payload)
       await refresh()
@@ -337,14 +322,14 @@ export default function QualityMaster() {
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Quality Master" subtitle="Define numeric and text-based inspection standards" />
       <ActionToolbar
-        onNew={handleNew}
-        onSave={handleSave}
+        onNew={() => guardLeave(handleNew)}
+        onSave={bulk ? () => bulkApi.current?.save() : handleSave}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onClear={handleClear}
-        canSave={!readOnly && !saving}
-        canEdit={mode === 'view'}
-        canDelete={mode !== 'new' && !saving}
+        canSave={bulk || (!readOnly && !saving)}
+        canEdit={!bulk && mode === 'view'}
+        canDelete={!bulk && mode !== 'new' && !saving}
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -353,6 +338,29 @@ export default function QualityMaster() {
         {(saveError || error) && (
           <Banner tone="error" message={saveError || error} />
         )}
+        <div className="flex justify-end">
+          {bulk ? (
+            <button type="button" onClick={() => guardLeave(handleNew)} className="inline-flex items-center gap-1 h-8 rounded border border-gray-300 bg-white px-3 text-xs text-[#1F3A5F]">
+              <ArrowLeft size={14} /> Back to single parameter
+            </button>
+          ) : (
+            <button type="button" onClick={openBulk} className="inline-flex items-center gap-1 h-8 rounded bg-[#1F3A5F] px-3 text-xs text-white">
+              <ListPlus size={14} /> Add Multiple Parameters
+            </button>
+          )}
+        </div>
+        {bulk ? (
+          <QualityBulkEntry
+            apiRef={bulkApi}
+            records={records}
+            products={products}
+            machines={machines}
+            cycleTimes={cycleTimes}
+            jobWorkTypes={jobWorkTypes}
+            flags={{ categoryOn: !!categoryOn, jobWorkOn, checkTypeOn, gaugeStandardOn }}
+            onSaved={refresh}
+          />
+        ) : (
         <FormSection icon={ShieldCheck} title="1. Quality Parameter Details" subtitle="Route-specific inspection criteria" columns={3}>
           <Field label="Part Serial Number" required>
             <SearchableSelect value={form.part_serial_number} onChange={handlePartChange} disabled={readOnly} options={productOptions(products)} />
@@ -429,6 +437,7 @@ export default function QualityMaster() {
           )}
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>
+        )}
 
         <RecordsList
           title="Quality Master List"
@@ -438,12 +447,21 @@ export default function QualityMaster() {
           error={error}
           rowKey="id"
           selectedKey={form.id}
-          onRowClick={handleRowClick}
+          onRowClick={(row) => guardLeave(() => handleRowClick(row))}
           searchValue={listSearch}
           onSearchChange={setListSearch} searchPlaceholder="Search quality parameters..."
         />
       </div>
       {del.dialog}
+      <ConfirmDialog
+        open={!!pendingLeave}
+        title="Discard the typed parameters?"
+        body="The rows in Add Multiple Parameters have not been saved and will be lost."
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        onConfirm={() => pendingLeave?.()}
+        onClose={() => setPendingLeave(null)}
+      />
     </div>
   )
 }

@@ -15,6 +15,13 @@ export async function createQualityParameter(payload) {
   return data
 }
 
+/** Bulk entry: ONE insert of every row (one statement -- all saved or none). */
+export async function createQualityParameters(payloads) {
+  const { data, error } = await supabase.from(TABLE).insert(payloads).select()
+  if (error) throw error
+  return data
+}
+
 export async function updateQualityParameter(id, payload) {
   const { data, error } = await supabase.from(TABLE).update(payload).eq('id', id).select().single()
   if (error) throw error
