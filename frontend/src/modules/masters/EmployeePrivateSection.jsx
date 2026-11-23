@@ -6,10 +6,11 @@ import { useEffect, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import FormSection, { Field, TextInput } from '../../components/FormSection'
 import Banner from '../../components/Banner'
+import EmployeePhoto from './EmployeePhoto'
 import { getEmployeePrivate, saveEmployeePrivate } from '../../data/queries/employeePrivate'
 import { EMPTY_PRIVATE, AADHAAR_MASK, aadhaarInput, maskAadhaar, privateForm, privatePayload, privateErrorText } from '../../utils/employeePrivate'
 
-export default function EmployeePrivateSection({ employeeId, number }) {
+export default function EmployeePrivateSection({ employeeId, number, photoOn = false }) {
   const [form, setForm] = useState(EMPTY_PRIVATE)
   const [saved, setSaved] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -29,7 +30,7 @@ export default function EmployeePrivateSection({ employeeId, number }) {
     setSuccess(null)
     if (!employeeId) return undefined
     setLoading(true)
-    getEmployeePrivate(employeeId)
+    getEmployeePrivate(employeeId, { withPhoto: photoOn })
       .then((row) => {
         if (!active) return
         setSaved(row)
@@ -38,7 +39,7 @@ export default function EmployeePrivateSection({ employeeId, number }) {
       .catch((e) => active && setError(privateErrorText(e, 'load')))
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [employeeId])
+  }, [employeeId, photoOn])
 
   const set = (key) => (e) => {
     setBadField((f) => (f === key ? null : f))
@@ -92,6 +93,15 @@ export default function EmployeePrivateSection({ employeeId, number }) {
       {error && <Banner tone="error" message={error} onClose={() => setError(null)} />}
       {success && <Banner tone="success" message={success} onClose={() => setSuccess(null)} />}
       <FormSection icon={ShieldCheck} title={title} subtitle="Supervisor / admin only · not included in exports" columns={3}>
+        {photoOn && !loading && (
+          <div className="col-span-full">
+            <EmployeePhoto
+              employeeId={employeeId}
+              path={saved?.photo_path ?? null}
+              onChange={(p) => setSaved((s) => ({ ...(s ?? { employee_id: employeeId }), photo_path: p }))}
+            />
+          </div>
+        )}
         <Field label="Phone 1"><TextInput aria-label="Phone 1" {...inputProps('phone_1')} /></Field>
         <Field label="Phone 2 (alternate / emergency)"><TextInput aria-label="Phone 2" {...inputProps('phone_2')} /></Field>
         <Field label="Aadhaar last 4 digits">

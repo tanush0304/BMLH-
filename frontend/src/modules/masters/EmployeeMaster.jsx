@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ContactRound } from 'lucide-react'
 import MasterFormScreen from '../../components/MasterFormScreen'
 import { listEmployees, createEmployee, updateEmployee, deleteEmployee } from '../../data/queries/employees'
-import { employeeGradeSupported, employeePrivateSupported } from '../../data/queries/employeePrivate'
+import { employeeGradeSupported, employeePrivateSupported, employeePhotoSupported } from '../../data/queries/employeePrivate'
 import { canSeePrivate } from '../../utils/employeePrivate'
 import EmployeePrivateSection from './EmployeePrivateSection'
 
@@ -54,12 +54,16 @@ export default function EmployeeMaster({ role } = {}) {
   // 059 probes; until known (or before 059) the old screen: no Grade, no Personal details.
   const [gradeOn, setGradeOn] = useState(false)
   const [privateOn, setPrivateOn] = useState(false)
+  const [photoOn, setPhotoOn] = useState(false) // 060
   const showPrivate = privateOn && canSeePrivate(role)
 
   useEffect(() => {
     let active = true
     employeeGradeSupported().then((ok) => active && setGradeOn(!!ok)).catch(() => {})
-    if (canSeePrivate(role)) employeePrivateSupported().then((ok) => active && setPrivateOn(!!ok)).catch(() => {})
+    if (canSeePrivate(role)) {
+      employeePrivateSupported().then((ok) => active && setPrivateOn(!!ok)).catch(() => {})
+      employeePhotoSupported().then((ok) => active && setPhotoOn(!!ok)).catch(() => {})
+    }
     return () => { active = false }
   }, [role])
 
@@ -78,7 +82,7 @@ export default function EmployeeMaster({ role } = {}) {
       exportFilename="employee_master.csv"
       renderAfterSections={showPrivate
         ? ({ form, mode, nextNumber }) => (
-          <EmployeePrivateSection employeeId={mode === 'new' ? null : form.employee_id} number={nextNumber} />
+          <EmployeePrivateSection employeeId={mode === 'new' ? null : form.employee_id} number={nextNumber} photoOn={photoOn} />
         )
         : undefined}
     />
