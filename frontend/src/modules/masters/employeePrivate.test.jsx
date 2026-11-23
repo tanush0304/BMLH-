@@ -30,6 +30,8 @@ vi.mock('../../data/queries/employeePrivate', () => ({
   employeeGradeSupported: async () => m.gradeOn,
   employeePrivateSupported: (...a) => m.privateProbe(...a),
   employeePhotoSupported: async () => false, // 060 photo: employeePhoto.test.jsx
+  employeeAadhaarFullSupported: async () => false, // before 061: last-4 mode (12-digit: employeeAadhaar.test.jsx)
+  employeeAadhaarLast4Present: async () => true,
   getEmployeePrivate: (...a) => m.getPriv(...a),
   saveEmployeePrivate: (...a) => m.savePriv(...a),
 }))

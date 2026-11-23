@@ -9,8 +9,11 @@ import Banner from '../../components/Banner'
 import EmployeePhoto from './EmployeePhoto'
 import { getEmployeePrivate, saveEmployeePrivate } from '../../data/queries/employeePrivate'
 import { EMPTY_PRIVATE, AADHAAR_MASK, aadhaarInput, maskAadhaar, privateForm, privatePayload, privateErrorText } from '../../utils/employeePrivate'
+import { aadhaarDigits, formatAadhaar } from '../../utils/aadhaar'
 
-export default function EmployeePrivateSection({ employeeId, number, photoOn = false }) {
+// aadhaarMode 'last4' (059) | 'full' (061: 12 digits, shown "1234 5678 9012"); last4Present = column still there.
+export default function EmployeePrivateSection({ employeeId, number, photoOn = false, aadhaarMode = 'last4', last4Present = true }) {
+  const full = aadhaarMode === 'full'
   const [form, setForm] = useState(EMPTY_PRIVATE)
   const [saved, setSaved] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -30,25 +33,27 @@ export default function EmployeePrivateSection({ employeeId, number, photoOn = f
     setSuccess(null)
     if (!employeeId) return undefined
     setLoading(true)
-    getEmployeePrivate(employeeId, { withPhoto: photoOn })
+    // before 061 the call is exactly as before; after it, 'full' + whether aadhaar_last4 still exists
+    getEmployeePrivate(employeeId, full ? { withPhoto: photoOn, aadhaarMode: 'full', last4Present } : { withPhoto: photoOn })
       .then((row) => {
         if (!active) return
         setSaved(row)
-        setForm(privateForm(row))
+        setForm(privateForm(row, aadhaarMode))
       })
-      .catch((e) => active && setError(privateErrorText(e, 'load')))
+      .catch((e) => active && setError(privateErrorText(e, 'load', { aadhaarMode })))
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [employeeId, photoOn])
+  }, [employeeId, photoOn, aadhaarMode, last4Present, full])
 
   const set = (key) => (e) => {
     setBadField((f) => (f === key ? null : f))
-    setForm((f) => ({ ...f, [key]: key === 'aadhaar_last4' ? aadhaarInput(e.target.value) : e.target.value }))
+    const v = e.target.value
+    setForm((f) => ({ ...f, [key]: key === 'aadhaar_last4' ? aadhaarInput(v) : key === 'aadhaar_number' ? aadhaarDigits(v) : v }))
   }
 
   async function handleSave() {
     setSuccess(null)
-    const { error: problem, field, payload } = privatePayload(employeeId, form)
+    const { error: problem, field, payload } = privatePayload(employeeId, form, { aadhaarMode })
     if (problem) {
       setError(problem)
       setBadField(field)
@@ -59,18 +64,18 @@ export default function EmployeePrivateSection({ employeeId, number, photoOn = f
     try {
       const row = await saveEmployeePrivate(payload)
       setSaved(row)
-      setForm(privateForm(row))
+      setForm(privateForm(row, aadhaarMode))
       setEditing(false)
       setSuccess(`Personal details saved for ${employeeId}.`)
     } catch (e) {
-      setError(privateErrorText(e, 'save')) // fixed text only; typed values stay in the form
+      setError(privateErrorText(e, 'save', { aadhaarMode })) // fixed text only; typed values stay in the form
     } finally {
       setSaving(false)
     }
   }
 
   function handleCancel() {
-    setForm(privateForm(saved))
+    setForm(privateForm(saved, aadhaarMode))
     setEditing(false)
     setError(null)
     setBadField(null)
@@ -104,6 +109,23 @@ export default function EmployeePrivateSection({ employeeId, number, photoOn = f
         )}
         <Field label="Phone 1"><TextInput aria-label="Phone 1" {...inputProps('phone_1')} /></Field>
         <Field label="Phone 2 (alternate / emergency)"><TextInput aria-label="Phone 2" {...inputProps('phone_2')} /></Field>
+        {full ? (
+          <Field label="Aadhaar number">
+            {readOnly ? (
+              <TextInput aria-label="Aadhaar" value={formatAadhaar(saved?.aadhaar_number)} disabled readOnly />
+            ) : (
+              <TextInput
+                aria-label="Aadhaar number"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="1234 5678 9012"
+                maxLength={14}
+                {...inputProps('aadhaar_number')}
+                value={formatAadhaar(form.aadhaar_number)}
+              />
+            )}
+          </Field>
+        ) : (
         <Field label="Aadhaar last 4 digits">
           {readOnly ? (
             <TextInput aria-label="Aadhaar" value={maskAadhaar(saved?.aadhaar_last4)} disabled readOnly />
@@ -114,6 +136,7 @@ export default function EmployeePrivateSection({ employeeId, number, photoOn = f
             </span>
           )}
         </Field>
+        )}
         <Field label="Address" width="long"><TextInput aria-label="Address" {...inputProps('address')} /></Field>
         <div className="flex items-end gap-2">
           {editing ? (

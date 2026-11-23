@@ -105,11 +105,49 @@ export async function signedEmployeePhotoUrl(path) {
   return data?.signedUrl ?? null
 }
 
-/** The employee's private row, or null. `withPhoto` (060) adds photo_path. */
-export async function getEmployeePrivate(employeeId, { withPhoto = false } = {}) {
+// Migration 061: aadhaar_number (12 digits). Part B may drop aadhaar_last4,
+// so its presence is probed separately -- never select a dropped column.
+async function columnProbe(column) {
+  const { error } = await supabase.from(TABLE).select(column).limit(0)
+  if (!error) return true
+  if (isMissingColumnError(error) || isMissingTableError(error)) return false
+  return null // unknown (network): not cached
+}
+let fullSupported = null
+let fullProbe = null
+export async function employeeAadhaarFullSupported() {
+  if (fullSupported !== null) return fullSupported
+  fullProbe ??= columnProbe('aadhaar_number').then((v) => (v === null ? false : (fullSupported = v))).finally(() => { fullProbe = null })
+  return fullProbe
+}
+let last4Present = null
+let last4Probe = null
+export async function employeeAadhaarLast4Present() {
+  if (last4Present !== null) return last4Present
+  last4Probe ??= columnProbe('aadhaar_last4').then((v) => (v === null ? true : (last4Present = v))).finally(() => { last4Probe = null })
+  return last4Probe
+}
+export function resetEmployeeAadhaarCache() {
+  fullSupported = null
+  fullProbe = null
+  last4Present = null
+  last4Probe = null
+}
+
+/**
+ * The employee's private row, or null. `withPhoto` (060) adds photo_path;
+ * `aadhaarMode` 'full' (061) selects aadhaar_number; aadhaar_last4 only while
+ * the column exists (`last4Present`).
+ */
+export async function getEmployeePrivate(employeeId, { withPhoto = false, aadhaarMode = 'last4', last4Present: hasLast4 = true } = {}) {
+  const cols = ['employee_id', 'phone_1', 'phone_2', 'address']
+  if (hasLast4 && aadhaarMode !== 'full') cols.push('aadhaar_last4')
+  if (aadhaarMode === 'full') cols.push('aadhaar_number')
+  cols.push('updated_at', 'updated_by')
+  if (withPhoto) cols.push('photo_path')
   const { data, error } = await supabase
     .from(TABLE)
-    .select(`employee_id, phone_1, phone_2, address, aadhaar_last4, updated_at, updated_by${withPhoto ? ', photo_path' : ''}`)
+    .select(cols.join(', '))
     .eq('employee_id', employeeId)
     .maybeSingle()
   if (error) throw safeError(error)
