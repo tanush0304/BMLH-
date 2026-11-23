@@ -61,6 +61,9 @@ describe('friendlyDbMessage', async () => {
   it('permission, duplicate key, network, login', () => {
     expect(friendlyDbMessage('permission denied for table production logs')).toBe('You do not have permission to make this change.')
     expect(friendlyDbMessage('permission denied for relation wip transactions')).toBe('You do not have permission to make this change.')
+    // 058: RLS refusal on a master (operator write)
+    expect(friendlyDbMessage('new row violates row-level security policy for table "customers master"')).toBe('You do not have permission to make this change.')
+    expect(dbErrorMessage({ code: '42501', message: 'new row violates row-level security policy for table "quality master"' })).toBe('You do not have permission to make this change.')
     expect(friendlyDbMessage('duplicate key value violates unique constraint "x_key"')).toBe('This record already exists (a value that must be unique is already used).')
     expect(friendlyDbMessage('TypeError: Failed to fetch')).toBe("Can't reach the server -- check your connection and try again.")
     expect(friendlyDbMessage('NetworkError when attempting to fetch resource.')).toBe("Can't reach the server -- check your connection and try again.")

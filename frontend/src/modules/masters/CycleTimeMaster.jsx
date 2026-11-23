@@ -1,6 +1,6 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import { useEffect, useState } from 'react'
-import { Route } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Route, ListPlus, ArrowLeft } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
@@ -17,10 +17,12 @@ import { listProducts } from '../../data/queries/products'
 import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
-import { toNumberOrNull, validateNumber, NUMBER_RULES } from '../../utils/numericFields'
+import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
+import { buildCycleTimePayload } from '../../utils/cycleTimeBulk'
+import CycleTimeBulkEntry from './CycleTimeBulkEntry'
 import { withRoutePositions } from '../../utils/stageLabel'
 import Banner from '../../components/Banner'
-import { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
+import ConfirmDialog, { useDeleteConfirm, recordLabel } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -58,6 +60,20 @@ export default function CycleTimeMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [bulk, setBulk] = useState(false) // "Add Multiple Stages" open
+  const bulkApi = useRef(null)
+  const [pendingLeave, setPendingLeave] = useState(null) // action waiting for "Discard"
+
+  // Leaving "Add Multiple Stages" with typed rows asks first.
+  function guardLeave(action) {
+    if (bulk && bulkApi.current?.isDirty()) setPendingLeave(() => action)
+    else action()
+  }
+
+  function openBulk() {
+    handleNew()
+    setBulk(true)
+  }
 
   async function refresh() {
     setLoading(true)
@@ -99,18 +115,24 @@ export default function CycleTimeMaster() {
   }
 
   function handleNew() {
+    setBulk(false)
     setForm(EMPTY_FORM)
     setMode('new')
     setSaveError(null)
   }
 
   function handleClear() {
+    if (bulk) {
+      bulkApi.current?.reset()
+      return
+    }
     setForm(EMPTY_FORM)
     setMode('new')
     setSaveError(null)
   }
 
   function handleRowClick(row) {
+    setBulk(false)
     setForm({ ...EMPTY_FORM, ...row })
     setMode('view')
     setSaveError(null)
@@ -144,15 +166,8 @@ export default function CycleTimeMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = {
-        part_serial_number: form.part_serial_number,
-        operation: form.operation.trim(),
-        seq: Number(form.seq),
-        type: form.type,
-        machine_id: form.type === 'Internal' ? form.machine_id : null,
-        job_work_code: form.type === 'Outsourced' ? form.job_work_code : null,
-        cycle_time_min: toNumberOrNull(form.cycle_time_min),
-      }
+      // Shared with "Add Multiple Stages" (utils/cycleTimeBulk.js)
+      const payload = buildCycleTimePayload(form.part_serial_number, form)
       if (mode === 'edit') {
         await updateCycleTime(form.id, payload)
       } else {
@@ -213,14 +228,14 @@ export default function CycleTimeMaster() {
         subtitle="Manage Production Routes  |  Product + Operation + Machine / Job Work"
       />
       <ActionToolbar
-        onNew={handleNew}
-        onSave={handleSave}
+        onNew={() => guardLeave(handleNew)}
+        onSave={bulk ? () => bulkApi.current?.save() : handleSave}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onClear={handleClear}
-        canSave={!readOnly && !saving}
-        canEdit={mode === 'view'}
-        canDelete={mode !== 'new' && !saving}
+        canSave={bulk || (!readOnly && !saving)}
+        canEdit={!bulk && mode === 'view'}
+        canDelete={!bulk && mode !== 'new' && !saving}
         onExportExcel={handleExportExcel}
         onExportPdf={handleExportPdf}
       />
@@ -230,6 +245,28 @@ export default function CycleTimeMaster() {
           <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         )}
 
+        <div className="flex justify-end">
+          {bulk ? (
+            <button type="button" onClick={() => guardLeave(handleNew)} className="inline-flex items-center gap-1 h-8 rounded border border-gray-300 bg-white px-3 text-xs text-[#1F3A5F]">
+              <ArrowLeft size={14} /> Back to single stage
+            </button>
+          ) : (
+            <button type="button" onClick={openBulk} className="inline-flex items-center gap-1 h-8 rounded bg-[#1F3A5F] px-3 text-xs text-white">
+              <ListPlus size={14} /> Add Multiple Stages
+            </button>
+          )}
+        </div>
+
+        {bulk ? (
+          <CycleTimeBulkEntry
+            apiRef={bulkApi}
+            records={records}
+            products={products}
+            machines={machines}
+            jobWorkTypes={jobWorkTypes}
+            onSaved={refresh}
+          />
+        ) : (
         <FormSection icon={Route} title="1. Route Step Details" subtitle="One operation in a route" columns={3}>
           <Field label="Part Serial Number" required>
             <SearchableSelect
@@ -289,6 +326,7 @@ export default function CycleTimeMaster() {
             />
           </Field>
         </FormSection>
+        )}
 
         <RecordsList
           title="Cycle Time Master List"
@@ -298,12 +336,21 @@ export default function CycleTimeMaster() {
           error={error}
           rowKey="id"
           selectedKey={form.id}
-          onRowClick={handleRowClick}
+          onRowClick={(row) => guardLeave(() => handleRowClick(row))}
           searchValue={listSearch}
           onSearchChange={setListSearch} searchPlaceholder="Search by Part Serial Number / Part Name / Operation..."
         />
       </div>
       {del.dialog}
+      <ConfirmDialog
+        open={!!pendingLeave}
+        title="Discard the typed stages?"
+        body="The rows in Add Multiple Stages have not been saved and will be lost."
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        onConfirm={() => pendingLeave?.()}
+        onClose={() => setPendingLeave(null)}
+      />
     </div>
   )
 }

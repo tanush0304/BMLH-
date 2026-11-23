@@ -168,6 +168,8 @@ describe('Production Planning -- route card below the list', () => {
     const card = await screen.findByTestId('route-card')
     expect(card.textContent).toContain('PRD-100')
     expect(below(card)).toBe(true)
-    expect(scrolled).toHaveBeenCalled()
+    // After Save the card is opened from an awaited promise (not a click), so
+    // the scroll useEffect can run a tick AFTER findBy sees the card -- wait for it.
+    await waitFor(() => expect(scrolled).toHaveBeenCalled())
   })
 })
