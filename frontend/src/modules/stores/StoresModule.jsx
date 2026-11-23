@@ -5,7 +5,7 @@ import WipIssueScreen from './WipIssueScreen'
 import RawMaterialRequisitionScreen from './RawMaterialRequisitionScreen'
 import ModuleLanding from '../../components/ModuleLanding'
 import { landingTiles } from '../moduleLandings'
-import { moduleLabel } from '../../utils/constants'
+import { moduleLabel, isHiddenSubItem } from '../../utils/constants'
 
 const TABS = [
   { key: 'rm', component: RawMaterialStoreScreen },
@@ -23,7 +23,8 @@ const TABS = [
 // Dispatch/Receipt tab of the combined RM / FG screens; keyed so picking a
 // different tile for the same screen remounts it on that tab.
 export default function StoresModule({ activeTab, activeMode, role, onSelect }) {
-  if (!activeTab) {
+  // hidden sub-item (Raw Material Requisition) -> Stores home, like App's handleSelectSub
+  if (!activeTab || isHiddenSubItem('stores', activeTab)) {
     return (
       <ModuleLanding
         title={moduleLabel('stores')}

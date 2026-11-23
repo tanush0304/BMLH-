@@ -86,7 +86,9 @@ export const NAV_ITEMS = [
       { key: 'fg', label: 'Finished Goods Stores' },
       { key: 'wip-receipt', label: 'WIP Receipt' },
       { key: 'wip-issue', label: 'WIP Issue' },
-      { key: 'rm-requisition', label: 'Raw Material Requisition' },
+      // Hidden for every role (2026-11-23, user): no sidebar / card / menu; a jump
+      // to it lands on the Stores home. Screen, queries and table are kept.
+      { key: 'rm-requisition', label: 'Raw Material Requisition', hidden: true },
     ],
   },
   {
@@ -130,7 +132,7 @@ export function subItemLabel(topKey, subKey) {
 // Stores landing: RM and FG each have one combined screen with Issue/Receipt
 // (Dispatch/Receipt) tabs, so they get two tiles each that open that screen
 // with the matching tab pre-selected (`mode` = the screen's own tab key).
-// Raw Material Requisition has no tile -- sidebar only.
+// Raw Material Requisition has no tile (and is hidden everywhere since 2026-11-23).
 export const STORES_LANDING_TILES = [
   { key: 'rm-receipt', label: 'Raw Material Receipt', subKey: 'rm', mode: 'receipt' },
   { key: 'rm-issue', label: 'Raw Material Issue', subKey: 'rm', mode: 'issue' },

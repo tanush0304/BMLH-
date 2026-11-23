@@ -52,6 +52,8 @@ export default function MasterFormScreen({
   recordType = 'record', // "Delete <recordType>?" in the confirm dialog
   nameField, // shown after the key: "CUST-001 – Acme Components"
   renderAfterSections, // optional ({ form, mode, nextNumber }) => extra card(s) under the sections (own save); nextNumber = sections.length + 1
+  // Field flags (opt-in): maxLength (chars after trim, refused with "<Label> can't be longer than N characters."),
+  // nullIfBlank (blank text saved as null).
 }) {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
@@ -122,6 +124,10 @@ export default function MasterFormScreen({
       if (err) return { error: err, field: pkField }
     }
     for (const f of fields) {
+      // opt-in: f.maxLength (characters, after trimming)
+      if (f.maxLength && String(cleaned[f.key] ?? '').length > f.maxLength) {
+        return { error: `${f.label} can't be longer than ${f.maxLength} characters.`, field: f.key }
+      }
       if (f.mobile) {
         const { value, error } = validatePhone(cleaned[f.key], { label: f.label, required: f.required })
         if (error) return { error, field: f.key }
@@ -148,7 +154,10 @@ export default function MasterFormScreen({
     try {
       // Blank optional number / date / true-false fields go to the DB as
       // null -- "" is rejected for numeric, date and boolean columns.
-      const payload = withTypedFields(cleaned, typedKeysFromFields(fields))
+      const payload = withTypedFields(cleaned, {
+        ...typedKeysFromFields(fields),
+        text: fields.filter((f) => f.nullIfBlank).map((f) => f.key), // opt-in: blank text -> null
+      })
       if (mode === 'edit') {
         await api.update(form[pkField], payload)
       } else {

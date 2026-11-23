@@ -155,7 +155,7 @@ function MastersLanding({ onSelect }) {
 
 // With no selected submenu, show the selector. Sidebar submenu clicks open
 // the same screen component as selecting its card.
-export default function MasterList({ activeTab, onSelect }) {
+export default function MasterList({ activeTab, onSelect, role }) {
   const entity = MASTER_ENTRIES.find((item) => item.key === activeTab)
   if (!entity) {
     return (
@@ -168,7 +168,7 @@ export default function MasterList({ activeTab, onSelect }) {
   const Screen = entity.component
   return (
     <PageHeaderBandProvider breadcrumb={[{ label: 'Masters', onClick: () => onSelect(null) }, { label: entity.label }]}>
-      <Screen />
+      <Screen role={role} />
     </PageHeaderBandProvider>
   )
 }

@@ -42,7 +42,7 @@ describe('module landing tiles', () => {
     expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])
   })
 
-  it('Stores has 6 tiles (Raw Material Requisition is sidebar only); RM and FG tiles open the combined screen on the right tab', () => {
+  it('Stores has 6 tiles (Raw Material Requisition has none -- hidden everywhere); RM and FG tiles open the combined screen on the right tab', () => {
     const tiles = landingTiles('stores')
     expect(tiles.map((t) => t.label)).toEqual(STORES_LANDING_TILES.map((t) => t.label))
     expect(tiles).toHaveLength(6)
