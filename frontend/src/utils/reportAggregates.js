@@ -286,6 +286,12 @@ export function trendBuckets(daily, { sum = [], last = [], dayLabel = (d) => d, 
 /** PRD-009: Production Status KPI row for one PRD -- PRD qty (+ its PO line's
  * order qty) and produced = good (accepted) qty of the LAST stage to date
  * (jobwork receipts count when the last stage is outsourced). */
+/** Production Status card 2 sub-line when Machine / Shift / Operator narrows
+ * it: the active filter labels + "this period" ("CNC 2 · this period"). */
+export function filteredGoodKpiSub(labels) {
+  return [...(labels ?? []).filter((l) => l != null && String(l).trim() !== ''), 'this period'].join(' · ')
+}
+
 export function prdProducedKpis({ order, stages, aggregates }) {
   const sorted = [...(stages ?? [])].sort((a, b) => num(a.seq) - num(b.seq))
   const last = sorted[sorted.length - 1]

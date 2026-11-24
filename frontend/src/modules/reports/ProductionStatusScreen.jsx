@@ -19,7 +19,7 @@ import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine, isTargetRow } from '../../utils/reportAggregates'
 import Banner from '../../components/Banner'
-import { prdProducedKpis } from '../../utils/reportAggregates'
+import { prdProducedKpis, filteredGoodKpiSub } from '../../utils/reportAggregates'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
@@ -133,6 +133,19 @@ export default function ProductionStatusScreen() {
     { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
     { key: 'operator', label: 'Operator', value: filters.employeeId, onChange: setFilter('employeeId'), options: sortedEmployeeOptions(options.employees) },
   ]
+  // Card 2: with Machine / Shift / Operator applied it shows the good qty of the
+  // same filtered rows + period as the other cards; PRD only -> last stage to date.
+  const narrowed = !!(applied.machineId || applied.shiftCode || applied.employeeId)
+  const labelOf = (field, value) => {
+    if (!value) return null
+    const opt = (field.options ?? []).find((o) => (typeof o === 'object' ? o.value : o) === value)
+    return opt == null ? value : typeof opt === 'object' ? opt.label : opt
+  }
+  const goodSub = filteredGoodKpiSub([
+    labelOf(filterFields[1], applied.machineId),
+    labelOf(filterFields[2], applied.shiftCode),
+    labelOf(filterFields[3], applied.employeeId),
+  ])
   const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', machine: 'machineId', shift: 'shiftCode', operator: 'employeeId' })
 
   return (
@@ -155,7 +168,11 @@ export default function ProductionStatusScreen() {
         ) : (
           <KpiCardRow columns={5}>
             <KpiCard label="PRD Qty" value={formatQty(prdKpi?.prd_qty)} unit="Nos" sub={prdKpi?.order_qty != null ? `(PO line ${formatQty(prdKpi.order_qty)})` : undefined} icon={Package} tone="green" loading={!prdKpi} />
-            <KpiCard label="Qty Produced (last stage good)" value={formatQty(prdKpi?.produced)} unit="Nos" sub="to date" icon={Settings} tone="orange" loading={!prdKpi} />
+            {narrowed ? (
+              <KpiCard label="Good Qty Produced" value={formatQty(kpis.good)} unit="Nos" sub={goodSub} icon={Settings} tone="orange" loading={loading} />
+            ) : (
+              <KpiCard label="Qty Produced (last stage good)" value={formatQty(prdKpi?.produced)} unit="Nos" sub="to date" icon={Settings} tone="orange" loading={!prdKpi} />
+            )}
             <KpiCard label="Production Efficiency" value={kpis.efficiency_pct == null ? '—' : kpis.efficiency_pct.toFixed(1)} unit={kpis.efficiency_pct == null ? '' : '%'} sub="this period" icon={BarChart3} tone="purple" loading={loading} />
             <KpiCard label="Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct2(kpis.reject_pct)}, this period)`} icon={ShieldX} tone="red" loading={loading} />
             <KpiCard label="Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct2(kpis.rework_pct)}, this period)`} icon={RefreshCw} tone="teal" loading={loading} />
