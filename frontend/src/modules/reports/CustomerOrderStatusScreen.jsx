@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listOrdersByPoDate, listFgTransactionsUpTo, getPoDateBounds } from '../../data/queries/reports'
 import { listProductionOrders, listCustomerOrders } from '../../data/queries/customerOrders'
@@ -226,6 +227,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           </div>
         )}
 
+        <ChartGroup title="Customer Order Status Dashboard" screen="Customer_Order_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <ChartCard screen="Customer_Order_Status" exportKey="PO_vs_Despatch" filterText={chartFilter} exportData={seriesExportData(monthly, 'label', 'Month', [{ key: 'po', label: 'PO Quantity' }, { key: 'dispatched', label: 'Quantity Despatched' }])} title="PO Order Vs Qty Despatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
@@ -256,6 +258,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(totalQty), unit: 'Nos' }} legendValue={(d) => `${formatQty(d.value)} Nos`} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Customer Order Status Details"

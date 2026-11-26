@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable from '../../components/reports/ReportTable'
 import { listFgTransactionsUpTo, listFgMasterRows, listPartDrawingRefs } from '../../data/queries/reports'
 import { daysBetween, previousRange, shortDate, displayDate } from '../../utils/reportPeriods'
@@ -210,6 +211,7 @@ export default function FgInventoryScreen() {
           <KpiCard label="Balance to Despatch" value={formatQty(balanceTotal)} unit="Nos" icon={FileText} tone="teal" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Finished Goods Inventory Report" screen="FG_Inventory">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div>
             <ChartCard screen="FG_Inventory" exportKey="FG_Movement_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', [{ key: 'receipts', label: 'Receipts' }, { key: 'issues', label: 'Despatched' }, { key: 'balance', label: 'Closing Stock' }])} title="FG Stock Movement Trend" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
@@ -255,6 +257,7 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Finished Goods Inventory Details"

@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listLoggedPrds } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -179,6 +180,7 @@ export default function ProductionStatusScreen() {
           </KpiCardRow>
         )}
 
+        <ChartGroup title="Production Status Report" screen="Production_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard screen="Production_Status" exportKey="Produced_vs_Standard" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', goodVsTarget ? [{ key: 'standard', label: 'Target Qty' }, { key: 'good', label: 'Good Qty' }] : [{ key: 'standard', label: 'Standard Qty' }, { key: 'produced', label: 'Produced Qty' }])} title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -222,6 +224,7 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Production Status Report Details"

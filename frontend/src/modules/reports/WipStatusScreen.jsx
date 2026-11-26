@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable from '../../components/reports/ReportTable'
 import { listWipTransactionsUpTo } from '../../data/queries/reports'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
@@ -166,6 +167,7 @@ export default function WipStatusScreen() {
           <KpiCard label="Balance WIP in Stores" value={formatQty(kpi.balance)} unit="Nos" icon={CircleCheck} tone="red" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="WIP Status Report" screen="WIP_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard screen="WIP_Status" exportKey="WIP_by_Operation" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])} title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
             <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
@@ -209,6 +211,7 @@ export default function WipStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="WIP Status Details"

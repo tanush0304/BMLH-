@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listJobOrderStatusRows } from '../../data/queries/reports'
 import { listVendors } from '../../data/queries/vendors'
@@ -159,6 +160,7 @@ export default function JobOrderStatusScreen() {
           <KpiCard label="Overdue" value={formatQty(counts.overdue)} unit={pctText(counts.overduePct)} icon={Truck} tone="red" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Job Order Status Report" screen="Job_Order_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard screen="Job_Order_Status" exportKey="Despatched_vs_Pending" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Type of Operation', [{ key: 'dispatched', label: 'Quantity Despatched' }, { key: 'pending', label: 'Quantity Pending' }])} title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
             <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
@@ -204,6 +206,7 @@ export default function JobOrderStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Job Order Status Details"

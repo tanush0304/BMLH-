@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listProductionSetup } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -117,6 +118,7 @@ export default function DowntimeScreen() {
           <KpiCard label="Machines Monitored" value={formatQty(summary.machines)} icon={BarChart3} tone="purple" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Machine Downtime Report" screen="Machine_Downtime">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard screen="Machine_Downtime" exportKey="Downtime_Hours_by_Type" filterText={chartFilter} exportData={seriesExportData(typeData, 'label', 'Type of Downtime', [{ key: 'hours', label: 'Hours Lost' }])} title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
             <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
@@ -155,6 +157,7 @@ export default function DowntimeScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Downtime Report Details"

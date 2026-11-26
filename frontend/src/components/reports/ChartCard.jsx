@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { ChevronDown, FileSpreadsheet, Maximize2, X } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { exportToCsv } from '../../utils/exportUtils'
 import { EXPORT_EXCLUDE_ATTR, pngFilter, chartFileName, exportedLine, downloadDataUrl } from '../../utils/chartExport'
+import { useChartGroup } from './ChartGroup'
 
 // Shared series colours (same blues/greens/ambers/reds as the KPI tones).
 export const CHART_COLORS = {
@@ -166,6 +167,15 @@ export default function ChartCard({
   const [exportError, setExportError] = useState('')
   const captureRef = useRef(null)
   const canAct = !loading && !empty
+  // Inside a ChartGroup: report state for its "Expand all" (null outside one).
+  const group = useChartGroup()
+  const groupId = useId()
+  const report = group?.report
+  const unregister = group?.unregister
+  useEffect(() => {
+    report?.(groupId, loading ? 'loading' : empty ? 'empty' : 'ready')
+  }, [report, groupId, loading, empty])
+  useEffect(() => () => unregister?.(groupId), [unregister, groupId])
   const fileBase = chartFileName(screen, exportKey || (typeof title === 'string' ? title : 'Chart'))
 
   // Esc closes the modal; the page behind it does not scroll while open.
@@ -208,8 +218,9 @@ export default function ChartCard({
     }
   }
 
+  // big = true (single-chart modal, fills it) or a number (fixed height, group window).
   const body = (big) => (
-    <div className={big ? 'min-h-0 flex-1 px-2 py-3' : 'px-2 py-3'} style={big ? undefined : { height }}>
+    <div className={big === true ? 'min-h-0 flex-1 px-2 py-3' : 'px-2 py-3'} style={big === true ? undefined : { height: big || height }}>
       {loading ? (
         <div className="flex h-full items-center justify-center text-[13px] text-slate-400">Loading...</div>
       ) : empty ? (
@@ -266,6 +277,20 @@ export default function ChartCard({
         )}
         {body(false)}
       </section>
+
+      {group?.open &&
+        group.grid &&
+        canAct &&
+        createPortal(
+          <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]" data-testid="chart-group-cell">
+            <div className="border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+              <h3 className="text-[15px] font-bold text-[#0B2A5B]">{title}</h3>
+              {filterText && <p className="text-[12px] text-slate-600">{filterText}</p>}
+            </div>
+            {body(Math.max(height, 340))}
+          </section>,
+          group.grid,
+        )}
 
       {expanded &&
         createPortal(

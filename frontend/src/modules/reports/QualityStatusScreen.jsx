@@ -8,6 +8,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listQualityInspections, listReadingsForLogs, listProductionHours } from '../../data/queries/reports'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
@@ -255,6 +256,7 @@ export default function QualityStatusScreen() {
           <KpiCard label="Overall Quality Yield" value={counts.yield_pct == null ? '—' : counts.yield_pct.toFixed(1)} unit={counts.yield_pct == null ? '' : '%'} sub="Accepted ÷ inspected with readings" icon={BarChart3} tone="purple" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Quality Status Report" screen="Quality_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard screen="Quality_Status" exportKey="Inspection_Trend" filterText={chartFilter} exportData={seriesExportData(trend, 'label', 'Date', [{ key: 'accepted', label: 'Accepted' }, { key: 'rejected', label: 'Rejected' }, { key: 'noReadings', label: 'No readings' }, { key: 'yield_pct', label: 'Yield %' }])} title="Inspection Result Trend" icon={TrendingUp} loading={loading} empty={counts.total === 0} height={270}>
             <ComposedChart data={trend} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
@@ -319,6 +321,7 @@ export default function QualityStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Quality Status Details"

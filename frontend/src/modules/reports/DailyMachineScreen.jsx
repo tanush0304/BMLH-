@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportDayBar from '../../components/reports/ReportDayBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, categoryColor, categoryLineColor } from '../../components/reports/ChartCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -181,6 +182,7 @@ export default function DailyMachineScreen() {
         </KpiCardRow>
 
         {/* One card per category in the data; up to 4 per row on wide screens. */}
+        <ChartGroup title="Daily Machine Wise Dashboard" screen="Daily_Machine">
         <div className={`grid grid-cols-1 gap-2 md:grid-cols-2 ${categories.length >= 4 ? 'xl:grid-cols-4' : categories.length === 3 ? 'xl:grid-cols-3' : ''}`}>
           {categories.map((c, i) => {
             // Keep each category's colour when a machine narrows the view.
@@ -211,6 +213,7 @@ export default function DailyMachineScreen() {
             )
           })}
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Daily Machine Wise Production Summary"
