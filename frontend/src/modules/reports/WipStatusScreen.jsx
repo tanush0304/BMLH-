@@ -8,6 +8,7 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable from '../../components/reports/ReportTable'
 import { listWipTransactionsUpTo } from '../../data/queries/reports'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
@@ -146,6 +147,7 @@ export default function WipStatusScreen() {
     { key: 'prd', label: 'PRD No', value: r.filters.prdNo, onChange: r.setFilter('prdNo'), options: prdOptions },
     { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.operation, onChange: r.setFilter('operation'), options: operationOptions },
   ]
+  const opAxis = categoryAxisProps(byOperation.map((d) => d.label))
   const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', op: 'operation' })
 
   return (
@@ -169,10 +171,10 @@ export default function WipStatusScreen() {
 
         <ChartGroup title="WIP Status Report" screen="WIP_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard screen="WIP_Status" exportKey="WIP_by_Operation" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])} title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
-            <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="WIP_Status" exportKey="WIP_by_Operation" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])} title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText} height={240 + opAxis.extraHeight}>
+            <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: opAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...opAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               {series(chartType, {

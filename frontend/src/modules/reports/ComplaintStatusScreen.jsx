@@ -8,6 +8,7 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listComplaintsForReport } from '../../data/queries/reports'
 import { listCustomers } from '../../data/queries/customers'
@@ -94,10 +95,15 @@ export default function ComplaintStatusScreen() {
   ]
 
   // One bar/line chart per grouping; `colors` gives per-bar colours (bar mode).
-  const countChart = (data, name, color, colors) => (
-    <ComposedChart data={data} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const axisOf = (data) => categoryAxisProps(data.map((d) => d.label))
+  const cardHeight = (data) => 260 + axisOf(data).extraHeight
+  const countChart = (data, name, color, colors) => {
+    const ax = axisOf(data)
+    return (
+    <ComposedChart data={data} margin={{ top: 22, right: 8, left: ax.marginLeft, bottom: 0 }}>
       <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-      <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={data.length > 4 ? -25 : 0} textAnchor={data.length > 4 ? 'end' : 'middle'} height={data.length > 4 ? 56 : 30} />
+      <XAxis dataKey="label" {...ax.axis} />
       <YAxis tick={AXIS_TICK} width={36} allowDecimals={false} />
       <Tooltip formatter={(v) => `${formatQty(v)} complaints`} />
       {series(chartType, {
@@ -111,7 +117,8 @@ export default function ComplaintStatusScreen() {
         ],
       })}
     </ComposedChart>
-  )
+    )
+  }
 
   // Filter bar fields (also give the chart Expand modal its filter line).
   const filterFields = [
@@ -139,16 +146,16 @@ export default function ComplaintStatusScreen() {
 
         <ChartGroup title="Customer Complaint Report" screen="Complaint_Status">
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Customer" filterText={chartFilter} exportData={seriesExportData(byCustomer, 'label', 'Customer', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Customer" filterText={chartFilter} exportData={seriesExportData(byCustomer, 'label', 'Customer', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={cardHeight(byCustomer)}>
             {countChart(byCustomer, 'Complaints', CHART_COLORS.blue)}
           </ChartCard>
-          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Defect" filterText={chartFilter} exportData={seriesExportData(byDefect, 'label', 'Defect Type', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Defect" filterText={chartFilter} exportData={seriesExportData(byDefect, 'label', 'Defect Type', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={cardHeight(byDefect)}>
             {countChart(byDefect, 'Complaints', CHART_COLORS.purple)}
           </ChartCard>
-          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Part" filterText={chartFilter} exportData={seriesExportData(byPart, 'label', 'Part No', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Part" filterText={chartFilter} exportData={seriesExportData(byPart, 'label', 'Part No', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={cardHeight(byPart)}>
             {countChart(byPart, 'Complaints', CHART_COLORS.green)}
           </ChartCard>
-          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Severity" filterText={chartFilter} exportData={seriesExportData(bySeverity, 'label', 'Severity', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260}>
+          <ChartCard screen="Complaint_Status" exportKey="Complaints_by_Severity" filterText={chartFilter} exportData={seriesExportData(bySeverity, 'label', 'Severity', [{ key: 'value', label: 'Complaints' }])} title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={cardHeight(bySeverity)}>
             {countChart(bySeverity, 'Complaints', CHART_COLORS.red, SEVERITY_COLORS)}
           </ChartCard>
         </div>

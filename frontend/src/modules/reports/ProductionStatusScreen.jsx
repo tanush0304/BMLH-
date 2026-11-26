@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listLoggedPrds } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -147,6 +148,7 @@ export default function ProductionStatusScreen() {
     labelOf(filterFields[2], applied.shiftCode),
     labelOf(filterFields[3], applied.employeeId),
   ])
+  const machineAxis = categoryAxisProps(machines.map((m) => m.machine_name))
   const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', machine: 'machineId', shift: 'shiftCode', operator: 'employeeId' })
 
   return (
@@ -196,10 +198,10 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard screen="Production_Status" exportKey="Efficiency_By_Machine" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'efficiency_pct', label: 'Efficiency %' }])} title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty}>
-            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Production_Status" exportKey="Efficiency_By_Machine" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'efficiency_pct', label: 'Efficiency %' }])} title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty} height={240 + machineAxis.extraHeight}>
+            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: machineAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="machine_name" {...machineAxis.axis} />
               <YAxis tick={AXIS_TICK} width={40} unit="%" />
               <Tooltip formatter={(v) => fmtPct(v)} />
               {series(chartType, {
@@ -212,10 +214,10 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard screen="Production_Status" exportKey="Reject_vs_Rework" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'rejected', label: 'Reject Quantity' }, { key: 'rework', label: 'Rework Quantity' }])} title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty}>
-            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Production_Status" exportKey="Reject_vs_Rework" filterText={chartFilter} exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'rejected', label: 'Reject Quantity' }, { key: 'rework', label: 'Rework Quantity' }])} title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty} height={240 + machineAxis.extraHeight}>
+            <ComposedChart data={machines} margin={{ top: 20, right: 8, left: machineAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="machine_name" {...machineAxis.axis} />
               <YAxis tick={AXIS_TICK} width={40} allowDecimals={false} />
               <Tooltip formatter={(v) => formatQty(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />

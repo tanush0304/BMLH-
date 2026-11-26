@@ -7,6 +7,7 @@ import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listProductionSetup } from '../../data/queries/reports'
 import { listMachines } from '../../data/queries/machines'
@@ -96,6 +97,7 @@ export default function DowntimeScreen() {
     { key: 'machine', label: 'Machine', value: filters.machineId, onChange: r.setFilter('machineId'), options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
     { key: 'shift', label: 'Shift', value: filters.shiftCode, onChange: r.setFilter('shiftCode'), options: options.shifts.map((s) => s.shift_code) },
   ]
+  const typeAxis = categoryAxisProps(typeData.map((d) => d.label))
   const chartFilter = fieldsFilterText(r.applied, filterFields, { machine: 'machineId', shift: 'shiftCode' })
 
   return (
@@ -120,10 +122,10 @@ export default function DowntimeScreen() {
 
         <ChartGroup title="Machine Downtime Report" screen="Machine_Downtime">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard screen="Machine_Downtime" exportKey="Downtime_Hours_by_Type" filterText={chartFilter} exportData={seriesExportData(typeData, 'label', 'Type of Downtime', [{ key: 'hours', label: 'Hours Lost' }])} title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
-            <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Machine_Downtime" exportKey="Downtime_Hours_by_Type" filterText={chartFilter} exportData={seriesExportData(typeData, 'label', 'Type of Downtime', [{ key: 'hours', label: 'Hours Lost' }])} title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260 + typeAxis.extraHeight}>
+            <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: typeAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
+              <XAxis dataKey="label" {...typeAxis.axis} />
               <YAxis tick={AXIS_TICK} width={40} />
               <Tooltip formatter={(v) => `${fmtHrs(v)} Hrs`} />
               {series(chartType, {

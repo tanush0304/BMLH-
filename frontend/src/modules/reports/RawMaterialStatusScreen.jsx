@@ -8,6 +8,7 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable from '../../components/reports/ReportTable'
 import { listRmTransactionsUpTo, listRmStockMasterRows } from '../../data/queries/reports'
 import { listSuppliers } from '../../data/queries/suppliers'
@@ -226,6 +227,7 @@ export default function RawMaterialStatusScreen() {
     { key: 'uom', label: 'UOM', allLabel: 'UoM', value: r.filters.uom, onChange: r.setFilter('uom'), options: uomOptions },
     { key: 'rmCode', label: 'RM Code', value: r.filters.rmCode, onChange: r.setFilter('rmCode'), options: rmCodeOptions },
   ]
+  const typeAxis = categoryAxisProps(byType.map((d) => d.label))
   const chartFilter = fieldsFilterText(r.applied, filterFields, { supplier: 'supplier', grade: 'grade', type: 'rmType', uom: 'uom', rmCode: 'rmCode' })
 
   return (
@@ -250,10 +252,10 @@ export default function RawMaterialStatusScreen() {
 
         <ChartGroup title="Raw Material Status Report" screen="Raw_Material_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard screen="Raw_Material_Status" exportKey="Stock_by_RM_Type" filterText={chartFilter} exportData={seriesExportData(byType, 'label', 'RM Type', [{ key: 'opening', label: 'Opening Stock' }, { key: 'receipts', label: 'Receipts' }, { key: 'issues', label: 'Issues' }, { key: 'closing', label: 'Closing Stock' }])} title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260}>
-            <ComposedChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Raw_Material_Status" exportKey="Stock_by_RM_Type" filterText={chartFilter} exportData={seriesExportData(byType, 'label', 'RM Type', [{ key: 'opening', label: 'Opening Stock' }, { key: 'receipts', label: 'Receipts' }, { key: 'issues', label: 'Issues' }, { key: 'closing', label: 'Closing Stock' }])} title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260 + typeAxis.extraHeight}>
+            <ComposedChart data={byType} margin={{ top: 8, right: 8, left: typeAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...typeAxis.axis} />
               <YAxis tick={AXIS_TICK} width={48} />
               <Tooltip formatter={(v) => `${formatQty(v)} ${chartUom ?? ''}`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />

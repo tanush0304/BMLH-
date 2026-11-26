@@ -8,6 +8,7 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ChartGroup from '../../components/reports/ChartGroup'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listJobOrderStatusRows } from '../../data/queries/reports'
 import { listVendors } from '../../data/queries/vendors'
@@ -140,6 +141,8 @@ export default function JobOrderStatusScreen() {
     { key: 'op', label: 'Type of Operation', allLabel: 'Operation', value: r.filters.jobWorkCode, onChange: r.setFilter('jobWorkCode'), options: jobWorkTypes.map((j) => ({ value: j.job_work_code, label: j.type_of_job_work ?? j.job_work_code })) },
     { key: 'status', label: 'Status', value: r.filters.status, onChange: r.setFilter('status'), options: DC_STATUS_FILTER_OPTIONS },
   ]
+  const opAxis = categoryAxisProps(byOperation.map((d) => d.label))
+  const vendorAxis = categoryAxisProps(byVendor.map((d) => d.label))
   const chartFilter = fieldsFilterText(r.applied, filterFields, { prd: 'prdNo', vendor: 'vendorId', op: 'jobWorkCode', status: 'status' })
 
   return (
@@ -162,10 +165,10 @@ export default function JobOrderStatusScreen() {
 
         <ChartGroup title="Job Order Status Report" screen="Job_Order_Status">
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard screen="Job_Order_Status" exportKey="Despatched_vs_Pending" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Type of Operation', [{ key: 'dispatched', label: 'Quantity Despatched' }, { key: 'pending', label: 'Quantity Pending' }])} title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
-            <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Job_Order_Status" exportKey="Despatched_vs_Pending" filterText={chartFilter} exportData={seriesExportData(byOperation, 'label', 'Type of Operation', [{ key: 'dispatched', label: 'Quantity Despatched' }, { key: 'pending', label: 'Quantity Pending' }])} title="Job Orders - Despatched vs Pending" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260 + opAxis.extraHeight}>
+            <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: opAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...opAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -190,10 +193,10 @@ export default function JobOrderStatusScreen() {
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(donutCounts.total), unit: 'Job Orders' }} legendValue={(d) => formatQty(d.value)} tooltip={(d) => `${d.value} job orders`} />
           </ChartCard>
 
-          <ChartCard screen="Job_Order_Status" exportKey="Top_Vendors_Pending" filterText={chartFilter} exportData={seriesExportData(byVendor, 'label', 'Vendor', [{ key: 'value', label: 'Pending Quantity (Nos)' }])} title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260}>
-            <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+          <ChartCard screen="Job_Order_Status" exportKey="Top_Vendors_Pending" filterText={chartFilter} exportData={seriesExportData(byVendor, 'label', 'Vendor', [{ key: 'value', label: 'Pending Quantity (Nos)' }])} title="Top 5 Vendors by Pending Quantity" icon={Users} loading={loading} empty={byVendor.length === 0} height={260 + vendorAxis.extraHeight}>
+            <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: vendorAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...vendorAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               {series(chartType, {
